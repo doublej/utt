@@ -1,0 +1,24 @@
+{
+  "fill": {
+    "solid": "extended-srgb:0.18824,0.18824,0.15294,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "mark.png",
+          "name": "Mark"
+        }
+      ]
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": [
+      "iOS",
+      "macOS"
+    ]
+  }
+}

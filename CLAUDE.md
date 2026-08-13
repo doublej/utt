@@ -103,8 +103,12 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,
   so a typo fails at download time, not at compile time.
 - **Redraw the app icon** → `just icon`. `tools/make-app-icon.py` draws
-  `DotMatrix.patterns[0]` on `Palette.lcdGround` with `DotMatrix.rect`'s geometry;
-  commit the pngs, since the build reads the asset catalog and not the script.
+  `DotMatrix.patterns[0]` on `Palette.lcdGround` with `DotMatrix.rect`'s geometry
+  and writes `Utt/Resources/AppIcon.icon`, an Icon Composer document — commit it,
+  since the build reads that and not the script. It is *not* an appiconset on
+  purpose: macOS 26 composites a legacy `.icns` onto its own light plate and
+  shrinks it to fit, which reads as a grey border around the icon; a `.icon`
+  supplies the background itself.
 - **Child → parent in TCA** → pattern-match the child action in `AppFeature`
   (`case .transcription(.pasteFinished(let pasted)):`). No delegate-action
   ceremony.

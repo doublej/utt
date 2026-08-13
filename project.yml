@@ -62,7 +62,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: dev.jurrejan.utt
         PRODUCT_NAME: utt
         INFOPLIST_FILE: Utt/Resources/Info.plist
-        # Regenerate with `just icon`; the pngs are drawn from DotMatrix, not by hand.
+        # Names Utt/Resources/AppIcon.icon. Regenerate with `just icon`.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Utt/Resources/utt.entitlements
         MARKETING_VERSION: "0.1.1"

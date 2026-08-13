@@ -272,9 +272,9 @@ dot-matrix-preview:
     python3 tools/dot-matrix-preview.py
     open docs/dot-matrix-preview.html
 
-# Redraw the app icon from DotMatrix.patterns[0] and Palette. Commit the pngs —
+# Redraw the app icon from DotMatrix.patterns[0] and Palette. Commit the result —
 
-# the build reads the asset catalog, not this script.
+# the build reads Utt/Resources/AppIcon.icon, not this script.
 [group('design')]
 icon:
     python3 tools/make-app-icon.py

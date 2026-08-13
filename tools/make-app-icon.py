@@ -5,7 +5,12 @@ The icon is `DotMatrix.patterns[0]` — the 'u' — on `Palette.lcdGround`, draw
 `DotMatrix.rect`'s geometry so it is the mark, not a picture of it: six columns
 across the full width, each dot centred in its cell, lit dots larger than dim.
 
-Run `just icon`. Writes Utt/Resources/Assets.xcassets/AppIcon.appiconset/.
+Output is an Icon Composer document, `Utt/Resources/AppIcon.icon`, not an
+appiconset. macOS 26 composites a legacy `.icns` onto its own light plate and
+shrinks it to fit — that plate is the grey border no amount of full-bleed artwork
+removes. A `.icon` supplies the background itself, so the ground *is* the tile.
+
+Run `just icon`.
 """
 
 import json
@@ -21,32 +26,25 @@ DIM = (255, 255, 255, 38)
 # DotMatrix.patterns[0], the 'u'.
 LIT = {7, 8, 13, 14, 21, 22, 27, 28}
 
-# The ground fills the canvas. macOS 26 masks every icon to its own rounded square
-# and paints a plate behind it, so drawing our own inset square put a second, smaller
-# tile inside the system's — the "border" in the Dock. The grid keeps its margin;
-# the ground does not.
-GRID = 0.78
+# The grid's share of the canvas. The margin keeps the corner dots clear of the
+# rounded mask the system applies to every icon.
+GRID = 0.72
+
+# The layer is drawn once, at the size Icon Composer documents use.
+CANVAS = 1024
 
 # 4x oversampled, then downsampled — the dots are small enough at 16pt that
 # aliasing on their edges is the difference between a mark and a smudge.
 SUPERSAMPLE = 4
 
-SIZES = [16, 32, 64, 128, 256, 512, 1024]
-# (idiom size, scale, pixel size) — the set Xcode expects for macOS.
-ENTRIES = [
-    (16, 1), (16, 2), (32, 1), (32, 2),
-    (128, 1), (128, 2), (256, 1), (256, 2), (512, 1), (512, 2),
-]
 
-
-def draw_icon(pixels: int) -> Image.Image:
-    canvas = pixels * SUPERSAMPLE
-    image = Image.new("RGBA", (canvas, canvas), GROUND)
+def draw_mark() -> Image.Image:
+    canvas = CANVAS * SUPERSAMPLE
+    image = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
 
     # DotMatrix.rect: step = size / 6, radius = step * (0.34 lit / 0.24 dim),
-    # x = step * (0.5 + col) - radius. The margin is what keeps the corner dots clear
-    # of the system's rounded mask.
+    # x = step * (0.5 + col) - radius.
     grid = canvas * GRID
     origin = (canvas - grid) / 2
     step = grid / 6
@@ -60,33 +58,27 @@ def draw_icon(pixels: int) -> Image.Image:
             fill=ACCENT if lit else DIM,
         )
 
-    return image.resize((pixels, pixels), Image.LANCZOS)
+    return image.resize((CANVAS, CANVAS), Image.LANCZOS)
+
+
+def icon_document() -> dict:
+    ground = ",".join(f"{channel / 255:.5f}" for channel in GROUND[:3]) + ",1.00000"
+    return {
+        "fill": {"solid": f"extended-srgb:{ground}"},
+        "groups": [{"layers": [{"image-name": "mark.png", "name": "Mark"}]}],
+        "supported-platforms": {"circles": ["watchOS"], "squares": ["iOS", "macOS"]},
+    }
 
 
 def main() -> None:
     root = pathlib.Path(__file__).resolve().parent.parent
-    out = root / "Utt/Resources/Assets.xcassets/AppIcon.appiconset"
-    out.mkdir(parents=True, exist_ok=True)
+    out = root / "Utt/Resources/AppIcon.icon"
+    (out / "Assets").mkdir(parents=True, exist_ok=True)
 
-    for pixels in SIZES:
-        draw_icon(pixels).save(out / f"icon_{pixels}.png")
+    draw_mark().save(out / "Assets/mark.png")
+    (out / "icon.json").write_text(json.dumps(icon_document(), indent=2) + "\n")
 
-    images = [
-        {
-            "idiom": "mac",
-            "size": f"{size}x{size}",
-            "scale": f"{scale}x",
-            "filename": f"icon_{size * scale}.png",
-        }
-        for size, scale in ENTRIES
-    ]
-    contents = {"images": images, "info": {"version": 1, "author": "xcode"}}
-    (out / "Contents.json").write_text(json.dumps(contents, indent=2) + "\n")
-
-    catalog = out.parent / "Contents.json"
-    catalog.write_text(json.dumps({"info": {"version": 1, "author": "xcode"}}, indent=2) + "\n")
-
-    print(f"→ {out.relative_to(root)}  ({len(SIZES)} pngs)")
+    print(f"→ {out.relative_to(root)}")
 
 
 if __name__ == "__main__":
