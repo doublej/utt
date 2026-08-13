@@ -29,7 +29,9 @@ struct GeneralSettings: View {
             }
             Picker("Model", selection: modelBinding) {
                 ForEach(ModelCatalog.models(for: settings.transcriptionEngine)) { model in
-                    Text(model.name).tag(model.id)
+                    // Names alone don't say what separates v2 from v3; the menu is
+                    // where the choice is made, so the languages ride along.
+                    Text("\(model.name) — \(model.languages)").tag(model.id)
                 }
             }
             HStack {
