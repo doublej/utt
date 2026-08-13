@@ -10,7 +10,13 @@
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
   <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-  <key>LSUIElement</key><true/>
+  <!-- Deliberately *not* LSUIElement. It made every launch start as an accessory,
+       and an accessory app is not granted activation by its own launch — so
+       double-clicking utt opened its window behind whatever was already there, and
+       no amount of NSApp.activate() afterwards could take the focus back. The Dock
+       icon is a runtime decision in AppDelegate instead, which also handles the
+       login-item launch this key used to cover. -->
+  <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <!-- Missing NSMicrophoneUsageDescription is a hard crash, not a prompt. -->
   <key>NSMicrophoneUsageDescription</key>
   <string>utt records your voice so it can transcribe it on-device.</string>

@@ -66,6 +66,18 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `com.apple.security.device.audio-input` is required independently of the
   sandbox — without it the mic is denied outright, with no prompt and no TCC
   record.
+- **No `LSUIElement`.** It made every launch start as an accessory, and an
+  accessory app is not granted activation by its own launch — so double-clicking
+  utt opened its window *behind* whatever was already on screen, and no
+  `NSApp.activate()` afterwards could take focus back. The Dock icon is a runtime
+  `setActivationPolicy` decision, and the login-item launch the key used to cover
+  is detected through `launchIsDefaultUserInfoKey` instead.
+- **A model is named, never assumed.** `selectedModel` is a stored string read
+  through `ModelCatalog.resolve(id:engine:)`, which falls back to the engine's
+  recommendation — a settings file can name a model from an older build or from
+  the *other* engine, and the alternative to falling back is an app that cannot
+  transcribe until you edit JSON. The engine actors track what they loaded, or
+  switching model keeps transcribing on the old weights.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going
@@ -86,6 +98,13 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
   `UttSettings`, then a control in `Utt/Views/Settings/`. Every key decodes
   independently so an old file never fails to load.
+- **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
+  case in `ParakeetClient.version(for:)` if it is a Parakeet one. Whisper ids are
+  folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,
+  so a typo fails at download time, not at compile time.
+- **Redraw the app icon** → `just icon`. `tools/make-app-icon.py` draws
+  `DotMatrix.patterns[0]` on `Palette.lcdGround` with `DotMatrix.rect`'s geometry;
+  commit the pngs, since the build reads the asset catalog and not the script.
 - **Child → parent in TCA** → pattern-match the child action in `AppFeature`
   (`case .transcription(.pasteFinished(let pasted)):`). No delegate-action
   ceremony.
