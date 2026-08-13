@@ -42,6 +42,28 @@ def extract_patterns() -> list[dict]:
     return patterns
 
 
+def extract_lock_frames() -> list[dict]:
+    """The one-shot padlock in LockAnimation — separate from the loop."""
+    frames = []
+    lines = SRC.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if "enum LockAnimation" in line:
+            for entry in lines[i:]:
+                if entry.strip() == "]":
+                    break
+                m = PATTERN_RE.match(entry)
+                if not m:
+                    continue
+                frames.append(
+                    {
+                        "cells": [int(c) for c in m.group(1).split(",")],
+                        "name": (m.group(2) or "").strip(),
+                    }
+                )
+            break
+    return frames
+
+
 TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
@@ -116,6 +138,7 @@ TEMPLATE = """<!doctype html>
   }
   .stage .readout { color: #8a8a90; font-size: 12px; }
   .stage .readout b { color: var(--text); }
+  .stage .meta { color: #8a8a90; font-size: 11px; }
   .board {
     display: grid;
     grid-template-columns: repeat(6, var(--cell));
@@ -181,6 +204,13 @@ TEMPLATE = """<!doctype html>
 <div class="stage">
   <div class="board" id="stage-board"></div>
   <div class="readout" id="readout"></div>
+</div>
+
+<div class="stage lock">
+  <div class="board" id="lock-board"></div>
+  <div class="readout" id="lock-readout"></div>
+  <button class="play" id="lock-play">▶ play the lock</button>
+  <span class="meta">one-shot padlock from <b>LockAnimation</b> — not in the looping cycle</span>
 </div>
 
 <div class="grid" id="grid"></div>
@@ -293,6 +323,46 @@ grid.addEventListener('click', (e) => {
 
 render(0);
 schedule();
+
+/* The one-shot lock: its own stage, played once on demand. */
+const lock = __LOCK__;
+const lockBoard = document.getElementById('lock-board');
+const lockDots = [];
+for (let cell = 0; cell < 36; cell++) {
+  const dot = document.createElement('span');
+  dot.className = 'dot dim';
+  lockBoard.appendChild(dot);
+  lockDots.push(dot);
+}
+
+const lockPlay = document.getElementById('lock-play');
+const lockReadout = document.getElementById('lock-readout');
+let lockTimer = null;
+
+function renderLock(i) {
+  const lit = new Set(lock[i].cells);
+  for (let cell = 0; cell < 36; cell++) {
+    lockDots[cell].classList.toggle('lit', lit.has(cell));
+    lockDots[cell].classList.toggle('dim', !lit.has(cell));
+  }
+  lockReadout.innerHTML = `<b>${i}</b> / ${lock.length - 1} — ${escapeHtml(lock[i].name || '—')} · ${lock[i].cells.length} lit`;
+}
+
+lockPlay.addEventListener('click', () => {
+  if (lockTimer) return;
+  let i = 0;
+  renderLock(0);
+  lockTimer = setInterval(() => {
+    i += 1;
+    if (i >= lock.length) {
+      clearInterval(lockTimer);
+      lockTimer = null;
+      return;
+    }
+    renderLock(i);
+  }, 150);
+});
+renderLock(0);
 </script>
 </body>
 </html>
@@ -301,13 +371,15 @@ schedule();
 
 def main() -> None:
     patterns = extract_patterns()
+    lock = extract_lock_frames()
     if not patterns:
         raise SystemExit(f"error: no patterns parsed from {SRC}")
     html = TEMPLATE.replace(
         "__PATTERNS__", json.dumps(patterns, separators=(",", ":"))
     )
+    html = html.replace("__LOCK__", json.dumps(lock, separators=(",", ":")))
     OUT.write_text(html)
-    print(f"wrote {OUT} ({len(patterns)} patterns)")
+    print(f"wrote {OUT} ({len(patterns)} patterns, {len(lock)} lock frames)")
 
 
 if __name__ == "__main__":

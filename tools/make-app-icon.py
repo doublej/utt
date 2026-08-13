@@ -65,7 +65,17 @@ def icon_document() -> dict:
     ground = ",".join(f"{channel / 255:.5f}" for channel in GROUND[:3]) + ",1.00000"
     return {
         "fill": {"solid": f"extended-srgb:{ground}"},
-        "groups": [{"layers": [{"image-name": "mark.png", "name": "Mark"}]}],
+        # The dots are printed on the ground, not floating above it: no specular
+        # highlight, no drop shadow, no automatic lighting. Left on, the system
+        # embosses every dot into a little glass bead.
+        "groups": [
+            {
+                "layers": [{"image-name": "mark.png", "name": "Mark"}],
+                "specular": False,
+                "shadow": {"kind": "none", "opacity": 0},
+                "translucency": {"enabled": False, "value": 0.5},
+            }
+        ],
         "supported-platforms": {"circles": ["watchOS"], "squares": ["iOS", "macOS"]},
     }
 
