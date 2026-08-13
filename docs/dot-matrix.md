@@ -147,6 +147,15 @@ Four things, and dropping any one of them takes it back to looking painted:
   is the standard HDR-bloom pipeline's one non-negotiable step.
 - **A dark surround.** Additive blending over a light background does nothing
   visible. That is the darkening's second job.
+- **A smooth falloff, dithered.** The darkening is sampled off a smootherstep curve
+  (`6t⁵-15t⁴+10t³`, zero first *and* second derivative at both ends) rather than
+  hand-placed stops: every stop is a kink in the slope, and the eye finds a slope
+  change far sooner than a value change — four stops read as concentric rings. What
+  survives that is 8-bit banding, since a ramp this wide holds each of its 255 levels
+  for tens of points. One level of noise added *last*, before the framebuffer rounds,
+  turns each step into something the eye averages back out (`dither`). The noise lives
+  in **alpha**, not colour: on a light background it is the alpha ramp that bands, and
+  adding white to a transparent pixel changes nothing the compositor can see.
 - **A white-hot core** (`hotCore`, in `UttMark.drawDot`). Real emitters saturate in
   the middle and only show their colour in the falloff, so each lit dot is a radial
   gradient from near-white to the tint, not a flat disc. The 16pt marks pass

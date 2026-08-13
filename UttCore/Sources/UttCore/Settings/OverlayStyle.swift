@@ -25,6 +25,14 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
     /// Below 1 the falloff finishes early and leaves a hard ring.
     public var darkeningRadius: Double = 1.0
 
+    /// Dither amplitude, in levels of the 8-bit output. A smooth alpha ramp this
+    /// wide crosses each of its 255 available levels over tens of points, and the
+    /// eye reads the flat stretches between them as rings (Mach banding) — worst
+    /// over a light background, where the ramp is the only thing on screen. Noise
+    /// of about one level, added before the framebuffer rounds, turns the step
+    /// into a gradient the eye averages back out. 0 disables it.
+    public var dither: Double = 1.6
+
     /// Wide, faint bloom: the halo you see before you see the dots.
     public var haloBlur: Double = 11
     public var haloIntensity: Double = 0.85
@@ -56,6 +64,7 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
         markSize = read(.markSize, defaults.markSize)
         darkening = read(.darkening, defaults.darkening)
         darkeningRadius = read(.darkeningRadius, defaults.darkeningRadius)
+        dither = read(.dither, defaults.dither)
         haloBlur = read(.haloBlur, defaults.haloBlur)
         haloIntensity = read(.haloIntensity, defaults.haloIntensity)
         glowBlur = read(.glowBlur, defaults.glowBlur)

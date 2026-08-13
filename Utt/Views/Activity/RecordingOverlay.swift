@@ -99,12 +99,7 @@ private struct RecordingOverlayView: View {
     private var indicator: some View {
         ZStack {
             RadialGradient(
-                stops: [
-                    .init(color: .black.opacity(style.darkening), location: 0),
-                    .init(color: .black.opacity(style.darkening * 0.8), location: 0.32),
-                    .init(color: .black.opacity(style.darkening * 0.3), location: 0.62),
-                    .init(color: .clear, location: max(0.01, style.darkeningRadius))
-                ],
+                stops: Self.darkeningStops(style),
                 center: .center,
                 startRadius: 0,
                 endRadius: style.panelSize / 2
@@ -118,10 +113,72 @@ private struct RecordingOverlayView: View {
                 .blendMode(.plusLighter)
                 .opacity(style.glowIntensity)
             mark(litOnly: false)
+            dither
         }
         .compositingGroup()
         .drawingGroup(opaque: false, colorMode: style.linearBlending ? .extendedLinear : .nonLinear)
     }
+
+    /// The falloff, sampled off a smootherstep curve.
+    ///
+    /// Hand-placed stops interpolate linearly between each other, so every stop is a
+    /// kink in the slope — and the eye finds a slope change far more readily than it
+    /// finds a value change, which is why the old four-stop ramp read as concentric
+    /// rings. Smootherstep (`6t⁵-15t⁴+10t³`) has zero first *and* second derivative at
+    /// both ends: the darkening arrives out of nothing and leaves into nothing with no
+    /// edge anywhere, which is the whole trick to sitting on a white document unnoticed.
+    private static func darkeningStops(_ style: OverlayStyle) -> [Gradient.Stop] {
+        let steps = 32
+        return (0...steps).map { step in
+            let location = Double(step) / Double(steps)
+            let edge = min(1, location / max(0.01, style.darkeningRadius))
+            let fade = 1 - edge * edge * edge * (edge * (edge * 6 - 15) + 10)
+            return Gradient.Stop(
+                color: .black.opacity(style.darkening * fade), location: location
+            )
+        }
+    }
+
+    /// One pixel of noise per output pixel, added last so it lands *before* the
+    /// framebuffer rounds to 8 bits — dither after quantisation is just grain.
+    ///
+    /// The noise lives in alpha, not in colour: against a light background it is the
+    /// alpha ramp that bands, and adding white to a transparent pixel changes nothing
+    /// the compositor can see.
+    @ViewBuilder
+    private var dither: some View {
+        if style.dither > 0, let tile = Self.noiseTile {
+            Rectangle()
+                .fill(ImagePaint(image: Image(decorative: tile, scale: Self.pixelScale)))
+                .blendMode(.plusLighter)
+                .opacity(style.dither / 255)
+        }
+    }
+
+    /// White, with random alpha, generated once. `shouldInterpolate: false` matters:
+    /// a smoothed noise tile is a cloud texture, and clouds do not dither.
+    private static let noiseTile: CGImage? = {
+        let side = 128
+        var pixels = [UInt8]()
+        pixels.reserveCapacity(side * side * 4)
+        for _ in 0..<(side * side) {
+            // Premultiplied, so white at alpha n is (n, n, n, n).
+            let alpha = UInt8.random(in: 0...255)
+            pixels.append(contentsOf: [alpha, alpha, alpha, alpha])
+        }
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData) else { return nil }
+        return CGImage(
+            width: side, height: side,
+            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: side * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        )
+    }()
+
+    /// Read once: the panel does not follow the mouse between displays mid-recording,
+    /// and a tile one point across on a 1x screen is still finer than the banding.
+    private static let pixelScale = NSScreen.main?.backingScaleFactor ?? 2
 
     private func mark(litOnly: Bool) -> some View {
         UttMark(
