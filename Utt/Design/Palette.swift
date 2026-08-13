@@ -15,6 +15,10 @@ enum Palette {
     static let surfacePrimary = Color(nsColor: .controlBackgroundColor).opacity(0.82)
     static let surfaceSecondary = Color.primary.opacity(0.035)
     static let lcdBackground = Color(red: 0.094, green: 0.094, blue: 0.078)
+    /// `lcdBackground` lifted — the homepage's `--ground`, #303027. Warm and never
+    /// fully black, which is what keeps a large field of it from reading as a hole
+    /// punched in the screen.
+    static let lcdGround = Color(red: 0.188, green: 0.188, blue: 0.153)
     static let lcdGreen = Color(red: 0.604, green: 0.820, blue: 0.478)
     static let lcdYellow = Color(red: 0.878, green: 0.627, blue: 0.133)
     static let lcdRed = Color(red: 1.0, green: 0.353, blue: 0.180)

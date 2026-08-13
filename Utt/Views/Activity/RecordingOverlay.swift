@@ -99,7 +99,7 @@ private struct RecordingOverlayView: View {
     private var indicator: some View {
         ZStack {
             RadialGradient(
-                stops: Self.darkeningStops(style),
+                stops: Self.darkeningStops(style, color: Palette.lcdGround),
                 center: .center,
                 startRadius: 0,
                 endRadius: style.panelSize / 2
@@ -127,14 +127,16 @@ private struct RecordingOverlayView: View {
     /// rings. Smootherstep (`6t⁵-15t⁴+10t³`) has zero first *and* second derivative at
     /// both ends: the darkening arrives out of nothing and leaves into nothing with no
     /// edge anywhere, which is the whole trick to sitting on a white document unnoticed.
-    private static func darkeningStops(_ style: OverlayStyle) -> [Gradient.Stop] {
+    private static func darkeningStops(
+        _ style: OverlayStyle, color: Color
+    ) -> [Gradient.Stop] {
         let steps = 32
         return (0...steps).map { step in
             let location = Double(step) / Double(steps)
             let edge = min(1, location / max(0.01, style.darkeningRadius))
             let fade = 1 - edge * edge * edge * (edge * (edge * 6 - 15) + 10)
             return Gradient.Stop(
-                color: .black.opacity(style.darkening * fade), location: location
+                color: color.opacity(style.darkening * fade), location: location
             )
         }
     }
