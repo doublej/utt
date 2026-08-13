@@ -65,20 +65,20 @@ targets:
         # Names Utt/Resources/AppIcon.icon. Regenerate with `just icon`.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Utt/Resources/utt.entitlements
-        MARKETING_VERSION: "0.1.1"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "2"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_APP_SANDBOX: NO
-        # Manual signing against the self-signed "utt Dev" identity. The hash is
-        # hardcoded on purpose: `security find-identity -v` cannot see an untrusted
-        # cert, and any name-based lookup that falls back to ad-hoc would change the
-        # designated requirement on every build and reset every TCC grant.
+        # Manual signing against "Developer ID Application: Jurre-Jan Smit". The
+        # hash is hardcoded on purpose: any name-based lookup that falls back to
+        # ad-hoc would change the designated requirement on every build and reset
+        # every TCC grant. Debug and Release share it, so the build you test is
+        # signed exactly like the build you ship.
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: A4F985E255EAA49E09BCA155A81331F318CA59CB
-        OTHER_CODE_SIGN_FLAGS: --keychain $(HOME)/Library/Keychains/utt-dev.keychain-db
-        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_IDENTITY: 72B6E55BE646D0664EF83C986B55B8F6D58BC2B6
+        DEVELOPMENT_TEAM: KA6433FU8U
         PROVISIONING_PROFILE_SPECIFIER: ""
         CODE_SIGNING_REQUIRED: YES
         CODE_SIGNING_ALLOWED: YES
@@ -108,5 +108,4 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/utt.app/Contents/MacOS/utt"
         BUNDLE_LOADER: "$(TEST_HOST)"
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: A4F985E255EAA49E09BCA155A81331F318CA59CB
-        OTHER_CODE_SIGN_FLAGS: --keychain $(HOME)/Library/Keychains/utt-dev.keychain-db
+        CODE_SIGN_IDENTITY: 72B6E55BE646D0664EF83C986B55B8F6D58BC2B6
