@@ -131,7 +131,16 @@ a borderless, non-activating, mouse-transparent `NSPanel` at `.statusBar` level,
 centred on whichever screen the mouse is on. Recording happens inside somebody
 else's app, so a mark drawn in utt's own window is a mark nobody sees.
 
-It draws `UttMark` three times over a black `RadialGradient` that falls to clear
+Underneath everything sits a behind-window blur (`blurRadius`, `blurIntensity`),
+masked by its own falloff so it concentrates on the grid and reaches nowhere near
+as far as the darkening — a blur running the full width reads as a smeared screen
+rather than as something lying on top of one. Two things about it are load-bearing:
+it uses `NSVisualEffectView` with `blendingMode = .behindWindow` rather than a
+SwiftUI `Material`, which blends *within* the window and so has nothing to sample
+here; and it sits **outside** the `drawingGroup`, because a rasterised subtree has
+no backdrop left and the blur silently flattens into a plain tint.
+
+Above it, it draws `UttMark` three times over a black `RadialGradient` that falls to clear
 at the edges: the lit dots blurred wide, blurred tight, then crisp — the two blur
 layers on `.plusLighter`, the lot in a `.compositingGroup()`. `litOnly: true` keeps
 the dim cells out of the blur layers; blurring them smears grey over the black they

@@ -25,6 +25,15 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
     /// Below 1 the falloff finishes early and leaves a hard ring.
     public var darkeningRadius: Double = 1.0
 
+    /// How far the backdrop blur reaches, as a fraction of half the panel. Kept well
+    /// inside `darkeningRadius` on purpose: the blur belongs where the grid is, and a
+    /// blur running the full width of the darkening reads as a smeared screen rather
+    /// than as something sitting on top of it.
+    public var blurRadius: Double = 0.46
+
+    /// Strength of that blur, 0...1. 0 skips the effect view entirely.
+    public var blurIntensity: Double = 1.0
+
     /// Dither amplitude, in levels of the 8-bit output. A smooth alpha ramp this
     /// wide crosses each of its 255 available levels over tens of points, and the
     /// eye reads the flat stretches between them as rings (Mach banding) — worst
@@ -64,6 +73,8 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
         markSize = read(.markSize, defaults.markSize)
         darkening = read(.darkening, defaults.darkening)
         darkeningRadius = read(.darkeningRadius, defaults.darkeningRadius)
+        blurRadius = read(.blurRadius, defaults.blurRadius)
+        blurIntensity = read(.blurIntensity, defaults.blurIntensity)
         dither = read(.dither, defaults.dither)
         haloBlur = read(.haloBlur, defaults.haloBlur)
         haloIntensity = read(.haloIntensity, defaults.haloIntensity)
