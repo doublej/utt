@@ -77,43 +77,13 @@ private struct RecordingOverlayView: View {
     var body: some View {
         ZStack {
             if recording || OverlayStyleStore.isPreviewing {
-                ZStack {
-                    backdrop
-                    indicator
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                indicator.transition(.opacity.combined(with: .scale(scale: 0.92)))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.smooth(duration: 0.2), value: recording)
         .onChange(of: recording) { _, isRecording in
             if isRecording { onRecordingStarted() }
-        }
-    }
-
-    /// Whatever is behind the panel, blurred, pulled in tighter than the darkening so
-    /// the effect concentrates where the grid actually is. The mask's own falloff is
-    /// the fade between blurred and untouched — a hard-edged blur reads as a lens
-    /// lying on the screen.
-    ///
-    /// **Outside `indicator`, and it has to be.** `drawingGroup` rasterises its
-    /// subtree offscreen, and a rasterised layer has no backdrop left to sample:
-    /// nested in there the blur silently flattens to a plain tint.
-    @ViewBuilder
-    private var backdrop: some View {
-        if style.blurIntensity > 0 {
-            BackdropBlur()
-                .mask {
-                    RadialGradient(
-                        stops: Self.smoothStops(
-                            peak: 1, radius: style.blurRadius, color: .white
-                        ),
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: style.panelSize / 2
-                    )
-                }
-                .opacity(style.blurIntensity)
         }
     }
 
@@ -129,9 +99,7 @@ private struct RecordingOverlayView: View {
     private var indicator: some View {
         ZStack {
             RadialGradient(
-                stops: Self.smoothStops(
-                    peak: style.darkening, radius: style.darkeningRadius, color: .black
-                ),
+                stops: Self.darkeningStops(style),
                 center: .center,
                 startRadius: 0,
                 endRadius: style.panelSize / 2
@@ -159,15 +127,15 @@ private struct RecordingOverlayView: View {
     /// rings. Smootherstep (`6t⁵-15t⁴+10t³`) has zero first *and* second derivative at
     /// both ends: the darkening arrives out of nothing and leaves into nothing with no
     /// edge anywhere, which is the whole trick to sitting on a white document unnoticed.
-    private static func smoothStops(
-        peak: Double, radius: Double, color: Color
-    ) -> [Gradient.Stop] {
+    private static func darkeningStops(_ style: OverlayStyle) -> [Gradient.Stop] {
         let steps = 32
         return (0...steps).map { step in
             let location = Double(step) / Double(steps)
-            let edge = min(1, location / max(0.01, radius))
+            let edge = min(1, location / max(0.01, style.darkeningRadius))
             let fade = 1 - edge * edge * edge * (edge * (edge * 6 - 15) + 10)
-            return Gradient.Stop(color: color.opacity(peak * fade), location: location)
+            return Gradient.Stop(
+                color: .black.opacity(style.darkening * fade), location: location
+            )
         }
     }
 
@@ -222,24 +190,4 @@ private struct RecordingOverlayView: View {
             hotCore: style.hotCore
         )
     }
-}
-
-/// `.behindWindow` explicitly. SwiftUI's own `Material` blends *within* the window,
-/// and this panel has nothing in it — that reads as a flat grey card, not a blur.
-///
-/// `.hudWindow` is the least-tinted material that stays legible in both appearances;
-/// its own dark cast stacks with the darkening, so dial `darkening` down before
-/// reaching for a lighter material.
-private struct BackdropBlur: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
-        view.material = .hudWindow
-        // .followsWindowActiveState would stop blurring the moment focus moved, and
-        // focus is always elsewhere: this panel never takes it.
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
