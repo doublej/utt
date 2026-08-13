@@ -15,8 +15,13 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
     /// or the gradient hits the window edge and reads as a grey square.
     public var panelSize: Double = 260
 
-    /// Side of the dot grid in points. 51 is three times the in-window mark.
+    /// Side of one 6×6 block in points. 51 is three times the in-window mark.
     public var markSize: Double = 51
+
+    /// Splits every cell into an n×n block of dots at the same pitch: 2 turns one
+    /// dot into four and doubles the mark to `markSize * 2`, without the dots
+    /// themselves getting any bigger. 1 is the plain 6×6 grid.
+    public var subdivision: Int = 2
 
     /// Opacity of the black directly behind the grid, 0...1.
     public var darkening: Double = 0.78
@@ -62,6 +67,8 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
         let defaults = OverlayStyle()
         panelSize = read(.panelSize, defaults.panelSize)
         markSize = read(.markSize, defaults.markSize)
+        subdivision = (try? container.decodeIfPresent(Int.self, forKey: .subdivision))
+            .flatMap { $0 } ?? defaults.subdivision
         darkening = read(.darkening, defaults.darkening)
         darkeningRadius = read(.darkeningRadius, defaults.darkeningRadius)
         dither = read(.dither, defaults.dither)

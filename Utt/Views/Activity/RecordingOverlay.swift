@@ -187,7 +187,8 @@ private struct RecordingOverlayView: View {
             recording: true,
             level: Double(store.transcription.meterLevel),
             litOnly: litOnly,
-            hotCore: style.hotCore
+            hotCore: style.hotCore,
+            subdivision: style.subdivision
         )
     }
 }

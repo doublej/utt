@@ -113,6 +113,30 @@ Two things make this feel right, and both are load-bearing:
 Change the feel by editing `slowestCycle` / `fastestCycle` only. Leave the curve
 alone unless you are prepared to re-check the table above.
 
+## So does brightness
+
+`DotMatrix.glow(for:)` runs off the same `loudness(for:)` axis and multiplies the
+opacity of every lit dot, so the grid burns brighter the louder you speak and the
+bloom breathes with it — the halo is built from the dots' own alpha, so nothing
+else needs telling. Straight interpolation, not geometric: `loudness` is already
+the perceptual axis and curving it twice reads as a stuck meter.
+
+It bottoms out at `quietestGlow` (0.45), never at 0 — an indicator that goes dark
+between words is indistinguishable from one that has stopped working. And it only
+applies while `recording`, or the menu bar and header marks would sit permanently
+dimmed, since nothing is feeding them a level.
+
+## One dot into four
+
+`subdivision` draws each authored cell as an n×n block of dots **at the same
+pitch**, so the mark grows by dot count rather than dot size: at 2 the grid is
+12×12 and the mark is twice as wide, with every dot exactly the size it was. The
+shapes are untouched — they are still the same 6×6 patterns, drawn coarser than
+the grid they land on. `UttMark.sourceCell(for:)` is the whole mapping.
+
+The overlay reads it from `overlay.json` and ships at 2; 1 is the plain 6×6 grid.
+`panelSize` has to stay comfortably wider than `markSize * subdivision`.
+
 ## Two renderers, one source of truth
 
 | where | how | why |
@@ -189,7 +213,7 @@ to one renderer and not the other is the bug this split exists to prevent.
 `DotMatrix.rect(for:size:lit:)` is the only place dot positions are computed:
 
 ```swift
-let step = size / 6                       // six columns across the full width
+let step = size / columns                 // columns across the full width, 6 by default
 let radius = step * (lit ? 0.34 : 0.24)   // lit dots are bigger
 x = step * (0.5 + col) - radius           // centre of the cell, not its corner
 ```

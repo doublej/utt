@@ -15,6 +15,45 @@ enum DotMatrix {
         [8, 9, 14, 15, 20, 21, 26, 27],       // vertical bar
         [0, 7, 14, 21, 28, 35],               // diagonal
         [7, 8, 9, 10, 13, 16, 19, 22, 25, 26, 27, 28], // ring
+        // Simple moving geometry: sweeps, scans, waves, a pulse box, a spiral.
+        [0, 1, 7, 8, 14, 15, 21, 22, 28, 29, 30, 35], // diagonal sweep
+        [1, 2, 8, 9, 15, 16, 22, 23, 24, 29, 30, 31], // diagonal sweep
+        [2, 3, 9, 10, 16, 17, 18, 23, 24, 25, 31, 32], // diagonal sweep
+        [3, 4, 10, 11, 12, 17, 18, 19, 25, 26, 32, 33], // diagonal sweep
+        [4, 5, 6, 11, 12, 13, 19, 20, 26, 27, 33, 34], // diagonal sweep
+        [0, 5, 6, 7, 13, 14, 20, 21, 27, 28, 34, 35], // diagonal sweep
+        [0, 6, 12, 18, 24, 30], // scan column
+        [1, 7, 13, 19, 25, 31], // scan column
+        [2, 8, 14, 20, 26, 32], // scan column
+        [3, 9, 15, 21, 27, 33], // scan column
+        [4, 10, 16, 22, 28, 34], // scan column
+        [5, 11, 17, 23, 29, 35], // scan column
+        [0, 1, 2, 3, 4, 5], // scan row
+        [6, 7, 8, 9, 10, 11], // scan row
+        [12, 13, 14, 15, 16, 17], // scan row
+        [18, 19, 20, 21, 22, 23], // scan row
+        [24, 25, 26, 27, 28, 29], // scan row
+        [30, 31, 32, 33, 34, 35], // scan row
+        [0, 5, 6, 7, 13, 14, 20, 21, 27, 28, 34, 35], // wave
+        [4, 5, 6, 11, 12, 13, 19, 20, 26, 27, 33, 34], // wave
+        [3, 4, 10, 11, 12, 17, 18, 19, 25, 26, 32, 33], // wave
+        [2, 3, 9, 10, 16, 17, 18, 23, 24, 25, 31, 32], // wave
+        [1, 2, 8, 9, 15, 16, 22, 23, 24, 29, 30, 31], // wave
+        [0, 1, 7, 8, 14, 15, 21, 22, 28, 29, 30, 35], // wave
+        [14, 15, 20, 21], // box, small
+        [7, 8, 9, 10, 13, 16, 19, 22, 25, 26, 27, 28], // box, mid
+        [0, 1, 2, 3, 4, 5, 6, 11, 12, 17, 18, 23, 24, 29, 30, 31, 32, 33, 34, 35], // box, full
+        [7, 8, 9, 10, 13, 16, 19, 22, 25, 26, 27, 28], // box, mid
+        [14, 15, 20, 21], // box, small
+        [0, 1, 2, 3], // spiral
+        [4, 5, 11, 17], // spiral
+        [23, 29, 34, 35], // spiral
+        [30, 31, 32, 33], // spiral
+        [6, 12, 18, 24], // spiral
+        [7, 8, 9, 10], // spiral
+        [16, 22, 27, 28], // spiral
+        [13, 19, 25, 26], // spiral
+        [14, 15, 20, 21], // spiral
         // Heartbeat: a pulse spike travels the baseline, then a double beat.
         [18, 24, 30, 31, 32, 33, 34, 35],     // ecg pulse, far left
         [20, 26, 30, 31, 32, 33, 34, 35],     // ecg pulse, mid-left
@@ -128,27 +167,69 @@ enum DotMatrix {
     private static let slowestCycle: TimeInterval = 6
     private static let fastestCycle: TimeInterval = 0.1
 
-    /// Peak amplitude is a terrible speed knob — ordinary speech peaks around 0.1,
-    /// so a linear map spends its whole range on volumes nobody produces. The same
-    /// dBFS scale the VU meters use puts speech at roughly 0.6...0.9 instead, and
-    /// the interval is geometric so every step up is a constant factor faster.
-    static func cycleInterval(for level: Double) -> TimeInterval {
-        guard level > 0.001 else { return slowestCycle }
-        let normalized = min(max((max(-60, 20 * log10(level)) + 60) / 60, 0), 1)
-        return slowestCycle * pow(fastestCycle / slowestCycle, normalized)
+    /// How bright a lit dot burns at silence. Never 0: an indicator that goes dark
+    /// between words is indistinguishable from one that has stopped working.
+    private static let quietestGlow: Double = 0.45
+
+    /// 0 at silence, 1 at full scale. Peak amplitude is a terrible knob for either
+    /// of the things that follow it — ordinary speech peaks around 0.1, so a linear
+    /// map spends its whole range on volumes nobody produces. The dBFS scale the VU
+    /// meters use puts speech at roughly 0.6...0.9 instead.
+    static func loudness(for level: Double) -> Double {
+        guard level > 0.001 else { return 0 }
+        return min(max((max(-60, 20 * log10(level)) + 60) / 60, 0), 1)
     }
 
-    /// Where dot `index` sits in a grid `size` points wide. Six columns across the
-    /// full width, each dot centred in its cell — any other divisor leaves the
-    /// grid sitting off-centre in its frame.
-    static func rect(for index: Int, size: CGFloat, lit: Bool) -> CGRect {
-        let step = size / 6
+    /// Geometric, so every step up in level is a constant *factor* faster rather
+    /// than a constant amount.
+    static func cycleInterval(for level: Double) -> TimeInterval {
+        slowestCycle * pow(fastestCycle / slowestCycle, loudness(for: level))
+    }
+
+    /// Opacity multiplier for a lit dot: the grid burns brighter the louder you
+    /// speak, on the same curve that drives the speed. Interpolated straight rather
+    /// than geometrically — `loudness` is already the perceptual axis, and alpha is
+    /// close enough to perceptual that curving it twice reads as a stuck meter.
+    static func glow(for level: Double) -> Double {
+        quietestGlow + (1 - quietestGlow) * loudness(for: level)
+    }
+
+    /// Where dot `index` sits in a grid `size` points wide and `columns` dots across,
+    /// each dot centred in its cell — any other divisor leaves the grid sitting
+    /// off-centre in its frame.
+    ///
+    /// `columns` is 6 for the shapes as authored. A subdivided mark passes a multiple
+    /// of 6 *and* a proportionally larger `size`, which keeps the step — and so the
+    /// dot — exactly the same size while the mark itself grows.
+    static func rect(for index: Int, size: CGFloat, lit: Bool, columns: Int = 6) -> CGRect {
+        let step = size / CGFloat(columns)
         let radius = step * (lit ? 0.34 : 0.24)
         return CGRect(
-            x: step * (0.5 + CGFloat(index % 6)) - radius,
-            y: step * (0.5 + CGFloat(index / 6)) - radius,
+            x: step * (0.5 + CGFloat(index % columns)) - radius,
+            y: step * (0.5 + CGFloat(index / columns)) - radius,
             width: radius * 2,
             height: radius * 2
         )
     }
+}
+
+/// A scripted padlock animation: unlatches, swings open, glints, locks again —
+/// played on demand, not part of the never-ending `DotMatrix.patterns` loop.
+///
+/// Drive the frames with `OneShotPatternPlayer` (in UttMark.swift) and render
+/// them with the same `rect(for:size:lit:)` helper any other mark uses.
+enum LockAnimation {
+    /// Seconds per frame. Five frames ≈ 0.75 seconds of locking.
+    static let frameInterval: TimeInterval = 0.15
+
+    /// Frames of a padlock: narrow shackle inset over a compact body with a
+    /// keyhole slot in its middle. Body and slot are constant; the shackle
+    /// spreads, swings right, and the keyhole glints before it locks again.
+    static let frames: [Set<Int>] = [
+        [1, 2, 3, 7, 9, 13, 15, 19, 20, 21, 22, 25, 28, 31, 32, 33, 34], // lock, locked
+        [1, 2, 3, 6, 10, 12, 16, 19, 20, 21, 22, 25, 28, 31, 32, 33, 34], // lock, unlatched
+        [2, 3, 4, 6, 11, 12, 17, 19, 20, 21, 22, 25, 28, 31, 32, 33, 34], // lock, open
+        [1, 2, 3, 7, 9, 13, 15, 19, 20, 21, 22, 25, 26, 27, 28, 31, 32, 33, 34], // lock, glint
+        [1, 2, 3, 7, 9, 13, 15, 19, 20, 21, 22, 25, 28, 31, 32, 33, 34] // lock, locked
+    ]
 }

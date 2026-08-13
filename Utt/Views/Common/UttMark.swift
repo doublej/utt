@@ -34,6 +34,61 @@ final class DotMatrixDriver {
     }
 }
 
+/// The one-shot counterpart to `DotMatrixDriver`: plays a fixed list of frames
+/// exactly once, then stops. `LockAnimation.frames` is the intended payload.
+/// Observers read `pattern` and render it with `DotMatrix.rect` like any other
+/// mark; `onFinished` fires after the last frame has been shown.
+@MainActor
+@Observable
+final class OneShotPatternPlayer {
+    private let frames: [Set<Int>]
+    private let interval: TimeInterval
+
+    private(set) var patternIndex = 0
+    private(set) var isPlaying = false
+    /// Called after the final frame, once the player has stopped.
+    var onFinished: (() -> Void)?
+
+    var pattern: Set<Int> { frames[patternIndex] }
+
+    init(frames: [Set<Int>], interval: TimeInterval) {
+        self.frames = frames
+        self.interval = interval
+    }
+
+    func play() {
+        guard !frames.isEmpty, !isPlaying else { return }
+        isPlaying = true
+        patternIndex = 0
+        scheduleAdvance()
+    }
+
+    func stop() {
+        isPlaying = false
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private var timer: Timer?
+
+    private func scheduleAdvance() {
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.advance() }
+        }
+    }
+
+    private func advance() {
+        guard patternIndex + 1 < frames.count else {
+            isPlaying = false
+            timer = nil
+            onFinished?()
+            return
+        }
+        patternIndex += 1
+        scheduleAdvance()
+    }
+}
+
 /// utty's dot-matrix mark with animated pattern transitions. The lit cells form
 /// shapes on a 6×6 grid. Patterns cycle on the shared driver, faster the louder
 /// the input; recording shows as the red tint, not as a separate shape.
@@ -50,20 +105,29 @@ struct UttMark: View {
     /// disc of pure colour is what makes a drawn dot look drawn. 0 keeps it flat,
     /// which is what the 16pt marks want — the gradient is invisible at that size.
     var hotCore: Double = 0
+    /// Splits every cell into a `subdivision`×`subdivision` block of dots at the
+    /// *same* pitch, so 2 turns one dot into four and the mark grows to twice the
+    /// size rather than the dots growing. The shapes are unchanged — they are read
+    /// off the same 6×6 patterns, just drawn coarser than the grid they land on.
+    var subdivision: Int = 1
 
     @State private var dotOpacities: [Int: Double] = [:]
 
     private var driver: DotMatrixDriver { .shared }
     private var currentPattern: Set<Int> { driver.pattern }
     private var cycleInterval: TimeInterval { DotMatrix.cycleInterval(for: driver.level) }
+    private var columns: Int { 6 * max(1, subdivision) }
+    /// Lit dots follow the meter. Only while recording: at rest every other mark in
+    /// the app would sit permanently dimmed, since nothing is feeding it a level.
+    private var glow: Double { recording ? DotMatrix.glow(for: driver.level) : 1 }
 
     var body: some View {
         Canvas { context, canvasSize in
-            for index in 0..<36 {
+            for index in 0..<(columns * columns) {
                 drawDot(index, size: canvasSize.width, in: &context)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: size * CGFloat(max(1, subdivision)), height: size * CGFloat(max(1, subdivision)))
         .accessibilityHidden(true)
         .onChange(of: level) { _, newLevel in driver.level = newLevel }
         .onChange(of: driver.patternIndex) { _, _ in animatePatternTransition() }
@@ -74,10 +138,15 @@ struct UttMark: View {
     }
 
     private func drawDot(_ index: Int, size: CGFloat, in context: inout GraphicsContext) {
-        let opacity = dotOpacities[index] ?? (currentPattern.contains(index) ? 1.0 : 0.0)
-        let isLit = opacity > 0.5
+        let cell = sourceCell(for: index)
+        let crossfade = dotOpacities[cell] ?? (currentPattern.contains(cell) ? 1.0 : 0.0)
+        // Lit is decided on the crossfade alone. Fold the glow in first and a quiet
+        // passage drops every dot below the threshold — the grid would go unlit
+        // rather than dim.
+        let isLit = crossfade > 0.5
         guard isLit || !litOnly else { return }
-        let rect = DotMatrix.rect(for: index, size: size, lit: isLit)
+        let opacity = crossfade * glow
+        let rect = DotMatrix.rect(for: index, size: size, lit: isLit, columns: columns)
         guard isLit, hotCore > 0 else {
             let color = isLit ? tint.opacity(opacity) : Color.primary.opacity(0.28)
             context.fill(Path(ellipseIn: rect), with: .color(color))
@@ -99,6 +168,13 @@ struct UttMark: View {
                 endRadius: rect.width / 2
             )
         )
+    }
+
+    /// Which of the 36 authored cells a dot in the drawn grid belongs to. At
+    /// `subdivision: 1` this is the identity.
+    private func sourceCell(for index: Int) -> Int {
+        let step = max(1, subdivision)
+        return (index / columns / step) * 6 + (index % columns) / step
     }
 
     private func initializeOpacities() {
