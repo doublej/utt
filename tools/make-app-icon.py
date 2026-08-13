@@ -21,11 +21,11 @@ DIM = (255, 255, 255, 38)
 # DotMatrix.patterns[0], the 'u'.
 LIT = {7, 8, 13, 14, 21, 22, 27, 28}
 
-# macOS draws every app icon inside the same rounded square, and one that fills its
-# canvas edge to edge stands out as the wrong size next to every other icon in the
-# Dock. 824/1024 with a 185/1024 corner radius is the system grid.
-INSET = 100 / 1024
-RADIUS = 185 / 1024
+# The ground fills the canvas. macOS 26 masks every icon to its own rounded square
+# and paints a plate behind it, so drawing our own inset square put a second, smaller
+# tile inside the system's — the "border" in the Dock. The grid keeps its margin;
+# the ground does not.
+GRID = 0.78
 
 # 4x oversampled, then downsampled — the dots are small enough at 16pt that
 # aliasing on their edges is the difference between a mark and a smudge.
@@ -41,17 +41,13 @@ ENTRIES = [
 
 def draw_icon(pixels: int) -> Image.Image:
     canvas = pixels * SUPERSAMPLE
-    image = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    image = Image.new("RGBA", (canvas, canvas), GROUND)
     draw = ImageDraw.Draw(image)
 
-    inset = canvas * INSET
-    box = [inset, inset, canvas - inset, canvas - inset]
-    draw.rounded_rectangle(box, radius=canvas * RADIUS, fill=GROUND)
-
     # DotMatrix.rect: step = size / 6, radius = step * (0.34 lit / 0.24 dim),
-    # x = step * (0.5 + col) - radius. The grid sits inside the rounded square with
-    # a cell of margin, which is what keeps the dots off the corner curve.
-    grid = (canvas - 2 * inset) * 0.72
+    # x = step * (0.5 + col) - radius. The margin is what keeps the corner dots clear
+    # of the system's rounded mask.
+    grid = canvas * GRID
     origin = (canvas - grid) / 2
     step = grid / 6
     for index in range(36):
