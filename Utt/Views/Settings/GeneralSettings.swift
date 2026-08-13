@@ -22,9 +22,20 @@ struct GeneralSettings: View {
         }
 
         Card("Model") {
+            Picker("Engine", selection: engineBinding) {
+                ForEach(TranscriptionEngine.allCases, id: \.self) { engine in
+                    Text(engine.displayName).tag(engine)
+                }
+            }
+            Picker("Model", selection: modelBinding) {
+                ForEach(ModelCatalog.models(for: settings.transcriptionEngine)) { model in
+                    Text(model.name).tag(model.id)
+                }
+            }
             HStack {
-                Text(settings.transcriptionEngine.displayName)
-                    .font(Typography.primaryRow)
+                Text(selectedModel.summary)
+                    .font(Typography.metadata)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 ModelStatusLabel(state: store.model)
             }
@@ -52,6 +63,28 @@ struct GeneralSettings: View {
             }
             .font(Typography.metadata)
         }
+    }
+
+    /// Resolved, not read raw — a stored id from an older build or the other engine
+    /// has to show as that engine's recommendation, which is what will actually load.
+    private var selectedModel: TranscriptionModel {
+        ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine)
+    }
+
+    /// Both go through the reducer rather than writing settings directly: changing
+    /// either one has to drop the loaded weights and warm the new ones.
+    private var engineBinding: Binding<TranscriptionEngine> {
+        Binding(
+            get: { settings.transcriptionEngine },
+            set: { store.send(.settings(.engineChanged($0))) }
+        )
+    }
+
+    private var modelBinding: Binding<String> {
+        Binding(
+            get: { selectedModel.id },
+            set: { store.send(.settings(.modelChanged($0))) }
+        )
     }
 
     private func bind<Value>(

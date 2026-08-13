@@ -11,10 +11,17 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "transcription
 /// Parakeet handles poorly.
 @DependencyClient
 struct TranscriptionClient: Sendable {
-    var transcribe: @Sendable (_ url: URL, _ engine: TranscriptionEngine) async throws -> String
+    /// `model` is the engine's own identifier — see `ModelCatalog`. It travels with
+    /// every call rather than being set once: the engines are long-lived actors, and
+    /// a mode they have to be *told* about drifts out of step with the setting.
+    var transcribe: @Sendable (
+        _ url: URL, _ engine: TranscriptionEngine, _ model: String
+    ) async throws -> String
     /// Download + load, so the first hotkey press is not a 26-second stall.
-    var prewarm: @Sendable (_ engine: TranscriptionEngine) async throws -> Void
-    var isReady: @Sendable (_ engine: TranscriptionEngine) async -> Bool = { _ in false }
+    var prewarm: @Sendable (_ engine: TranscriptionEngine, _ model: String) async throws -> Void
+    var isReady: @Sendable (
+        _ engine: TranscriptionEngine, _ model: String
+    ) async -> Bool = { _, _ in false }
     var unload: @Sendable () async -> Void
 }
 
@@ -23,10 +30,10 @@ extension TranscriptionClient: DependencyKey {
         let parakeet = ParakeetClient()
         let whisper = WhisperClient()
         return TranscriptionClient(
-            transcribe: { url, engine in
+            transcribe: { url, engine, model in
                 switch engine {
                 case .parakeet:
-                    let result = try await parakeet.transcribe(url)
+                    let result = try await parakeet.transcribe(url, model: model)
                     log.info("""
                         parakeet: \(result.duration, format: .fixed(precision: 1))s clip, \
                         rtfx \(result.realtimeFactor, format: .fixed(precision: 1))x, \
@@ -34,19 +41,19 @@ extension TranscriptionClient: DependencyKey {
                         """)
                     return result.text
                 case .whisper:
-                    return try await whisper.transcribe(url)
+                    return try await whisper.transcribe(url, model: model)
                 }
             },
-            prewarm: { engine in
+            prewarm: { engine, model in
                 switch engine {
-                case .parakeet: try await parakeet.load()
-                case .whisper: try await whisper.load()
+                case .parakeet: try await parakeet.load(model)
+                case .whisper: try await whisper.load(model)
                 }
             },
-            isReady: { engine in
+            isReady: { engine, model in
                 switch engine {
-                case .parakeet: await parakeet.isLoaded
-                case .whisper: await whisper.isLoaded
+                case .parakeet: await parakeet.isLoaded(model)
+                case .whisper: await whisper.isLoaded(model)
                 }
             },
             unload: {

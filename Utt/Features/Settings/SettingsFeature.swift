@@ -25,6 +25,7 @@ struct SettingsFeature {
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
+        case modelChanged(String)
         case resetToDefaultsTapped
     }
 
@@ -53,6 +54,7 @@ struct SettingsFeature {
                 state.isRecordingHotkey.toggle()
                 return .none
             case let .engineChanged(engine): return change(to: engine)
+            case let .modelChanged(model): return change(toModel: model)
             case .resetToDefaultsTapped:
                 $settings.withLock { $0 = UttSettings() }
                 return .none
@@ -88,11 +90,29 @@ private extension SettingsFeature {
     func change(to engine: TranscriptionEngine) -> Effect<Action> {
         guard engine != settings.transcriptionEngine else { return .none }
         $settings.withLock { $0.transcriptionEngine = engine }
+        // Each engine remembers its own model, so switching back and forth does not
+        // silently reset the choice. An id belonging to the other engine resolves to
+        // this one's recommendation.
+        let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
+        $settings.withLock { $0.selectedModel = model }
         // Drop the old engine's weights before loading the new ones — both resident
         // at once is roughly a gigabyte for no benefit.
         return .run { _ in
             await transcription.unload()
-            try? await transcription.prewarm(engine)
+            try? await transcription.prewarm(engine, model)
+        }
+    }
+
+    /// Switching model is switching weights: the old ones have to go, and the new
+    /// ones may be a 600 MB download, so this warms them rather than waiting for the
+    /// next hotkey press to stall on it.
+    func change(toModel model: String) -> Effect<Action> {
+        guard model != settings.selectedModel else { return .none }
+        $settings.withLock { $0.selectedModel = model }
+        let engine = settings.transcriptionEngine
+        return .run { _ in
+            await transcription.unload()
+            try? await transcription.prewarm(engine, model)
         }
     }
 }

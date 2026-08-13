@@ -17,9 +17,9 @@ extension RecordingClient {
 
 extension TranscriptionClient {
     static let quiet = TranscriptionClient(
-        transcribe: { _, _ in "" },
-        prewarm: { _ in },
-        isReady: { _ in true },
+        transcribe: { _, _, _ in "" },
+        prewarm: { _, _ in },
+        isReady: { _, _ in true },
         unload: {}
     )
 }

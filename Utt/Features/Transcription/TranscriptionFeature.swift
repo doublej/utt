@@ -172,9 +172,10 @@ private extension TranscriptionFeature {
         state.quietWarning = result.isSuspiciouslyQuiet
         state.lastDuration = result.duration
         let engine = settings.transcriptionEngine
+        let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
         return .run { send in
             await send(.transcriptReady(Result {
-                try await transcription.transcribe(result.url, engine)
+                try await transcription.transcribe(result.url, engine, model)
             }))
             try? FileManager.default.removeItem(at: result.url)
         }

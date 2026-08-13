@@ -22,24 +22,43 @@ actor ParakeetClient {
     static let approximateDownloadBytes: Int64 = 461_000_000
 
     private var manager: AsrManager?
+    /// What `manager` was built from, so a model change is detectable. Without it a
+    /// switch in Settings silently keeps transcribing on the old weights.
+    private var loadedModel: String?
 
     var isLoaded: Bool { manager != nil }
+
+    func isLoaded(_ model: String) -> Bool { manager != nil && loadedModel == model }
+
+    /// FluidAudio's own enum. String ids come from `ModelCatalog`, which is where a
+    /// new entry has to be added first — an unknown id lands on v3 rather than
+    /// throwing, matching how the catalog resolves an unknown stored setting.
+    private static func version(for model: String) -> AsrModelVersion {
+        switch model {
+        case "parakeet-v2": .v2
+        case "parakeet-tdt-ctc-110m": .tdtCtc110m
+        case "parakeet-ja": .tdtJa
+        default: .v3
+        }
+    }
 
     /// Downloads if needed, then loads. The first load after install pays a one-time
     /// ~27 s ANE compile of the encoder *on top of* the download, so any "ready in N
     /// seconds" estimate computed from bytes alone will be wrong.
-    func load() async throws {
-        guard manager == nil else { return }
+    func load(_ model: String) async throws {
+        guard loadedModel != model || manager == nil else { return }
         let started = Date()
-        let models = try await AsrModels.downloadAndLoad(version: .v3)
+        let models = try await AsrModels.downloadAndLoad(version: Self.version(for: model))
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
         self.manager = manager
-        log.info("parakeet ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 1))s")
+        loadedModel = model
+        log.info("parakeet \(model) ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 1))s")
     }
 
     func unload() {
         manager = nil
+        loadedModel = nil
     }
 
     struct Transcript: Sendable {
@@ -50,8 +69,8 @@ actor ParakeetClient {
         let realtimeFactor: Float
     }
 
-    func transcribe(_ url: URL) async throws -> Transcript {
-        if manager == nil { try await load() }
+    func transcribe(_ url: URL, model: String) async throws -> Transcript {
+        try await load(model)
         guard let manager else { throw ASRError.modelLoadFailed }
 
         // `TdtDecoderState` is passed `inout` to an async call, so it must be a local

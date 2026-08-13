@@ -21,27 +21,33 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "whisper")
 /// lost `usePrefillCache` and fixed the `supressTokens` spelling, and callbacks are
 /// now `@Sendable` — an error under Swift 6 mode, not a warning.
 actor WhisperClient {
-    /// Small enough to stay honest about download size next to Parakeet's 461 MB.
-    static let defaultModel = "openai_whisper-base"
-
     private var pipeline: WhisperKit?
+    /// What `pipeline` was built from. A model change has to rebuild it — WhisperKit
+    /// holds the weights, so keeping the old pipeline keeps the old model.
+    private var loadedModel: String?
 
     var isLoaded: Bool { pipeline != nil }
 
-    func load() async throws {
-        guard pipeline == nil else { return }
+    func isLoaded(_ model: String) -> Bool { pipeline != nil && loadedModel == model }
+
+    /// `model` is a folder name in `argmaxinc/whisperkit-coreml`, passed through
+    /// untouched. WhisperKit downloads it on demand and throws if it does not exist.
+    func load(_ model: String) async throws {
+        guard loadedModel != model || pipeline == nil else { return }
         let started = Date()
-        let config = WhisperKitConfig(model: Self.defaultModel, prewarm: true, load: true)
+        let config = WhisperKitConfig(model: model, prewarm: true, load: true)
         pipeline = try await WhisperKit(config)
-        log.info("whisper ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 1))s")
+        loadedModel = model
+        log.info("whisper \(model) ready in \(Date().timeIntervalSince(started), format: .fixed(precision: 1))s")
     }
 
     func unload() {
         pipeline = nil
+        loadedModel = nil
     }
 
-    func transcribe(_ url: URL) async throws -> String {
-        if pipeline == nil { try await load() }
+    func transcribe(_ url: URL, model: String) async throws -> String {
+        try await load(model)
         guard let pipeline else { return "" }
 
         let results = try await pipeline.transcribe(

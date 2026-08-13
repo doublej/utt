@@ -168,9 +168,11 @@ private extension AppFeature {
 
     func prepareModel(_ state: inout State) -> Effect<Action> {
         state.model = .preparing(since: now)
-        return .run { [engine = settings.transcriptionEngine] send in
-            try? await transcription.prewarm(engine)
-            await send(.modelPrepared(.success(await transcription.isReady(engine))))
+        let engine = settings.transcriptionEngine
+        let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
+        return .run { send in
+            try? await transcription.prewarm(engine, model)
+            await send(.modelPrepared(.success(await transcription.isReady(engine, model))))
         }
         .cancellable(id: CancelID.modelPrepare, cancelInFlight: true)
     }

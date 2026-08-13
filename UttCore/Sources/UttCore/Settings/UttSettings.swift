@@ -65,10 +65,11 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// the fallback for what Parakeet cannot load or cannot hear.
     public var transcriptionEngine: TranscriptionEngine = .parakeet
 
-    /// Transcription model, by on-disk bundle name. Multilingual by default —
-    /// the English-only bundle is a deliberate downgrade, not a starting point.
-    /// Interpreted by whichever engine `transcriptionEngine` names.
-    public var selectedModel: String = ParakeetModel.multilingualV3.identifier
+    /// Which model that engine runs, by the engine's own identifier. Read through
+    /// `ModelCatalog.resolve(id:engine:)`, never directly: the stored id can name a
+    /// model from an older build or from the *other* engine, and the resolver falls
+    /// back to that engine's recommended model instead of failing to transcribe.
+    public var selectedModel: String = ModelCatalog.preferred(for: .parakeet).id
 
     // MARK: - Output
 
