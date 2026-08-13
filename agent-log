@@ -1,0 +1,2 @@
+#!/bin/sh
+exec atlas agent-log "$@"

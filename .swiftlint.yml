@@ -1,0 +1,23 @@
+excluded:
+  - .build
+  - Packages
+  # Root-relative '.build' does not match nested checkouts, so SPM's vendored
+  # sources get linted too (~12k violations). These catch them.
+  - UttCore/.build
+  - spike
+  - Utt.xcodeproj
+
+# 20 is SwiftLint's default and it is wrong for this codebase: an AVAudioEngine
+# setup or a reducer that merges three effects is one idea, and splitting it to
+# satisfy a counter makes it harder to read, not easier.
+function_body_length:
+  warning: 40
+  error: 60
+
+file_length:
+  warning: 300
+  error: 400
+
+disabled_rules:
+  - todo
+  - line_length

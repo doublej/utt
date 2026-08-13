@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "python3 .claude/scripts/check_template_update.py",
+            "type": "command"
+          },
+          {
+            "command": "python3 .claude/scripts/check_library_freshness.py",
+            "type": "command"
+          }
+        ],
+        "matcher": "startup"
+      },
+      {
+        "hooks": [
+          {
+            "command": "python3 .claude/scripts/check_template_update.py",
+            "type": "command"
+          },
+          {
+            "command": "python3 .claude/scripts/check_library_freshness.py",
+            "type": "command"
+          }
+        ],
+        "matcher": "resume"
+      },
+      {
+        "hooks": [
+          {
+            "command": "bd prime --hook-json",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  }
+}

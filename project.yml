@@ -1,0 +1,110 @@
+name: Utt
+
+options:
+  bundleIdPrefix: dev.jurrejan
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  UttCore:
+    path: UttCore
+  # Versions verified against the real tags — see docs/phase0-brief.md.
+  ComposableArchitecture:
+    url: https://github.com/pointfreeco/swift-composable-architecture
+    exactVersion: 1.26.1
+  Dependencies:
+    url: https://github.com/pointfreeco/swift-dependencies
+    exactVersion: 1.14.1
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio
+    exactVersion: 0.15.5
+  # Renamed from argmaxinc/WhisperKit; module is still `WhisperKit`.
+  ArgmaxOSS:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    exactVersion: 1.1.0
+  Sauce:
+    url: https://github.com/Clipy/Sauce
+    exactVersion: 2.5.2
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.5
+
+targets:
+  Utt:
+    type: application
+    platform: macOS
+    sources:
+      # Both are build inputs, not resources — without the exclude they also get
+      # copied into Resources/ where a stray Info.plist confuses codesign.
+      - path: Utt
+        excludes:
+          - "Resources/Info.plist"
+          - "Resources/utt.entitlements"
+    dependencies:
+      - package: UttCore
+        product: UttCore
+      - package: ComposableArchitecture
+        product: ComposableArchitecture
+      - package: Dependencies
+        product: DependenciesMacros
+      - package: FluidAudio
+        product: FluidAudio
+      - package: ArgmaxOSS
+        product: WhisperKit
+      - package: Sauce
+        product: Sauce
+      - package: Sparkle
+        product: Sparkle
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jurrejan.utt
+        PRODUCT_NAME: utt
+        INFOPLIST_FILE: Utt/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Utt/Resources/utt.entitlements
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        # Manual signing against the self-signed "utt Dev" identity. The hash is
+        # hardcoded on purpose: `security find-identity -v` cannot see an untrusted
+        # cert, and any name-based lookup that falls back to ad-hoc would change the
+        # designated requirement on every build and reset every TCC grant.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: A4F985E255EAA49E09BCA155A81331F318CA59CB
+        OTHER_CODE_SIGN_FLAGS: --keychain $(HOME)/Library/Keychains/utt-dev.keychain-db
+        DEVELOPMENT_TEAM: ""
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGNING_ALLOWED: YES
+        COMBINE_HIDPI_IMAGES: YES
+    scheme:
+      testTargets:
+        - UttTests
+
+  # Reducer-level tests. UttCore covers everything that needs no app; this covers
+  # the effect wiring that only exists once the clients are attached.
+  UttTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      # No package dependencies: the test bundle loads the host app, and linking
+      # TCA a second time leaves its SwiftUI extensions unresolved at link time.
+      - target: Utt
+        embed: false
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jurrejan.utt.tests
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/utt.app/Contents/MacOS/utt"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: A4F985E255EAA49E09BCA155A81331F318CA59CB
+        OTHER_CODE_SIGN_FLAGS: --keychain $(HOME)/Library/Keychains/utt-dev.keychain-db

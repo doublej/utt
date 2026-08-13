@@ -1,0 +1,6 @@
+{
+  "description": "Native macOS on-device transcription \u2014 hold a hotkey, speak, release, text at the cursor",
+  "type": "swift",
+  "framework": "swiftui",
+  "archived": false
+}

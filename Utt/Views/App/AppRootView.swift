@@ -1,0 +1,100 @@
+import ComposableArchitecture
+import SwiftUI
+
+struct AppRootView: View {
+    @Bindable var store: StoreOf<AppFeature>
+    @State private var collapsed = false
+    @State private var showingSettings = false
+
+    /// The three shapes the window takes. Kept here rather than in feature state:
+    /// nothing outside this view reacts to them, and a reducer that owns window
+    /// geometry is a reducer that cannot be tested without a screen.
+    private var size: CGSize {
+        if collapsed { return CGSize(width: 360, height: 48) }
+        if showingSettings { return CGSize(width: 760, height: 820) }
+        return CGSize(width: 720, height: 540)
+    }
+
+    var body: some View {
+        Group {
+            if collapsed {
+                CollapsedBar(store: store, showingSettings: $showingSettings, collapsed: $collapsed)
+            } else {
+                expanded
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .modifier(Backdrop(collapsed: collapsed))
+        .animation(.smooth(duration: 0.25), value: collapsed)
+        .animation(.smooth(duration: 0.25), value: showingSettings)
+        .background(WindowConfigurator(collapsed: collapsed))
+    }
+
+    private var expanded: some View {
+        VStack(spacing: Spacing.extraSmall) {
+            HeaderBar(store: store, showingSettings: $showingSettings, collapsed: $collapsed)
+            if let banner {
+                BannerRow(text: banner) { store.send(.grantTapped(store.missingPermissions[0])) }
+            }
+            RecorderModule(store: store)
+            if showingSettings {
+                SettingsPanel(store: store)
+            } else {
+                HistoryList(store: store)
+            }
+        }
+        .padding(Spacing.medium)
+    }
+
+    /// One line, for the one problem most worth fixing right now. Three stacked
+    /// warnings would push the actual app off the screen.
+    private var banner: String? {
+        if store.needsRelaunch { return "A permission was granted — restart utt to pick it up." }
+        if let first = store.missingPermissions.first {
+            return "\(first.title) is off, \(first.rationale)."
+        }
+        if case let .failed(message) = store.model { return message }
+        if case let .failed(message) = store.transcription.status { return message }
+        return nil
+    }
+}
+
+private struct BannerRow: View {
+    let text: String
+    let action: () -> Void
+
+    var body: some View {
+        HStack(spacing: Spacing.extraSmall) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Palette.warning)
+            Text(text)
+                .font(Typography.metadata)
+                .foregroundStyle(Palette.textPrimary)
+            Spacer()
+            Button("Fix", action: action)
+                .font(Typography.metadata)
+        }
+        .padding(.horizontal, Spacing.medium)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                .fill(Palette.warning.opacity(0.12))
+        )
+    }
+}
+
+private struct Backdrop: ViewModifier {
+    let collapsed: Bool
+
+    func body(content: Content) -> some View {
+        if collapsed {
+            // The pill draws its own capsule, so the window behind it must be
+            // clear — a material here would show as a rectangle around the curve.
+            content
+                .background(Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        } else {
+            content.containerBackground(.regularMaterial, for: .window)
+        }
+    }
+}
