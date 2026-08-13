@@ -272,6 +272,13 @@ dot-matrix-preview:
     python3 tools/dot-matrix-preview.py
     open docs/dot-matrix-preview.html
 
+# Redraw the app icon from DotMatrix.patterns[0] and Palette. Commit the pngs —
+
+# the build reads the asset catalog, not this script.
+[group('design')]
+icon:
+    python3 tools/make-app-icon.py
+
 # Pin the recording overlay on screen and hot-reload overlay.json as you edit it.
 # The app writes the file with its current defaults if it is missing, then re-reads
 
