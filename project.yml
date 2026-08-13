@@ -63,7 +63,7 @@ targets:
         PRODUCT_NAME: utt
         INFOPLIST_FILE: Utt/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Utt/Resources/utt.entitlements
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.1.1"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
