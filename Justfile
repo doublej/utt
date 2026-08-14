@@ -1,15 +1,16 @@
 set shell := ["zsh", "-uo", "pipefail", "-c"]
 set unstable := true
 
-# Self-signed "utt Dev". Hardcoded on purpose — see the note in project.yml.
+# Developer ID Application. Hardcoded on purpose — see the note in project.yml.
 
-identity := "A4F985E255EAA49E09BCA155A81331F318CA59CB"
-keychain := env_var('HOME') + "/Library/Keychains/utt-dev.keychain-db"
+identity := "72B6E55BE646D0664EF83C986B55B8F6D58BC2B6"
+team := "KA6433FU8U"
 built := ".build/Build/Products/Debug/utt.app"
 built_release := ".build/Build/Products/Release/utt.app"
 archive_path := "release/utt.xcarchive"
 export_dir := "release/export"
 export_options := "release/ExportOptions.plist"
+dmg_path := "release/utt.dmg"
 
 # -skipMacroValidation: TCA and friends ship swift-syntax macro plugins, and Xcode
 # demands an interactive "trust" click per package whenever their fingerprint moves.
@@ -34,12 +35,11 @@ install:
 [group('setup')]
 verify-identity:
     #!/usr/bin/env zsh
-    if ! security find-identity -p codesigning "{{ keychain }}" 2>/dev/null | grep -q "{{ identity }}"; then
-        echo "error: signing identity {{ identity }} not found in {{ keychain }}" >&2
-        echo "       restore it from the utt-dev.p12 backup — rebuilding a new cert resets every TCC grant" >&2
+    if ! security find-identity -p codesigning 2>/dev/null | grep -q "{{ identity }}"; then
+        echo "error: signing identity {{ identity }} not found in the login keychain" >&2
+        echo "       restore it from the Developer ID .p12 backup — a reissued cert resets every TCC grant" >&2
         exit 1
     fi
-    security unlock-keychain -p uttdev "{{ keychain }}"
 
 [group('build')]
 generate:
@@ -177,23 +177,9 @@ check:
     just test
     just test-app
 
-# Everything below ships builds to other people, and none of it works until a
-# Developer ID certificate exists. The debug identity above is self-signed: it is
-# enough to keep TCC grants stable on this Mac and not enough for anyone else's.
-# Ships the self-signed Release build as a zip, skipping notarization entirely.
-
-# Recipients pay for that with one `xattr -dr com.apple.quarantine` — docs/INSTALL.md.
-[group('release')]
-release-zip: build-release
-    #!/usr/bin/env zsh
-    set -euo pipefail
-    mkdir -p release
-    rm -f release/utt.zip
-    # ditto, not zip: it preserves the bundle's symlinks and signature.
-    ditto -c -k --keepParent "{{ built_release }}" release/utt.zip
-    codesign --verify --strict "{{ built_release }}"
-    echo "→ release/utt.zip  $(du -h release/utt.zip | cut -f1)"
-    shasum -a 256 release/utt.zip
+# Everything below ships builds to other people. `just dmg` is the whole chain;
+# the recipes it depends on are listed separately because each one is worth
+# running alone when something in it fails.
 
 [group('release')]
 archive: generate
@@ -209,10 +195,15 @@ archive: generate
 export-app: archive
     #!/usr/bin/env zsh
     set -o pipefail
-    if [[ ! -f "{{ export_options }}" ]]; then
-        echo "error: {{ export_options }} missing — copy docs/ExportOptions.plist.example and fill in the team id" >&2
-        exit 1
-    fi
+    # Written here rather than committed: release/ is gitignored, and the only
+    # variable in it is the team id, which the identity above already pins.
+    mkdir -p "$(dirname "{{ export_options }}")"
+    rm -f "{{ export_options }}"
+    plutil -create xml1 "{{ export_options }}"
+    plutil -insert method -string developer-id "{{ export_options }}"
+    plutil -insert teamID -string {{ team }} "{{ export_options }}"
+    plutil -insert signingStyle -string manual "{{ export_options }}"
+    plutil -insert signingCertificate -string 'Developer ID Application' "{{ export_options }}"
     rm -rf "{{ export_dir }}"
     xcodebuild -exportArchive -archivePath "{{ archive_path }}" \
         -exportOptionsPlist "{{ export_options }}" -exportPath "{{ export_dir }}"
@@ -229,6 +220,28 @@ notarize: export-app
         --keychain-profile utt-notary --wait
     xcrun stapler staple "{{ export_dir }}/utt.app"
     xcrun stapler validate "{{ export_dir }}/utt.app"
+
+# The image is signed and notarized in its own right: Gatekeeper checks the
+# container before anything is copied out of it, so an unsigned .dmg around a
+# notarized app still warns on open.
+
+# Drag-to-Applications disk image — the artifact to publish.
+[group('release')]
+dmg: notarize
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    staging=$(mktemp -d)
+    trap 'rm -rf "$staging"' EXIT
+    # ditto, not cp: it keeps the bundle's signature and stapled ticket intact.
+    ditto "{{ export_dir }}/utt.app" "$staging/utt.app"
+    ln -s /Applications "$staging/Applications"
+    rm -f "{{ dmg_path }}"
+    hdiutil create -volname utt -srcfolder "$staging" -ov -format UDZO -quiet "{{ dmg_path }}"
+    codesign --force --sign {{ identity }} --timestamp "{{ dmg_path }}"
+    xcrun notarytool submit "{{ dmg_path }}" --keychain-profile utt-notary --wait
+    xcrun stapler staple "{{ dmg_path }}"
+    xcrun stapler validate "{{ dmg_path }}"
+    echo "→ {{ dmg_path }}  $(du -h "{{ dmg_path }}" | cut -f1)"
 
 # Writes the private key to the login keychain and prints the public one.
 

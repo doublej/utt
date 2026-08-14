@@ -40,9 +40,12 @@ The runtime path is: event tap → `KeyEventMonitorClient` (one serial
 These are load-bearing. Each one exists because breaking it produced a real bug.
 
 - **The signing identity is fixed.** `CODE_SIGN_IDENTITY` in `project.yml` is a
-  hardcoded SHA-1, not a name. TCC keys grants to the designated requirement, so
-  a changed certificate silently resets Accessibility, Input Monitoring and
-  Microphone. Ad-hoc signing (`-`) changes it on *every build*. `just dr` prints
+  hardcoded SHA-1, not a name — the Developer ID Application cert, in Debug and
+  Release alike. TCC keys grants to the designated requirement, so a changed
+  certificate silently resets Accessibility, Input Monitoring and Microphone.
+  Ad-hoc signing (`-`) changes it on *every build*. The Developer ID requirement
+  pins the team OU rather than a leaf hash, so renewing the cert keeps the grants
+  — that is the one thing the old self-signed cert could not do. `just dr` prints
   the current requirement; `just verify-identity` refuses to build without the
   right cert.
 - **One key event stream, one consumer.** A `Task` per key event can deliver
@@ -123,8 +126,13 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - `just loc-check` / `dir-check` — thresholds from `.quality.json` (300 warn /
   400 error lines, 6 files per directory)
 
-Release, none of which works before Developer ID enrolment:
-`just archive` → `just export-app` → `just notarize` → `just appcast`.
+Release: `just archive` → `just export-app` → `just notarize` → `just dmg` →
+`just appcast`. `just dmg` is the shippable artifact — a drag-to-Applications
+image, signed and notarized itself, because Gatekeeper checks the container
+before anything is copied out of it.
+`export-app` writes `release/ExportOptions.plist` itself; `notarize` needs the
+`utt-notary` keychain profile, stored once with `xcrun notarytool
+store-credentials` and an app-specific password.
 `just sparkle-keys` once, and **back the private key up** — losing it means
 installed copies can never be updated again.
 
@@ -133,8 +141,9 @@ installed copies can never be updated again.
 - `SUFeedURL` and `SUPublicEDKey` in `Info.plist` are empty. `UpdaterClient`
   refuses to start Sparkle without a feed (Sparkle aborts fatally otherwise), so
   the update affordances stay hidden until an appcast is hosted.
-- Signing is the self-signed "utt Dev" cert. Fine on this Mac, useless anywhere
-  else.
+- The disk image has no custom window background or icon layout — the volume
+  opens in plain icon view with `utt.app` and the `Applications` alias in it.
+  Positioning them takes Finder AppleScript; it has not been worth it.
 - Deferred by decision, not oversight: caret-tracking indicator, LLM staging
   panel, log viewer, setup wizard, OpenAI/LAN providers, history audio playback,
   left/right modifier sides.
