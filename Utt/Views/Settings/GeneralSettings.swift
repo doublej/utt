@@ -4,6 +4,7 @@ import UttCore
 
 struct GeneralSettings: View {
     let store: StoreOf<AppFeature>
+    @Binding var showingGuide: Bool
     @Shared(.uttSettings) private var settings
 
     var body: some View {
@@ -15,10 +16,13 @@ struct GeneralSettings: View {
                     action: { store.send(.grantTapped(permission)) }
                 )
             }
-            if store.needsRelaunch {
-                Button("Restart utt to apply") { store.send(.relaunchTapped) }
-                    .font(Typography.metadata)
+            HStack {
+                Button("Walk me through it") { showingGuide = true }
+                if store.needsRelaunch {
+                    Button("Restart utt to apply") { store.send(.relaunchTapped) }
+                }
             }
+            .font(Typography.metadata)
         }
 
         Card("Model") {

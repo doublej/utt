@@ -5,6 +5,7 @@ struct AppRootView: View {
     @Bindable var store: StoreOf<AppFeature>
     @State private var collapsed = false
     @State private var showingSettings = false
+    @State private var showingGuide = false
 
     /// The three shapes the window takes. Kept here rather than in feature state:
     /// nothing outside this view reacts to them, and a reducer that owns window
@@ -28,17 +29,23 @@ struct AppRootView: View {
         .animation(.smooth(duration: 0.25), value: collapsed)
         .animation(.smooth(duration: 0.25), value: showingSettings)
         .background(WindowConfigurator(collapsed: collapsed))
+        .sheet(isPresented: $showingGuide) { PermissionGuide(store: store) }
+        // A first launch is the one moment where nothing is granted and the user is
+        // watching, so the walkthrough opens itself rather than waiting to be found.
+        .onChange(of: store.isFirstRun) { _, isFirstRun in
+            if isFirstRun == true { showingGuide = true }
+        }
     }
 
     private var expanded: some View {
         VStack(spacing: Spacing.extraSmall) {
             HeaderBar(store: store, showingSettings: $showingSettings, collapsed: $collapsed)
             if let banner {
-                BannerRow(text: banner) { store.send(.grantTapped(store.missingPermissions[0])) }
+                BannerRow(text: banner, action: bannerAction)
             }
             RecorderModule(store: store)
             if showingSettings {
-                SettingsPanel(store: store)
+                SettingsPanel(store: store, showingGuide: $showingGuide)
             } else {
                 HistoryList(store: store)
             }
@@ -57,11 +64,19 @@ struct AppRootView: View {
         if case let .failed(message) = store.transcription.status { return message }
         return nil
     }
+
+    /// Only the permission banners get a button. A model that failed to load has no
+    /// one-click answer, and the old unconditional `missingPermissions[0]` was a
+    /// crash waiting for the first model failure with every permission granted.
+    private var bannerAction: (() -> Void)? {
+        guard store.needsRelaunch || !store.missingPermissions.isEmpty else { return nil }
+        return { showingGuide = true }
+    }
 }
 
 private struct BannerRow: View {
     let text: String
-    let action: () -> Void
+    let action: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Spacing.extraSmall) {
@@ -71,8 +86,10 @@ private struct BannerRow: View {
                 .font(Typography.metadata)
                 .foregroundStyle(Palette.textPrimary)
             Spacer()
-            Button("Fix", action: action)
-                .font(Typography.metadata)
+            if let action {
+                Button("Fix", action: action)
+                    .font(Typography.metadata)
+            }
         }
         .padding(.horizontal, Spacing.medium)
         .padding(.vertical, 6)

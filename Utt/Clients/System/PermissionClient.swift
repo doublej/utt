@@ -44,6 +44,22 @@ enum Permission: String, CaseIterable, Sendable {
         case .microphone: "so utt can hear you"
         }
     }
+
+    /// Where the pane sits once System Settings is open. The deep link puts the user
+    /// there, but a link that silently lands on the wrong pane leaves them with
+    /// nothing to look for.
+    var settingsPath: String {
+        switch self {
+        case .inputMonitoring: "Privacy & Security › Input Monitoring"
+        case .accessibility: "Privacy & Security › Accessibility"
+        case .microphone: "Privacy & Security › Microphone"
+        }
+    }
+
+    /// Whether the pane's list takes an app dropped onto it. Microphone is a
+    /// request-only pane — no `+` button and no drop target — so offering a drag
+    /// there would be offering a dead end.
+    var supportsDropTarget: Bool { self != .microphone }
 }
 
 /// macOS permission handling has two traps that shape this whole API:
@@ -107,7 +123,14 @@ extension PermissionClient: DependencyKey {
                 let url = URL(
                     string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")
                 guard let url else { return }
-                NSWorkspace.shared.open(url)
+                // Handing the URL to a System Settings that is not running yet loses
+                // the anchor: it opens on whatever pane it last showed. Launching it
+                // first and opening the URL once it is up lands on the right pane.
+                let app = URL(fileURLWithPath: "/System/Applications/System Settings.app")
+                NSWorkspace.shared.openApplication(at: app, configuration: .init()) { _, error in
+                    if let error { log.error("system settings: \(error.localizedDescription)") }
+                    Task { @MainActor in NSWorkspace.shared.open(url) }
+                }
             },
             needsRelaunch: { RelaunchDetector.shared.isStale() },
             relaunch: {

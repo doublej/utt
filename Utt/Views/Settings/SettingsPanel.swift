@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsPanel: View {
     let store: StoreOf<AppFeature>
+    @Binding var showingGuide: Bool
     @State private var tab: Tab = .recording
 
     enum Tab: String, CaseIterable, Identifiable {
@@ -55,7 +56,7 @@ struct SettingsPanel: View {
         switch tab {
         case .recording: RecordingSettings(store: store)
         case .text: TextSettings()
-        case .general: GeneralSettings(store: store)
+        case .general: GeneralSettings(store: store, showingGuide: $showingGuide)
         case .about: AboutSettings(store: store)
         }
     }
