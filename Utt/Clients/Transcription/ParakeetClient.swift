@@ -25,6 +25,9 @@ actor ParakeetClient {
     /// What `manager` was built from, so a model change is detectable. Without it a
     /// switch in Settings silently keeps transcribing on the old weights.
     private var loadedModel: String?
+    /// The load already in flight — see `WhisperClient.loading` for why an actor
+    /// alone does not make two overlapping loads safe.
+    private var loading: Task<Void, Error>?
 
     var isLoaded: Bool { manager != nil }
 
@@ -42,13 +45,54 @@ actor ParakeetClient {
         }
     }
 
+    /// Whether the weights are already in FluidAudio's cache. Its own check, not a
+    /// folder test: an interrupted download leaves the directory behind with half
+    /// the files in it, and `modelsExist` looks for every one this version needs.
+    ///
+    /// `static`, so it is not actor-isolated and the settings pane can ask about
+    /// every model in the catalog while drawing a row.
+    static func isDownloaded(_ model: String) -> Bool {
+        let version = version(for: model)
+        return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: version), version: version)
+    }
+
+    /// FluidAudio counts files, not bytes, and compiles once the download lands.
+    private static func phase(_ progress: DownloadProgress) -> ModelPreparation {
+        switch progress.phase {
+        case .listing: .downloading(fraction: 0)
+        case .downloading: .downloading(fraction: progress.fractionCompleted)
+        case .compiling: .loading
+        }
+    }
+
     /// Downloads if needed, then loads. The first load after install pays a one-time
     /// ~27 s ANE compile of the encoder *on top of* the download, so any "ready in N
-    /// seconds" estimate computed from bytes alone will be wrong.
-    func load(_ model: String) async throws {
+    /// seconds" estimate computed from bytes alone will be wrong — which is why the
+    /// two phases are reported separately rather than as one percentage.
+    func load(
+        _ model: String,
+        onProgress: @escaping @Sendable (ModelPreparation) -> Void = { _ in }
+    ) async throws {
+        let previous = loading
+        let task = Task {
+            _ = await previous?.result
+            try await loadNow(model, onProgress: onProgress)
+        }
+        loading = task
+        try await task.value
+    }
+
+    private func loadNow(
+        _ model: String,
+        onProgress: @escaping @Sendable (ModelPreparation) -> Void
+    ) async throws {
         guard loadedModel != model || manager == nil else { return }
         let started = Date()
-        let models = try await AsrModels.downloadAndLoad(version: Self.version(for: model))
+        let models = try await AsrModels.downloadAndLoad(version: Self.version(for: model)) { progress in
+            onProgress(Self.phase(progress))
+        }
+        // Nothing is downloaded from here on, whatever the last progress event said.
+        onProgress(.loading)
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
         self.manager = manager
