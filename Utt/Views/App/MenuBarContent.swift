@@ -74,7 +74,8 @@ struct MenuBarContent: View {
         switch store.transcription.status {
         case .idle:
             switch store.model {
-            case .idle, .preparing: return "Loading model…"
+            case let .downloading(fraction): return "Downloading model \(Int(fraction * 100))%"
+            case .idle, .loading: return "Loading model…"
             case .ready: return "Ready"
             case let .failed(message): return message
             }

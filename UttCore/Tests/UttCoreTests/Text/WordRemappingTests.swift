@@ -110,4 +110,34 @@ struct WordRemappingTests {
         let result = WordRemappingApplier.apply("Hello comma new line world period", remappings: remappings)
         #expect(result == "Hello , \n world .")
     }
+
+    // MARK: - matches
+
+    // The bench's hit dot per row. Same pattern as `apply`, so a rule that lights
+    // up is a rule that rewrites.
+
+    @Test
+    func matchesReportsAHit() {
+        let rule = WordRemapping(match: "comma", replacement: ",")
+        #expect(WordRemappingApplier.matches(rule, in: "Hello comma world"))
+    }
+
+    @Test
+    func matchesRespectsWordBoundaries() {
+        let rule = WordRemapping(match: "silly", replacement: "daft")
+        #expect(WordRemappingApplier.matches(rule, in: "such silliness") == false)
+        #expect(WordRemappingApplier.matches(rule, in: "such a silly idea"))
+    }
+
+    @Test
+    func matchesIgnoresCaseAndSurroundingSpace() {
+        let rule = WordRemapping(match: "  COMMA ", replacement: ",")
+        #expect(WordRemappingApplier.matches(rule, in: "hello comma"))
+    }
+
+    @Test
+    func anEmptyMatchNeverFires() {
+        let rule = WordRemapping(match: "   ", replacement: ",")
+        #expect(WordRemappingApplier.matches(rule, in: "anything at all") == false)
+    }
 }

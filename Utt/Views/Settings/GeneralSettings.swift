@@ -25,31 +25,7 @@ struct GeneralSettings: View {
             .font(Typography.metadata)
         }
 
-        Card("Model") {
-            Picker("Engine", selection: engineBinding) {
-                ForEach(TranscriptionEngine.allCases, id: \.self) { engine in
-                    Text(engine.displayName).tag(engine)
-                }
-            }
-            Picker("Model", selection: modelBinding) {
-                ForEach(ModelCatalog.models(for: settings.transcriptionEngine)) { model in
-                    // Names alone don't say what separates v2 from v3; the menu is
-                    // where the choice is made, so the languages ride along.
-                    Text("\(model.name) — \(model.languages)").tag(model.id)
-                }
-            }
-            HStack {
-                Text(selectedModel.summary)
-                    .font(Typography.metadata)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                ModelStatusLabel(state: store.model)
-            }
-            if case .failed = store.model {
-                Button("Try again") { store.send(.prepareModelTapped) }
-                    .font(Typography.metadata)
-            }
-        }
+        ModelSettings(store: store)
 
         Card("Sounds") {
             Toggle("Play a sound on start and stop", isOn: bind(\.soundEffectsEnabled))
@@ -69,28 +45,6 @@ struct GeneralSettings: View {
             }
             .font(Typography.metadata)
         }
-    }
-
-    /// Resolved, not read raw — a stored id from an older build or the other engine
-    /// has to show as that engine's recommendation, which is what will actually load.
-    private var selectedModel: TranscriptionModel {
-        ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine)
-    }
-
-    /// Both go through the reducer rather than writing settings directly: changing
-    /// either one has to drop the loaded weights and warm the new ones.
-    private var engineBinding: Binding<TranscriptionEngine> {
-        Binding(
-            get: { settings.transcriptionEngine },
-            set: { store.send(.settings(.engineChanged($0))) }
-        )
-    }
-
-    private var modelBinding: Binding<String> {
-        Binding(
-            get: { selectedModel.id },
-            set: { store.send(.settings(.modelChanged($0))) }
-        )
     }
 
     private func bind<Value>(
@@ -122,32 +76,6 @@ private struct PermissionRow: View {
             if !granted {
                 Button("Allow", action: action).font(Typography.metadata)
             }
-        }
-    }
-}
-
-private struct ModelStatusLabel: View {
-    let state: AppFeature.ModelState
-
-    var body: some View {
-        switch state {
-        case .idle, .preparing:
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                // No percentage: the loader reports nothing until it returns, so
-                // elapsed time is the only true thing we can show.
-                if case let .preparing(since) = state {
-                    ElapsedTimer(startedAt: since, font: Typography.monoSmall, tint: Palette.textSecondary)
-                }
-            }
-        case .ready:
-            Label("Ready", systemImage: "checkmark.circle.fill")
-                .font(Typography.metadata)
-                .foregroundStyle(Palette.success)
-        case let .failed(message):
-            Text(message)
-                .font(Typography.metadata)
-                .foregroundStyle(Palette.warning)
         }
     }
 }

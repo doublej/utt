@@ -10,10 +10,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @Dependency(\.recording) private var recording
     @Shared(.uttSettings) private var settings
 
-    /// Held for the app's lifetime — the panel goes away with it.
+    /// Held for the app's lifetime — the panels go away with it.
     private var overlay: RecordingOverlay?
+    private var hud: TranscriptHUD?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // UttTests loads the app as its host. Booting the real store there resolves
+        // every dependency to its unimplemented test value — the first one reached,
+        // the permission poll's clock, aborts the whole process.
+        guard NSClassFromString("XCTestCase") == nil else { return }
         // A runtime decision, not a bundle one. Info.plist deliberately omits
         // LSUIElement — see the note there — so utt starts as a regular app and
         // drops to accessory here when the user has hidden the Dock icon.
@@ -22,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Before the quiet-launch sweep, which only closes windows that can become
         // main — a borderless panel cannot, so the overlay survives it.
         overlay = RecordingOverlay(store: UttApp.store)
+        hud = TranscriptHUD(store: UttApp.store)
         presentWindowUnlessLaunchedQuietly(notification)
 
         // Bootstrap belongs to the app, not to a view: on a login-item launch the

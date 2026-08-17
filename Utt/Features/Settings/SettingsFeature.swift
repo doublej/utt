@@ -32,7 +32,6 @@ struct SettingsFeature {
     private enum CancelID { case deviceWatch }
 
     @Dependency(\.audioDevices) var audioDevices
-    @Dependency(\.transcription) var transcription
     @Dependency(\.continuousClock) var clock
     @Shared(.uttSettings) var settings
 
@@ -87,6 +86,9 @@ private extension SettingsFeature {
         return .none
     }
 
+    /// Storing the choice is all that happens here. Unloading the old weights and
+    /// warming the new ones is `AppFeature`'s, because it owns the readiness the UI
+    /// reads — see the `.settings(.engineChanged)` case there.
     func change(to engine: TranscriptionEngine) -> Effect<Action> {
         guard engine != settings.transcriptionEngine else { return .none }
         $settings.withLock { $0.transcriptionEngine = engine }
@@ -95,24 +97,12 @@ private extension SettingsFeature {
         // this one's recommendation.
         let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
         $settings.withLock { $0.selectedModel = model }
-        // Drop the old engine's weights before loading the new ones — both resident
-        // at once is roughly a gigabyte for no benefit.
-        return .run { _ in
-            await transcription.unload()
-            try? await transcription.prewarm(engine, model)
-        }
+        return .none
     }
 
-    /// Switching model is switching weights: the old ones have to go, and the new
-    /// ones may be a 600 MB download, so this warms them rather than waiting for the
-    /// next hotkey press to stall on it.
     func change(toModel model: String) -> Effect<Action> {
         guard model != settings.selectedModel else { return .none }
         $settings.withLock { $0.selectedModel = model }
-        let engine = settings.transcriptionEngine
-        return .run { _ in
-            await transcription.unload()
-            try? await transcription.prewarm(engine, model)
-        }
+        return .none
     }
 }

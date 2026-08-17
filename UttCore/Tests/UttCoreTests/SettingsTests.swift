@@ -47,7 +47,7 @@ struct SettingsTests {
         // Everything absent stays at its default
         #expect(decoded.showDockIcon == UttSettings().showDockIcon)
         #expect(decoded.selectedModel == UttSettings().selectedModel)
-        #expect(decoded.wordRemovals == UttSettings().wordRemovals)
+        #expect(decoded.wordRemappings == UttSettings().wordRemappings)
     }
 
     @Test
@@ -58,8 +58,10 @@ struct SettingsTests {
         settings.selectedMicrophoneID = "builtin:mic"
         settings.maxHistoryEntries = 10
         settings.minimumKeyTime = 0.42
-        settings.wordRemovals = [WordRemoval(pattern: "uh+")]
-        settings.wordRemappings = [WordRemapping(match: "comma", replacement: ",")]
+        settings.wordRemappings = [
+            WordRemapping(match: "comma", replacement: ","),
+            WordRemapping(match: "um", replacement: "")
+        ]
         settings.lowercaseTranscripts = true
         settings.removePunctuation = true
 
@@ -74,9 +76,20 @@ struct SettingsTests {
     }
 
     @Test
-    func fillerWordRemovalShipsDisabled() {
-        #expect(UttSettings().wordRemovalsEnabled == false)
-        #expect(UttSettings().wordRemovals.map(\.pattern) == ["uh+", "um+", "er+", "hm+"])
+    func noRulesShipByDefault() {
+        #expect(UttSettings().wordRemappings.isEmpty)
+    }
+
+    /// Keys a pre-0.3 file wrote for its own word-removal list are not in
+    /// `CodingKeys`; they decode to nothing and the next save drops them.
+    @Test
+    func aLegacyWordRemovalListIsIgnored() throws {
+        let payload = #"""
+        {"wordRemovalsEnabled":true,
+         "wordRemovals":[{"id":"\#(UUID().uuidString)","isEnabled":true,"pattern":"uh+"}]}
+        """#
+
+        #expect(try decodeSettings(payload).wordRemappings.isEmpty)
     }
 
     // MARK: - Double-Tap Normalization
@@ -109,6 +122,32 @@ struct SettingsTests {
 
         #expect(decoded.useDoubleTapOnly == false)
         #expect(decoded.doubleTapLockEnabled == false)
+    }
+
+    // MARK: - Delivery Normalization
+
+    @Test
+    func settingsFromAnOlderBuildDeliverImmediately() throws {
+        let decoded = try decodeSettings(#"{"useClipboardPaste":true}"#)
+
+        #expect(decoded.deliveryMode == .immediate)
+        #expect(decoded.showTranscriptHUD)
+        #expect(decoded.hudDismissAfter == 6)
+    }
+
+    // Review gates a paste, so it means nothing when nothing is ever pasted.
+    @Test
+    func decodeNormalizesReviewAwayWhenPastingIsOff() throws {
+        let decoded = try decodeSettings(#"{"deliveryMode":"review","useClipboardPaste":false}"#)
+
+        #expect(decoded.deliveryMode == .immediate)
+    }
+
+    @Test
+    func decodeKeepsReviewWhenPastingIsOn() throws {
+        let decoded = try decodeSettings(#"{"deliveryMode":"review"}"#)
+
+        #expect(decoded.deliveryMode == .review)
     }
 }
 

@@ -4,7 +4,10 @@ import SwiftUI
 struct SettingsPanel: View {
     let store: StoreOf<AppFeature>
     @Binding var showingGuide: Bool
-    @State private var tab: Tab = .recording
+    /// Shared, so the transcript panel can send someone straight to the Text tab.
+    @Bindable private var route = SettingsRoute.shared
+
+    private var tab: Tab { route.tab }
 
     enum Tab: String, CaseIterable, Identifiable {
         case recording, text, general, about
@@ -42,7 +45,7 @@ struct SettingsPanel: View {
     }
 
     private var picker: some View {
-        Picker("Section", selection: $tab) {
+        Picker("Section", selection: $route.tab) {
             ForEach(Tab.allCases) { tab in
                 Label(tab.title, systemImage: tab.systemImage).tag(tab)
             }

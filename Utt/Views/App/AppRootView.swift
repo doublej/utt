@@ -4,8 +4,12 @@ import SwiftUI
 struct AppRootView: View {
     @Bindable var store: StoreOf<AppFeature>
     @State private var collapsed = false
-    @State private var showingSettings = false
     @State private var showingGuide = false
+    /// Shared rather than local: the transcript panel's "Add rule" opens this
+    /// window on the Text tab from outside the window entirely.
+    @Bindable private var route = SettingsRoute.shared
+
+    private var showingSettings: Bool { route.isOpen }
 
     /// The three shapes the window takes. Kept here rather than in feature state:
     /// nothing outside this view reacts to them, and a reducer that owns window
@@ -19,7 +23,7 @@ struct AppRootView: View {
     var body: some View {
         Group {
             if collapsed {
-                CollapsedBar(store: store, showingSettings: $showingSettings, collapsed: $collapsed)
+                CollapsedBar(store: store, showingSettings: $route.isOpen, collapsed: $collapsed)
             } else {
                 expanded
             }
@@ -39,7 +43,7 @@ struct AppRootView: View {
 
     private var expanded: some View {
         VStack(spacing: Spacing.extraSmall) {
-            HeaderBar(store: store, showingSettings: $showingSettings, collapsed: $collapsed)
+            HeaderBar(store: store, showingSettings: $route.isOpen, collapsed: $collapsed)
             if let banner {
                 BannerRow(text: banner, action: bannerAction)
             }

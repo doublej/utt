@@ -27,25 +27,19 @@ struct AppFeature {
         /// Nil until the first-run check has run, so the UI does not flash a
         /// welcome screen at someone who has been using utt for a month.
         var isFirstRun: Bool?
-    }
-
-    /// There is no progress callback to hang a percentage on: FluidAudio's
-    /// `downloadAndLoad` reports nothing until it returns, and the first load also
-    /// pays a one-time ~27 s ANE compile. So this is deliberately indeterminate —
-    /// a fake progress bar that stalls at 69% is worse than an honest spinner.
-    enum ModelState: Equatable {
-        case idle
-        case preparing(since: Date)
-        case ready
-        case failed(String)
-
-        var isReady: Bool { self == .ready }
+        /// Catalog ids whose weights are on disk. Recomputed rather than observed:
+        /// a model only appears or disappears because this reducer downloaded it.
+        var downloadedModels: Set<String> = []
+        /// Which engine and model the readout above describes, so re-picking what is
+        /// already loaded does not unload it and pay the compile a second time.
+        var preparedKey = ""
     }
 
     enum Action {
         case task
         case permissionsChecked([Permission], needsRelaunch: Bool)
         case keyEventReceived(KeyEvent)
+        case modelPreparation(ModelPreparation)
         case modelPrepared(Result<Bool, Never>)
         case prepareModelTapped
         case grantTapped(Permission)
@@ -61,7 +55,7 @@ struct AppFeature {
         case history(HistoryFeature.Action)
     }
 
-    private enum CancelID { case keyEvents, permissionPoll, modelPrepare }
+    enum CancelID { case keyEvents, permissionPoll, modelPrepare }
 
     @Dependency(\.keyEventMonitor) var keyEventMonitor
     @Dependency(\.recording) var recording
@@ -75,15 +69,6 @@ struct AppFeature {
     @Shared(.uttSettings) var settings
     @Shared(.uttHistory) var transcripts
 
-    /// Lives here rather than in State because it is not `Equatable` state the UI
-    /// should diff on — it is the accumulated position of a state machine.
-    /// Fixed, not user-settable: it is a convenience, and every chord offered to
-    /// the recorder is one more chance to shadow something the user already relies on.
-    static let pasteLastHotKey = HotKey(key: .v, modifiers: [.option, .shift])
-
-    private static let processor = LockIsolated(HotKeyProcessor(hotkey: .init(key: nil, modifiers: [])))
-    private static let recorder = LockIsolated(HotKeyRecorder())
-
     var body: some ReducerOf<Self> {
         Scope(state: \.transcription, action: \.transcription) { TranscriptionFeature() }
         Scope(state: \.settings, action: \.settings) { SettingsFeature() }
@@ -93,32 +78,57 @@ struct AppFeature {
             case .task: return start(&state)
             case let .permissionsChecked(missing, relaunch): return permissionsChecked(&state, missing, relaunch)
             case let .keyEventReceived(event): return handle(event, &state)
+            case let .modelPreparation(step):
+                advance(&state, to: step)
+                return .none
             case let .modelPrepared(.success(loaded)):
+                let key = state.preparedKey
+                log.notice("\(key, privacy: .public) \(loaded ? "ready" : "failed", privacy: .public)")
                 state.model = loaded ? .ready : .failed("Could not load the transcription model")
+                refreshDownloaded(&state)
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
             case let .grantTapped(permission): return grant(permission)
             case .relaunchTapped: return .run { _ in permissions.relaunch() }
-            case .pasteLastTapped: return withLastTranscript { _ = await pasteboard.paste($0) }
-            case .copyLastTapped: return withLastTranscript { await pasteboard.copy($0) }
+            case .pasteLastTapped:
+                // ⌥⇧V is an explicit "put it back", so it pastes whatever the
+                // delivery mode says — and honours the same clipboard preference.
+                return withLastTranscript(state) { [settings] in
+                    _ = await pasteboard.paste($0, settings.copyToClipboard)
+                }
+            case .copyLastTapped: return withLastTranscript(state) { await pasteboard.copy($0) }
             case .checkForUpdatesTapped: return .run { _ in await updater.checkForUpdates() }
             case let .firstRunChecked(isFirst): state.isFirstRun = isFirst; return .none
 
             // Child-to-parent is plain pattern matching on the child action —
-            // no delegate-action ceremony.
-            case let .transcription(.pasteFinished(pasted)): return recordHistory(&state, pasted: pasted)
+            // no delegate-action ceremony. Every transcription action lands here,
+            // which is what makes it the single point where key suppression is
+            // rederived: review arms and disarms inside that child.
+            case let .transcription(child):
+                applySuppression(state)
+                guard case let .pasteFinished(pasted) = child else { return .none }
+                return recordHistory(&state, pasted: pasted)
 
             // Every route by which the hotkey or its timings can change, since the
             // processor holding them is not in state and cannot observe them.
-            case .settings(.binding), .settings(.hotkeyCaptured),
-                 .settings(.resetToDefaultsTapped):
-                return .merge(syncProcessor(), applySystemPreferences())
+            case .settings(.binding), .settings(.hotkeyCaptured):
+                return .merge(syncProcessor(state), applySystemPreferences())
+
+            // Switching engine or model is switching weights, and the settings
+            // reducer has already stored the new choice by the time this runs.
+            // Preparing here rather than there is what keeps the status readout
+            // honest — done in the child, the UI would still say "Ready" about a
+            // model that is no longer loaded.
+            case .settings(.engineChanged), .settings(.modelChanged):
+                return prepareModel(&state)
+
+            case .settings(.resetToDefaultsTapped):
+                return .merge(syncProcessor(state), applySystemPreferences(), prepareModel(&state))
 
             case .settings(.hotkeyRecordingToggled):
-                Self.recorder.setValue(HotKeyRecorder())
-                return .none
+                return resetRecorder()
 
-            case .transcription, .settings, .history: return .none
+            case .settings, .history: return .none
             }
         }
     }
@@ -126,7 +136,7 @@ struct AppFeature {
 
 private extension AppFeature {
     func start(_ state: inout State) -> Effect<Action> {
-        syncProcessorNow()
+        syncProcessorNow(state)
         state.updatesConfigured = updater.isConfigured()
 
         return .merge(
@@ -164,17 +174,6 @@ private extension AppFeature {
             } ?? false
             await send(.firstRunChecked(!settingsExist))
         }
-    }
-
-    func prepareModel(_ state: inout State) -> Effect<Action> {
-        state.model = .preparing(since: now)
-        let engine = settings.transcriptionEngine
-        let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
-        return .run { send in
-            try? await transcription.prewarm(engine, model)
-            await send(.modelPrepared(.success(await transcription.isReady(engine, model))))
-        }
-        .cancellable(id: CancelID.modelPrepare, cancelInFlight: true)
     }
 
     /// A permission has to read as missing on **two consecutive polls** before the
@@ -215,32 +214,6 @@ private extension AppFeature {
         }
     }
 
-    /// While the settings panel is capturing a new chord, events go to the recorder
-    /// instead of the processor — otherwise choosing a hotkey would also fire it.
-    func handle(_ event: KeyEvent, _ state: inout State) -> Effect<Action> {
-        guard !state.settings.isRecordingHotkey else {
-            guard let captured = Self.recorder.withValue({ $0.process(event) }) else { return .none }
-            Self.recorder.setValue(HotKeyRecorder())
-            return .send(.settings(.hotkeyCaptured(captured)))
-        }
-        if matchesPasteLast(event) { return .send(.pasteLastTapped) }
-        let output = Self.processor.withValue { $0.process(keyEvent: event) }
-        guard let output else { return .none }
-        return .send(.transcription(.hotKey(output)))
-    }
-
-    func matchesPasteLast(_ event: KeyEvent) -> Bool {
-        event.key == Self.pasteLastHotKey.key
-            && event.modifiers.erasingSides() == Self.pasteLastHotKey.modifiers
-    }
-
-    /// Falls back to history, so the shortcut still works in a session that has not
-    /// recorded anything yet — which is every session right after a relaunch.
-    func withLastTranscript(_ action: @escaping @Sendable (String) async -> Void) -> Effect<Action> {
-        guard let text = transcripts.history.first?.text else { return .none }
-        return .run { _ in await action(text) }
-    }
-
     func recordHistory(_ state: inout State, pasted: Bool) -> Effect<Action> {
         guard let text = state.transcription.lastTranscript else { return .none }
         let duration = state.transcription.lastDuration
@@ -265,19 +238,4 @@ private extension AppFeature {
         }
     }
 
-    /// The processor is not in state, so a settings edit has to be pushed into it.
-    func syncProcessor() -> Effect<Action> {
-        syncProcessorNow()
-        return .none
-    }
-
-    func syncProcessorNow() {
-        keyEventMonitor.setSuppressed([settings.hotkey, Self.pasteLastHotKey])
-        Self.processor.withValue { processor in
-            processor.hotkey = settings.hotkey
-            processor.minimumKeyTime = settings.minimumKeyTime
-            processor.doubleTapLockEnabled = settings.doubleTapLockEnabled
-            processor.useDoubleTapOnly = settings.useDoubleTapOnly
-        }
-    }
 }

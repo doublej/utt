@@ -18,7 +18,8 @@ extension RecordingClient {
 extension TranscriptionClient {
     static let quiet = TranscriptionClient(
         transcribe: { _, _, _ in "" },
-        prewarm: { _, _ in },
+        prepare: { _, _ in .finished },
+        isDownloaded: { _, _ in true },
         isReady: { _, _ in true },
         unload: {}
     )
@@ -26,8 +27,9 @@ extension TranscriptionClient {
 
 extension PasteboardClient {
     static let quiet = PasteboardClient(
-        paste: { _ in true },
+        paste: { _, _ in true },
         copy: { _ in },
+        undo: {},
         frontmostApp: { nil }
     )
 }

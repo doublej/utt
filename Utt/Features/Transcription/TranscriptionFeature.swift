@@ -24,6 +24,17 @@ struct TranscriptionFeature {
         /// How long the clip behind `lastTranscript` ran, for the history entry.
         var lastDuration: TimeInterval = 0
 
+        /// The transcript waiting on the user in `.review` mode. Non-nil is what
+        /// arms Return and Escape — see `AppFeature.applySuppression`.
+        var pendingReview: String?
+        /// What the delivery is aimed at, captured when recording stops rather than
+        /// when the paste happens: by then the panel is on screen and the user may
+        /// have clicked somewhere else entirely.
+        var deliveryTarget: AppIdentity?
+        /// Set when a transcript actually reached an app. Drives the panel's
+        /// post-delivery card, and its dismiss timer.
+        var lastDeliveredAt: Date?
+
         var isRecording: Bool { status == .recording }
     }
 
@@ -44,11 +55,20 @@ struct TranscriptionFeature {
         case transcriptReady(Result<String, Error>)
         case pasteFinished(Bool)
         case meterTicked(Float)
+        case deliveryTargetCaptured(AppIdentity?)
+        /// ⏎ on the review card.
+        case reviewAccepted
+        /// ⎋ on the review card.
+        case reviewDiscarded
+        case undoLastPaste
+        case hudDismissed
+        case hudTimerExpired
     }
 
-    /// Cancelling this on a new `.startRecording` is what stops a pending discard
-    /// from tearing down a recording that has already begun.
-    private enum CancelID { case pipeline, meter }
+    /// Cancelling `pipeline` on a new `.startRecording` is what stops a pending
+    /// discard from tearing down a recording that has already begun. Not private:
+    /// the review half of this reducer lives in its own file.
+    enum CancelID { case pipeline, meter, hud }
 
     @Dependency(\.recording) var recording
     @Dependency(\.transcription) var transcription
@@ -70,6 +90,11 @@ struct TranscriptionFeature {
             case let .transcriptReady(result): return transcribed(&state, result)
             case let .pasteFinished(pasted): return didPaste(&state, pasted)
             case let .meterTicked(level): state.meterLevel = level; return .none
+            case let .deliveryTargetCaptured(app): state.deliveryTarget = app; return .none
+            case .reviewAccepted: return acceptReview(&state)
+            case .reviewDiscarded: return discardReview(&state)
+            case .undoLastPaste: return undoLastPaste(&state)
+            case .hudDismissed, .hudTimerExpired: return dismissHUD(&state)
             }
         }
     }
@@ -92,6 +117,9 @@ private extension TranscriptionFeature {
         state.status = .recording
         state.recordingStartedAt = now
         state.quietWarning = false
+        // A transcript still waiting on the user is over the moment they start
+        // dictating the next one — otherwise ⏎ would paste the old one mid-sentence.
+        endReview(&state)
 
         return .merge(
             play(.start),
@@ -145,6 +173,7 @@ private extension TranscriptionFeature {
             .cancel(id: CancelID.meter),
             play(.stop),
             releaseSystemHolds(),
+            .run { send in await send(.deliveryTargetCaptured(pasteboard.frontmostApp())) },
             .run { send in await send(.recordingFinished(recording.stop())) }
         )
     }
@@ -182,34 +211,4 @@ private extension TranscriptionFeature {
         .cancellable(id: CancelID.pipeline, cancelInFlight: true)
     }
 
-    func transcribed(_ state: inout State, _ result: Result<String, Error>) -> Effect<Action> {
-        state.recordingStartedAt = nil
-        switch result {
-        case let .success(raw):
-            let text = settings.applyTextTransforms(to: raw)
-            guard !text.isEmpty else {
-                // Empty is what a too-quiet mic produces — Parakeet returns "" rather
-                // than erroring — so say that instead of silently doing nothing.
-                state.status = state.quietWarning
-                    ? .failed("Nothing heard — your input level looks very low")
-                    : .idle
-                return .none
-            }
-            state.lastTranscript = text
-            state.status = .idle
-            return .run { send in await send(.pasteFinished(pasteboard.paste(text))) }
-
-        case let .failure(error):
-            log.error("transcription failed: \(error.localizedDescription)")
-            state.status = .failed(error.localizedDescription)
-            return .none
-        }
-    }
-
-    func didPaste(_ state: inout State, _ pasted: Bool) -> Effect<Action> {
-        if !pasted {
-            state.status = .failed("Couldn't paste — the text is on your clipboard")
-        }
-        return .none
-    }
 }

@@ -11,15 +11,6 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// `key == nil` means modifier-only: press-and-hold, no character key.
     public static let defaultHotkey = HotKey(key: nil, modifiers: [.control, .fn])
 
-    /// Filler sounds worth deleting, as regex fragments. Shipped but disabled:
-    /// silently deleting words from a transcript is alarming when unasked for.
-    public static let defaultWordRemovals: [WordRemoval] = [
-        .init(pattern: "uh+"),
-        .init(pattern: "um+"),
-        .init(pattern: "er+"),
-        .init(pattern: "hm+")
-    ]
-
     // MARK: - Recording
 
     /// Push-to-talk combination.
@@ -83,16 +74,25 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// what was there before.
     public var copyToClipboard: Bool = false
 
+    /// Paste straight away, or hold the transcript until the user confirms.
+    /// `.immediate` is the default: review is a deliberate slow-down, and an app
+    /// that asks before every paste is an app that gets uninstalled by lunchtime.
+    public var deliveryMode: DeliveryMode = .immediate
+
+    /// Show the floating transcript panel. Forced on in `.review` mode — a review
+    /// with no panel is a transcript that silently never arrives.
+    public var showTranscriptHUD: Bool = true
+
+    /// Seconds the post-delivery card stays on screen. `0` keeps it up until it is
+    /// dismissed by hand.
+    public var hudDismissAfter: Double = 6
+
     // MARK: - Text pipeline
 
-    /// Master switch for `wordRemovals`. Off by default — see `defaultWordRemovals`.
-    public var wordRemovalsEnabled: Bool = false
-
-    /// Filler patterns deleted from the transcript when `wordRemovalsEnabled`.
-    public var wordRemovals: [WordRemoval] = UttSettings.defaultWordRemovals
-
-    /// Literal find-and-replace rules, applied before the formatting toggles.
-    /// Empty by default: these are personal vocabulary, nobody else's guess.
+    /// Literal find-and-replace rules, applied in order before the formatting
+    /// toggles. A rule with an empty replacement deletes its match. Empty by
+    /// default: rules are personal vocabulary, nobody else's guess, and
+    /// `RulePresets` seeds them on request.
     public var wordRemappings: [WordRemapping] = []
 
     /// Lowercase the whole transcript.
@@ -139,6 +139,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         try decodeTextPipeline(from: container)
         try decodeApp(from: container)
         normalizeDoubleTapSettings()
+        normalizeDelivery()
     }
 
     /// The on-disk key names. Spelled out rather than synthesised so renaming a
@@ -157,8 +158,9 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case selectedModel
         case useClipboardPaste
         case copyToClipboard
-        case wordRemovalsEnabled
-        case wordRemovals
+        case deliveryMode
+        case showTranscriptHUD
+        case hudDismissAfter
         case wordRemappings
         case lowercaseTranscripts
         case removePunctuation
@@ -189,11 +191,12 @@ public struct UttSettings: Codable, Equatable, Sendable {
         selectedModel = try container.decodeIfPresent(String.self, forKey: .selectedModel) ?? selectedModel
         useClipboardPaste = try container.decodeIfPresent(Bool.self, forKey: .useClipboardPaste) ?? useClipboardPaste
         copyToClipboard = try container.decodeIfPresent(Bool.self, forKey: .copyToClipboard) ?? copyToClipboard
+        deliveryMode = try container.decodeIfPresent(DeliveryMode.self, forKey: .deliveryMode) ?? deliveryMode
+        showTranscriptHUD = try container.decodeIfPresent(Bool.self, forKey: .showTranscriptHUD) ?? showTranscriptHUD
+        hudDismissAfter = try container.decodeIfPresent(Double.self, forKey: .hudDismissAfter) ?? hudDismissAfter
     }
 
     private mutating func decodeTextPipeline(from container: KeyedDecodingContainer<CodingKeys>) throws {
-        wordRemovalsEnabled = try container.decodeIfPresent(Bool.self, forKey: .wordRemovalsEnabled) ?? wordRemovalsEnabled
-        wordRemovals = try container.decodeIfPresent([WordRemoval].self, forKey: .wordRemovals) ?? wordRemovals
         wordRemappings = try container.decodeIfPresent([WordRemapping].self, forKey: .wordRemappings) ?? wordRemappings
         lowercaseTranscripts = try container.decodeIfPresent(Bool.self, forKey: .lowercaseTranscripts) ?? lowercaseTranscripts
         removePunctuation = try container.decodeIfPresent(Bool.self, forKey: .removePunctuation) ?? removePunctuation
@@ -213,6 +216,15 @@ public struct UttSettings: Codable, Equatable, Sendable {
     private mutating func normalizeDoubleTapSettings() {
         if !doubleTapLockEnabled {
             useDoubleTapOnly = false
+        }
+    }
+
+    /// Reviewing a transcript is gating a paste, so it means nothing when nothing
+    /// is ever pasted — and a review panel whose ⏎ does not deliver is a trap.
+    /// Enforced on decode; the settings UI disables the picker for the same reason.
+    private mutating func normalizeDelivery() {
+        if !useClipboardPaste {
+            deliveryMode = .immediate
         }
     }
 }

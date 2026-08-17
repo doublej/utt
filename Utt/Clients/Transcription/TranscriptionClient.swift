@@ -6,6 +6,15 @@ import os
 
 private let log = Logger(subsystem: "dev.jurrejan.utt", category: "transcription")
 
+/// What getting a model ready looks like from the outside. Two phases, because
+/// they fail differently and take differently long: the download is bytes over
+/// the network and knows its own fraction; the CoreML compile and load that
+/// follows is a one-time ~27 s of ANE work that reports nothing at all.
+enum ModelPreparation: Equatable, Sendable {
+    case downloading(fraction: Double)
+    case loading
+}
+
 /// Dispatches to whichever engine the user selected. Parakeet is the default and
 /// the only one that needs to be fast; WhisperKit is there for languages and clips
 /// Parakeet handles poorly.
@@ -17,8 +26,17 @@ struct TranscriptionClient: Sendable {
     var transcribe: @Sendable (
         _ url: URL, _ engine: TranscriptionEngine, _ model: String
     ) async throws -> String
-    /// Download + load, so the first hotkey press is not a 26-second stall.
-    var prewarm: @Sendable (_ engine: TranscriptionEngine, _ model: String) async throws -> Void
+    /// Download + load, so the first hotkey press is not a 26-second stall. The
+    /// stream reports phases and finishes when the model is loaded — or when it
+    /// gave up, which `isReady` is there to tell apart.
+    var prepare: @Sendable (
+        _ engine: TranscriptionEngine, _ model: String
+    ) -> AsyncStream<ModelPreparation> = { _, _ in .finished }
+    /// Already on disk, answered without touching the network. Synchronous because
+    /// the picker asks it of every model it draws.
+    var isDownloaded: @Sendable (
+        _ engine: TranscriptionEngine, _ model: String
+    ) -> Bool = { _, _ in false }
     var isReady: @Sendable (
         _ engine: TranscriptionEngine, _ model: String
     ) async -> Bool = { _, _ in false }
@@ -44,10 +62,31 @@ extension TranscriptionClient: DependencyKey {
                     return try await whisper.transcribe(url, model: model)
                 }
             },
-            prewarm: { engine, model in
+            // The engines report progress through a callback on an unspecified
+            // queue; a continuation is the one bridge to the store that does not
+            // need that queue to be the main one.
+            prepare: { engine, model in
+                AsyncStream { continuation in
+                    let task = Task {
+                        do {
+                            switch engine {
+                            case .parakeet:
+                                try await parakeet.load(model) { continuation.yield($0) }
+                            case .whisper:
+                                try await whisper.load(model) { continuation.yield($0) }
+                            }
+                        } catch {
+                            log.error("\(model, privacy: .public): \(error.localizedDescription)")
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            isDownloaded: { engine, model in
                 switch engine {
-                case .parakeet: try await parakeet.load(model)
-                case .whisper: try await whisper.load(model)
+                case .parakeet: ParakeetClient.isDownloaded(model)
+                case .whisper: WhisperClient.isDownloaded(model)
                 }
             },
             isReady: { engine, model in

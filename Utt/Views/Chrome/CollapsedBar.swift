@@ -98,7 +98,8 @@ struct CollapsedBar: View {
             subtitleText("Needs \(first.title)")
         } else {
             switch store.model {
-            case .idle, .preparing: subtitleText("Loading model…")
+            case let .downloading(fraction): subtitleText("Downloading model \(Int(fraction * 100))%")
+            case .idle, .loading: subtitleText("Loading model…")
             case .failed: subtitleText("Model unavailable")
             case .ready: EmptyView()
             }
