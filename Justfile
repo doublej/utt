@@ -10,7 +10,18 @@ built_release := ".build/Build/Products/Release/utt.app"
 archive_path := "release/utt.xcarchive"
 export_dir := "release/export"
 export_options := "release/ExportOptions.plist"
-dmg_path := "release/utt.dmg"
+
+# project.yml is the one place the version is written; everything downstream —
+# the disk image's name, the appcast, the download link — reads it from here, so
+# a shipped file can always be traced back to a build.
+
+version := `sed -n 's/.*MARKETING_VERSION: *"\(.*\)".*/\1/p' project.yml | head -1`
+dmg_path := "release/utt-" + version + ".dmg"
+
+# Sparkle's appcast keeps every version it can still see, so the zip is named per
+# version too — an overwritten utt.zip would silently rewrite an old update.
+
+zip_path := export_dir + "/utt-" + version + ".zip"
 
 # -skipMacroValidation: TCA and friends ship swift-syntax macro plugins, and Xcode
 # demands an interactive "trust" click per package whenever their fingerprint moves.
@@ -215,8 +226,8 @@ export-app: archive
 notarize: export-app
     #!/usr/bin/env zsh
     set -o pipefail
-    ditto -c -k --keepParent "{{ export_dir }}/utt.app" "{{ export_dir }}/utt.zip"
-    xcrun notarytool submit "{{ export_dir }}/utt.zip" \
+    ditto -c -k --keepParent "{{ export_dir }}/utt.app" "{{ zip_path }}"
+    xcrun notarytool submit "{{ zip_path }}" \
         --keychain-profile utt-notary --wait
     xcrun stapler staple "{{ export_dir }}/utt.app"
     xcrun stapler validate "{{ export_dir }}/utt.app"

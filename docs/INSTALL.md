@@ -7,7 +7,8 @@ installs like any other Mac app — no terminal commands, no security overrides.
 
 ## 1. Install
 
-Grab `utt.dmg` from the [latest release](../../releases/latest), open it, and
+Grab `utt-<version>.dmg` — the file name carries the version it installs — from
+the [latest release](../../releases/latest), open it, and
 drag `utt.app` onto the `Applications` shortcut in the same window. Eject the
 disk image afterwards.
 

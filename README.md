@@ -7,16 +7,12 @@ FluidAudio), with WhisperKit as the alternative engine.
 
 ## Install
 
-Download `utt.zip` from the [latest release](../../releases/latest), unzip, drag
-`utt.app` into `/Applications`, then clear the quarantine flag:
+Download `utt-<version>.dmg` from the [latest release](../../releases/latest),
+open it, and drag `utt.app` onto the `Applications` shortcut inside.
 
-```bash
-xattr -dr com.apple.quarantine /Applications/utt.app
-```
-
-The build is signed but **not notarized**, so macOS refuses the first launch
-without that. [docs/INSTALL.md](docs/INSTALL.md) has the click-only route,
-the three permissions utt needs, and how to uninstall.
+The disk image is signed and notarized, so there is no quarantine flag to clear.
+[docs/INSTALL.md](docs/INSTALL.md) has the three permissions utt needs and how to
+uninstall.
 
 ## Requirements
 
