@@ -89,10 +89,20 @@ private struct MicrophonePicker: View {
 
     /// Settings live in `@Shared`, not in feature state, so this writes through the
     /// lock rather than through a `BindingAction`.
+    ///
+    /// Picking a device promotes it to the head of the priority list rather than
+    /// replacing the list — the fallbacks the user set up in Settings survive a
+    /// quick switch. "System default" is the empty list.
     private var binding: Binding<String?> {
         Binding(
-            get: { settings.selectedMicrophoneID },
-            set: { newValue in $settings.withLock { $0.selectedMicrophoneID = newValue } }
+            get: { settings.microphonePriority.first },
+            set: { newValue in
+                $settings.withLock { settings in
+                    guard let newValue else { return settings.microphonePriority = [] }
+                    settings.microphonePriority = [newValue]
+                        + settings.microphonePriority.filter { $0 != newValue }
+                }
+            }
         )
     }
 }

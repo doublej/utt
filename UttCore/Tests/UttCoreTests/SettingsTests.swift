@@ -38,16 +38,44 @@ struct SettingsTests {
     @Test
     func partialPayloadOverridesOnlyPresentKeys() throws {
         let decoded = try decodeSettings(
-            #"{"openOnLogin": true, "minimumKeyTime": 0.25, "selectedMicrophoneID": "builtin:mic"}"#
+            #"{"openOnLogin": true, "minimumKeyTime": 0.25, "microphonePriority": ["builtin:mic"]}"#
         )
 
         #expect(decoded.openOnLogin == true)
         #expect(decoded.minimumKeyTime == 0.25)
-        #expect(decoded.selectedMicrophoneID == "builtin:mic")
+        #expect(decoded.microphonePriority == ["builtin:mic"])
         // Everything absent stays at its default
         #expect(decoded.showDockIcon == UttSettings().showDockIcon)
         #expect(decoded.selectedModel == UttSettings().selectedModel)
         #expect(decoded.wordRemappings == UttSettings().wordRemappings)
+    }
+
+    /// A settings file written before the priority list existed still has to bring
+    /// the user's chosen microphone across, or every upgrade silently resets it.
+    @Test
+    func legacySingleMicrophoneSeedsThePriorityList() throws {
+        let decoded = try decodeSettings(#"{"selectedMicrophoneID": "builtin:mic"}"#)
+        #expect(decoded.microphonePriority == ["builtin:mic"])
+    }
+
+    /// The new key wins outright — a file that has both is one the app has already
+    /// rewritten, and the stale single value must not jump back to the front.
+    @Test
+    func priorityListWinsOverTheLegacyKey() throws {
+        let decoded = try decodeSettings(
+            #"{"selectedMicrophoneID": "old", "microphonePriority": ["airpods", "yeti"]}"#
+        )
+        #expect(decoded.microphonePriority == ["airpods", "yeti"])
+    }
+
+    /// Clearing the list back to "system default" has to stick, even while a file
+    /// still carries the legacy key.
+    @Test
+    func anEmptyPriorityListIsNotRefilledFromTheLegacyKey() throws {
+        let decoded = try decodeSettings(
+            #"{"selectedMicrophoneID": "old", "microphonePriority": []}"#
+        )
+        #expect(decoded.microphonePriority.isEmpty)
     }
 
     @Test
@@ -55,7 +83,7 @@ struct SettingsTests {
         var settings = UttSettings()
         settings.hotkey = HotKey(key: .u, modifiers: [.control, .shift])
         settings.muteWhileRecording = true
-        settings.selectedMicrophoneID = "builtin:mic"
+        settings.microphonePriority = ["airpods", "builtin:mic"]
         settings.maxHistoryEntries = 10
         settings.minimumKeyTime = 0.42
         settings.wordRemappings = [

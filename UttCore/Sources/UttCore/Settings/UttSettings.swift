@@ -34,9 +34,12 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// keypress is included — the first syllable is otherwise routinely clipped.
     public var preRollEnabled: Bool = true
 
-    /// Input device unique ID. `nil` follows the system default input, which is
-    /// what most people want when they plug in a headset mid-session.
-    public var selectedMicrophoneID: String?
+    /// Input device unique IDs, best first. Capture takes the first one that is
+    /// actually plugged in, so "AirPods, else the Yeti, else whatever" is one
+    /// list rather than a choice the user has to redo every time. Empty follows
+    /// the system default input, which is also the fallback when none of the
+    /// listed devices is present.
+    public var microphonePriority: [String] = []
 
     /// Mute system output while recording so podcast audio doesn't bleed into
     /// the mic. Off: muting other people's audio is a big thing to do quietly.
@@ -138,8 +141,27 @@ public struct UttSettings: Codable, Equatable, Sendable {
         try decodeModelAndOutput(from: container)
         try decodeTextPipeline(from: container)
         try decodeApp(from: container)
+        try seedMicrophonePriority(from: decoder)
         normalizeDoubleTapSettings()
         normalizeDelivery()
+    }
+
+    /// The single microphone `microphonePriority` replaced. Read from its own
+    /// container so it stays out of `CodingKeys` — a case with no stored property
+    /// behind it would take synthesised `Encodable` conformance down with it, and
+    /// the key is only ever read.
+    private enum LegacyKeys: String, CodingKey {
+        case selectedMicrophoneID
+    }
+
+    private mutating func seedMicrophonePriority(from decoder: Decoder) throws {
+        // Key *absence*, not an empty list: "" and [] both mean "system default",
+        // and an explicit [] must not be quietly refilled from the legacy key.
+        guard try !decoder.container(keyedBy: CodingKeys.self).contains(.microphonePriority),
+              let uid = try decoder.container(keyedBy: LegacyKeys.self)
+                  .decodeIfPresent(String.self, forKey: .selectedMicrophoneID)
+        else { return }
+        microphonePriority = [uid]
     }
 
     /// The on-disk key names. Spelled out rather than synthesised so renaming a
@@ -150,7 +172,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case doubleTapLockEnabled
         case useDoubleTapOnly
         case preRollEnabled
-        case selectedMicrophoneID
+        case microphonePriority
         case muteWhileRecording
         case preventSystemSleep
         case keepMicrophoneWarm
@@ -180,7 +202,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         doubleTapLockEnabled = try container.decodeIfPresent(Bool.self, forKey: .doubleTapLockEnabled) ?? doubleTapLockEnabled
         useDoubleTapOnly = try container.decodeIfPresent(Bool.self, forKey: .useDoubleTapOnly) ?? useDoubleTapOnly
         preRollEnabled = try container.decodeIfPresent(Bool.self, forKey: .preRollEnabled) ?? preRollEnabled
-        selectedMicrophoneID = try container.decodeIfPresent(String.self, forKey: .selectedMicrophoneID) ?? selectedMicrophoneID
+        microphonePriority = try container.decodeIfPresent([String].self, forKey: .microphonePriority) ?? microphonePriority
         muteWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .muteWhileRecording) ?? muteWhileRecording
         preventSystemSleep = try container.decodeIfPresent(Bool.self, forKey: .preventSystemSleep) ?? preventSystemSleep
         keepMicrophoneWarm = try container.decodeIfPresent(Bool.self, forKey: .keepMicrophoneWarm) ?? keepMicrophoneWarm

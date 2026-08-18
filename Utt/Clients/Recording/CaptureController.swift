@@ -49,7 +49,7 @@ final class CaptureController: @unchecked Sendable {
 
     /// Only touched from the owning actor, never from the tap.
     private var isOpen = false
-    private var openUID: String?
+    private var openUIDs: [String] = []
 
     enum Failure: Error {
         case formatUnavailable
@@ -68,20 +68,20 @@ final class CaptureController: @unchecked Sendable {
 
     /// Starts the engine with no file open, so the ring fills in the background and
     /// the next `start` already has half a second of audio in hand.
-    func arm(microphoneUID: String?) throws {
+    func arm(microphoneUIDs: [String]) throws {
         guard lock.withLock({ file }) == nil else { return }
-        guard !isOpen || openUID != microphoneUID else { return }
+        guard !isOpen || openUIDs != microphoneUIDs else { return }
         close()
-        try open(microphoneUID)
+        try open(microphoneUIDs)
     }
 
-    func start(writingTo url: URL, microphoneUID: String?) throws {
+    func start(writingTo url: URL, microphoneUIDs: [String]) throws {
         // A cold start, or one against a different microphone than the ring was
         // filled from, has to reopen — pre-roll from the wrong device is worse
         // than none.
-        if !isOpen || openUID != microphoneUID {
+        if !isOpen || openUIDs != microphoneUIDs {
             close()
-            try open(microphoneUID)
+            try open(microphoneUIDs)
         }
         guard let target = lock.withLock({ targetFormat }) else { throw Failure.formatUnavailable }
         let audioFile = try AVAudioFile(
@@ -132,9 +132,9 @@ final class CaptureController: @unchecked Sendable {
         StopGrace.period(tapInterval: .seconds(lock.withLock { tapInterval }))
     }
 
-    private func open(_ uid: String?) throws {
+    private func open(_ uids: [String]) throws {
         let input = engine.inputNode
-        selectInput(uid, on: input)
+        selectInput(uids, on: input)
         // Read the format after switching devices, and from the *input* side:
         // `outputFormat` keeps reporting the previous device's rate after
         // `setDeviceID`, and a tap installed with it never fires at all.
@@ -172,7 +172,7 @@ final class CaptureController: @unchecked Sendable {
         engine.prepare()
         try engine.start()
         isOpen = true
-        openUID = uid
+        openUIDs = uids
         log.info("capture open: \(Int(hardware.sampleRate))Hz \(hardware.channelCount)ch")
         warnIfTapIsMissing(for: session)
     }
@@ -182,7 +182,7 @@ final class CaptureController: @unchecked Sendable {
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
         isOpen = false
-        openUID = nil
+        openUIDs = []
         lock.withLock {
             self.file = nil
             self.converter = nil
@@ -190,13 +190,14 @@ final class CaptureController: @unchecked Sendable {
         }
     }
 
-    /// Points the input node at a specific device. A `nil` UID — or one whose device is
-    /// unplugged — falls back to the system default, set explicitly because the audio unit
-    /// keeps its last device: "Default" would otherwise keep the previous microphone.
-    private func selectInput(_ uid: String?, on input: AVAudioInputNode) {
-        let selected = uid.flatMap { CoreAudioDevices.deviceID(forUID: $0) }
-        if uid != nil, selected == nil {
-            log.notice("microphone \(uid ?? "", privacy: .public) is gone; using default")
+    /// Points the input node at the first device in the priority list that is actually
+    /// plugged in. An empty list — or one where nothing resolves — falls back to the
+    /// system default, set explicitly because the audio unit keeps its last device:
+    /// "Default" would otherwise keep the previous microphone.
+    private func selectInput(_ uids: [String], on input: AVAudioInputNode) {
+        let selected = uids.lazy.compactMap { CoreAudioDevices.deviceID(forUID: $0) }.first
+        if !uids.isEmpty, selected == nil {
+            log.notice("no preferred microphone is present; using default")
         }
         guard let deviceID = selected ?? CoreAudioDevices.defaultInputID() else { return }
         do {

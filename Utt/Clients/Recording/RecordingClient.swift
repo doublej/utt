@@ -16,10 +16,11 @@ struct RecordingClient: Sendable {
     /// keypress that asked for it. Idempotent, and safe to call mid-recording:
     /// a change of mind about pre-roll never interrupts a clip in progress.
     /// `keepWarm` prevents IdleObserver-triggered suspends when true.
-    var arm: @Sendable (_ enabled: Bool, _ microphoneUID: String?, _ keepWarm: Bool) async -> Void
-    /// Begins writing to a fresh file in the recordings directory. A nil microphone
-    /// UID follows the system default input.
-    var start: @Sendable (_ microphoneUID: String?) async throws -> Void
+    var arm: @Sendable (_ enabled: Bool, _ microphoneUIDs: [String], _ keepWarm: Bool) async -> Void
+    /// Begins writing to a fresh file in the recordings directory. The UIDs are a
+    /// priority list; the first device that is present wins, and an empty list —
+    /// or one where nothing is plugged in — follows the system default input.
+    var start: @Sendable (_ microphoneUIDs: [String]) async throws -> Void
     /// Stops and returns the finished file, or nil if nothing usable was captured.
     var stop: @Sendable () async -> RecordingResult?
     /// Stops and throws the audio away — ESC, or a press below the minimum time.
@@ -51,8 +52,8 @@ extension RecordingClient: DependencyKey {
             resume: { Task { await recorder.resume() } }
         )
         return RecordingClient(
-            arm: { enabled, uid, keepWarm in await recorder.arm(enabled, microphoneUID: uid, keepWarm: keepWarm) },
-            start: { uid in try await recorder.start(microphoneUID: uid) },
+            arm: { enabled, uids, keepWarm in await recorder.arm(enabled, microphoneUIDs: uids, keepWarm: keepWarm) },
+            start: { uids in try await recorder.start(microphoneUIDs: uids) },
             stop: { await recorder.stop() },
             cancel: { await recorder.cancel() },
             meterLevel: { await recorder.meterLevel() }
@@ -71,13 +72,13 @@ private actor Recorder {
     private let capture = CaptureController()
     private var currentURL: URL?
     private var armed = false
-    private var armedUID: String?
+    private var armedUIDs: [String] = []
     /// When true, IdleObserver-triggered suspends are ignored and the mic stays warm.
     private var keepWarm = false
 
-    func arm(_ enabled: Bool, microphoneUID: String?, keepWarm: Bool) {
+    func arm(_ enabled: Bool, microphoneUIDs: [String], keepWarm: Bool) {
         armed = enabled
-        armedUID = microphoneUID
+        armedUIDs = microphoneUIDs
         self.keepWarm = keepWarm
         // A settings edit mid-recording waits: tearing the engine down here would
         // truncate the clip the user is still speaking into.
@@ -85,12 +86,12 @@ private actor Recorder {
         if enabled { openArmed() } else { capture.stop() }
     }
 
-    func start(microphoneUID: String?) throws {
+    func start(microphoneUIDs: [String]) throws {
         discardInFlight()
         let url = try URL.uttRecordings
             .appendingPathComponent("utt-\(UUID().uuidString).wav")
 
-        try capture.start(writingTo: url, microphoneUID: microphoneUID)
+        try capture.start(writingTo: url, microphoneUIDs: microphoneUIDs)
         currentURL = url
     }
 
@@ -130,7 +131,7 @@ private actor Recorder {
     }
 
     private func openArmed() {
-        do { try capture.arm(microphoneUID: armedUID) } catch {
+        do { try capture.arm(microphoneUIDs: armedUIDs) } catch {
             // Pre-roll is an optimisation; losing it must not stop the app from
             // recording the ordinary way when the hotkey is pressed.
             log.error("could not arm pre-roll: \(error.localizedDescription)")

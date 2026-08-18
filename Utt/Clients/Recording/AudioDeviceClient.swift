@@ -11,8 +11,8 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "devices")
 ///
 /// `AudioDeviceID` is a per-boot handle — saving one in settings means the user's
 /// chosen microphone silently becomes a different device after a reboot. The UID
-/// is stable, which is why `UttSettings.selectedMicrophoneID` holds one.
-struct AudioDevice: Equatable, Identifiable, Sendable {
+/// is stable, which is why `UttSettings.microphonePriority` holds them.
+struct AudioDevice: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
 }
