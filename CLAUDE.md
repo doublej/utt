@@ -28,6 +28,7 @@ Utt/
   Views/             # SwiftUI, one directory per surface
   Resources/         # Info.plist, entitlements
 UttCore/             # SPM package: pure logic + all the tests
+raycast/             # Raycast extension — talks to the app through its JSON files
 docs/                # hotkey semantics spec, phase 0 brief and results
 ```
 
@@ -81,6 +82,13 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   the *other* engine, and the alternative to falling back is an app that cannot
   transcribe until you edit JSON. The engine actors track what they loaded, or
   switching model keeps transcribing on the old weights.
+- **Raycast talks to the app through Application Support, not a bridge.** The
+  extension in `raycast/` reads `history.json` and `devices.json` and writes
+  `microphonePriority` into `settings.json`; `@Shared(.fileStorage)` watches that
+  file, so an external write reaches a running app with no relaunch. `devices.json`
+  exists because a CoreAudio UID — the only stable way to name an input — cannot be
+  obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
+  devices every 3 s.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going
@@ -101,6 +109,10 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
   `UttSettings`, then a control in `Utt/Views/Settings/`. Every key decodes
   independently so an old file never fails to load.
+- **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
+  `raycast/package.json`'s `commands`. Anything it needs from the app has to be a
+  file in Application Support first; `raycast/src/utt.ts` is the only place that
+  touches disk.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
   case in `ParakeetClient.version(for:)` if it is a Parakeet one. Whisper ids are
   folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,
@@ -118,13 +130,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 
 ## Verification
 
-`just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` + `test`.
+`just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` +
+`test` + `raycast-check`.
 
 - `just run` — build, kill the running copy, launch
 - `just dr` — print the designated requirement (TCC stability check)
 - `just test` — `swift test` in `UttCore`
 - `just loc-check` / `dir-check` — thresholds from `.quality.json` (300 warn /
   400 error lines, 6 files per directory)
+- `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`
+- `just raycast-dev` — loads the extension into Raycast, reloads on save
 
 Release: `just archive` → `just export-app` → `just notarize` → `just dmg` →
 `just appcast`. `just dmg` is the shippable artifact — a drag-to-Applications

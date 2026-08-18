@@ -187,6 +187,26 @@ check:
     @echo '→ Tests...'
     just test
     just test-app
+    @echo '→ Raycast extension...'
+    just raycast-check
+
+# The Raycast extension is plain TypeScript against the same JSON files the app
+# reads, so it needs no Xcode and nothing from the build above.
+
+[group('raycast')]
+raycast-check:
+    #!/usr/bin/env zsh
+    set -o pipefail
+    cd raycast
+    [[ -d node_modules ]] || bun install
+    bunx tsc --noEmit -p tsconfig.json
+    bun test
+
+# Loads the extension into Raycast and reloads it on every save. Leave it running.
+
+[group('raycast')]
+raycast-dev:
+    cd raycast && bunx ray develop
 
 # Everything below ships builds to other people. `just dmg` is the whole chain;
 # the recipes it depends on are listed separately because each one is worth

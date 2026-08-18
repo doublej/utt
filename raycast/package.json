@@ -1,0 +1,46 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "utt",
+  "title": "utt",
+  "description": "Choose utt's microphone and reuse recent transcriptions.",
+  "icon": "extension-icon.png",
+  "author": "jurrejan",
+  "license": "MIT",
+  "categories": [
+    "Productivity",
+    "System"
+  ],
+  "commands": [
+    {
+      "name": "microphone",
+      "title": "Microphone",
+      "subtitle": "utt",
+      "description": "Set which microphone utt records from, with fallbacks.",
+      "mode": "view"
+    },
+    {
+      "name": "transcriptions",
+      "title": "Recent Transcriptions",
+      "subtitle": "utt",
+      "description": "Paste or copy something utt already transcribed.",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.24",
+    "@raycast/utils": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "lint": "ray lint",
+    "fix-lint": "ray lint --fix",
+    "test": "bun test"
+  }
+}
