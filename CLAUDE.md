@@ -89,6 +89,11 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   exists because a CoreAudio UID — the only stable way to name an input — cannot be
   obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
   devices every 3 s.
+- **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel` reach
+  `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt never
+  activates itself there, but a plain `open` activates it for the caller — and the
+  frontmost app when a recording *stops* is the app the transcript is pasted into,
+  so a foregrounding caller dictates into utt's own window.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going
@@ -110,9 +115,11 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `UttSettings`, then a control in `Utt/Views/Settings/`. Every key decodes
   independently so an old file never fails to load.
 - **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
-  `raycast/package.json`'s `commands`. Anything it needs from the app has to be a
-  file in Application Support first; `raycast/src/utt.ts` is the only place that
-  touches disk.
+  `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
+  to be a file in Application Support first (`raycast/src/utt.ts` is the only place
+  that touches disk); anything it needs the app to *do* is a `utt://` verb.
+- **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
+  the `CFBundleURLTypes` comment in `Info.plist`.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
   case in `ParakeetClient.version(for:)` if it is a Parakeet one. Whisper ids are
   folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,

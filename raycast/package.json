@@ -12,6 +12,13 @@
   ],
   "commands": [
     {
+      "name": "dictate",
+      "title": "Toggle Dictation",
+      "subtitle": "utt",
+      "description": "Start recording, or stop and paste what you said.",
+      "mode": "no-view"
+    },
+    {
       "name": "microphone",
       "title": "Microphone",
       "subtitle": "utt",

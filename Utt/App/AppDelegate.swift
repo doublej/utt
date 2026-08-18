@@ -54,6 +54,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
 
+    /// `utt://start`, `utt://stop`, `utt://toggle`, `utt://cancel` — the hotkey's
+    /// four decisions, for anything that can open a URL: Raycast, Shortcuts, a
+    /// Stream Deck, `open` in a script.
+    ///
+    /// Callers must use `open -g`. utt does not activate itself here, but a plain
+    /// `open` does it for them, and the frontmost app at the moment a recording
+    /// stops is the app the transcript is pasted into — so a foregrounding caller
+    /// dictates into utt's own window.
+    @MainActor
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let action = Self.action(for: url) else {
+                log.notice("ignoring unknown url \(url.absoluteString, privacy: .public)")
+                continue
+            }
+            UttApp.store.send(.transcription(action))
+        }
+    }
+
+    @MainActor
+    private static func action(for url: URL) -> TranscriptionFeature.Action? {
+        guard url.scheme == "utt" else { return nil }
+        switch url.host() {
+        case "start": return .startRecording
+        case "stop": return .stopRecording
+        // Not silent: the user asked for this, so the discard chime is feedback,
+        // not an apology for a keypress they did not mean.
+        case "cancel": return .cancelRecording(silent: false)
+        case "toggle": return UttApp.store.transcription.isRecording ? .stopRecording : .startRecording
+        default: return nil
+        }
+    }
+
     /// Two launches, two behaviours. Started by launchd as a login item, nothing
     /// should appear on screen — the menu bar item is the whole announcement.
     /// Started by a person, utt comes to the front like any other app.

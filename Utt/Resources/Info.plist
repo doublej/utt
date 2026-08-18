@@ -22,6 +22,18 @@
   <string>utt records your voice so it can transcribe it on-device.</string>
   <key>NSInputMonitoringUsageDescription</key>
   <string>utt watches for your push-to-talk hotkey.</string>
+  <!-- utt://start, utt://stop, utt://toggle, utt://cancel — see AppDelegate.
+       Callers should use `open -g`: bringing utt to the front would make it the
+       app the transcript gets pasted into. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>dev.jurrejan.utt</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleURLSchemes</key>
+      <array><string>utt</string></array>
+    </dict>
+  </array>
   <!-- Sparkle. Both are empty until an appcast is actually hosted; UpdaterClient
        refuses to start the updater without a feed, because Sparkle aborts with a
        fatal error when it starts without one. Fill SUPublicEDKey from
