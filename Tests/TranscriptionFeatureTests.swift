@@ -76,7 +76,7 @@ struct TranscriptionFeatureTests {
     func failedPasteIsReported() async {
         let store = makeStore()
         await store.send(.pasteFinished(false)) {
-            $0.status = .failed("Couldn't paste — the text is on your clipboard")
+            $0.status = .failed("Could not paste — the text is on your clipboard")
         }
     }
 }

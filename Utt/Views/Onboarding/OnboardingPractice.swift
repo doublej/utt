@@ -42,10 +42,15 @@ struct OnboardingPractice: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
+            // Four items, one gap value, no grouping. The instruction is a heading for
+            // everything below it and gets 16; the meter is the field's own "your mic
+            // is live" readout and gets 8.
             instruction
+                .padding(.bottom, Spacing.xxs)
             prompt
             field
             meter
+                .padding(.top, -Spacing.xxs)
             Spacer(minLength: 0)
             if let missing = store.missingPermissions.first { blockedBanner(for: missing) }
         }
@@ -63,10 +68,12 @@ struct OnboardingPractice: View {
     }
 
     private var instruction: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
+        // `.center`, not `.firstTextBaseline`: a view with no text baseline has its
+        // bottom edge used as one, which floated the caps ~5pt above the line of type.
+        HStack(spacing: Spacing.xxs) {
             Text("Hold").font(Typography.primaryRow)
             HotkeyGlyphs(hotkey: settings.hotkey)
-            Text("and start talking. Let go when you're done.")
+            Text("and start talking. Let go when you are done.")
                 .font(Typography.primaryRow)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -75,7 +82,7 @@ struct OnboardingPractice: View {
     /// The only moving part on the screen. Deliberately `surfaceSecondary` rather
     /// than a content surface: the field below it is one, and surfaces never nest.
     private var prompt: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.extraSmall) {
             KickerLabel(text: kicker)
             line
                 .font(Typography.primaryRow)
@@ -93,16 +100,21 @@ struct OnboardingPractice: View {
         switch progress.reps {
         case 0: "Try saying"
         case 1: "Round two"
-        default: "Nice"
+        default: "Two for two"
         }
     }
 
     /// A suggestion, not a script. It exercises the casing and punctuation Parakeet
     /// supplies that the user never spoke — free dictation reaches the same state,
     /// and the field takes typing, so a broken mic is never a trap.
+    ///
+    /// What it deliberately is not: a privacy claim. Four screens of those have
+    /// already been granted, downloaded and believed, and the user's first-ever
+    /// transcript should be theirs rather than utt's own marketing read aloud in
+    /// their voice.
     private var line: Text {
         switch progress.reps {
-        case 0: Text("\"This is my first transcript, and it never left the Mac.\"")
+        case 0: Text("\u{201C}Testing, one two three. If you can read this, the mic works.\u{201D}")
         case 1: Text("Say anything you like — a note to yourself, a line to a colleague.")
         default: payoff
         }
@@ -110,13 +122,20 @@ struct OnboardingPractice: View {
 
     private var payoff: Text {
         guard let wordsPerMinute = progress.wordsPerMinute else {
-            return Text("Two down — that is the whole thing.")
+            return Text("Two down. That is the whole app.")
         }
         // On the type scale, not above it. utt has no display type anywhere, and a
         // one-off 28pt hero number is how a native surface starts reading as a
         // landing page.
         let rate = Text("\(wordsPerMinute)").foregroundStyle(Palette.accent)
-        return Text("You dictated at \(rate) words per minute.")
+        // The comparison is what turns the number into a reason to keep the app, but
+        // `wordsPerMinute` has no floor and one fumbled rep can land under typing
+        // speed. Below 50 the number stands on its own rather than losing the
+        // argument at the moment the flow is trying to win it.
+        guard wordsPerMinute >= 50 else {
+            return Text("You dictated at \(rate) words per minute.")
+        }
+        return Text("You dictated at \(rate) words per minute — most people type at about 40.")
     }
 
     /// Accumulates across both reps, because that is what actually happens: the
@@ -128,6 +147,8 @@ struct OnboardingPractice: View {
                     Text("your words land here")
                         .font(Typography.hint)
                         .foregroundStyle(Palette.textTertiary)
+                        // Matched to `TextEditor`'s own AppKit insets so the
+                        // placeholder sits exactly where the caret will. Not tokens.
                         .padding(.horizontal, 5)
                         .padding(.vertical, 8)
                         .allowsHitTesting(false)
@@ -174,10 +195,9 @@ struct OnboardingPractice: View {
             Button("Fix") { onFix() }
                 .font(Typography.metadata)
         }
-        .padding(.horizontal, Spacing.small)
-        .padding(.vertical, 6)
+        .padding(Spacing.small)
         .background(
-            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+            RoundedRectangle(cornerRadius: Radius.medium, style: .continuous)
                 .fill(Palette.warning.opacity(0.12))
         )
     }

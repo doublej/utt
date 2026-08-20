@@ -16,12 +16,15 @@ struct OnboardingWelcome: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
-            PatternMark(pattern: lock.pattern, size: 44)
-            Spacer().frame(height: 20)
+            // 96, not 44: at 44 the dot geometry draws 5pt lit dots, which measured
+            // as the palest ink in the window — the one animated, branded element on
+            // the cover screen was weaker than the 11pt caption under it.
+            PatternMark(pattern: lock.pattern, size: 96)
+            Spacer().frame(height: Spacing.large)
             Text("Nothing you say leaves this Mac.")
                 .font(Typography.primaryRow)
-            Spacer().frame(height: 6)
-            Text("Speech becomes text on this machine. No account, no upload, nothing to sign in to.")
+            Spacer().frame(height: Spacing.extraSmall)
+            Text("No account, no sign-up. Setup is five screens, about ninety seconds.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .multilineTextAlignment(.center)
@@ -35,34 +38,20 @@ struct OnboardingWelcome: View {
         .onAppear { lock.play() }
     }
 
-    /// Read from settings rather than hardcoded to ⌃fn: it is the default on a
-    /// first run, but this screen is also what a re-run shows.
+    /// A specimen, not a third telling of the gesture: the header title and subtitle
+    /// have already said it, and the only thing this card can add is *which* key —
+    /// read from settings rather than hardcoded to ⌃fn, because this screen is also
+    /// what a re-run shows. It hugs its content so it reads as a chip rather than a
+    /// 39%-filled rail.
     private var gestureCard: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.small) {
             HotkeyGlyphs(hotkey: settings.hotkey)
-            phrase.font(Typography.metadata)
+            Text("works in every app you type in")
+                .font(Typography.metadata)
+                .foregroundStyle(Palette.textSecondary)
         }
-        .frame(maxWidth: .infinity)
         .padding(Spacing.small)
         .contentSurface(radius: Radius.medium)
-    }
-
-    /// One `Text`, so the three steps wrap as a sentence rather than as three boxes.
-    /// Built as an `AttributedString` because the separators are a different tint
-    /// and `Text` concatenation is deprecated on macOS 26.
-    private var phrase: Text {
-        var result = AttributedString()
-        for (index, step) in ["hold", "speak", "let go"].enumerated() {
-            if index > 0 { result += tinted(" · ", Palette.textTertiary) }
-            result += tinted(step, Palette.textSecondary)
-        }
-        return Text(result)
-    }
-
-    private func tinted(_ text: String, _ color: Color) -> AttributedString {
-        var run = AttributedString(text)
-        run.foregroundColor = color
-        return run
     }
 }
 

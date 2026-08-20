@@ -39,7 +39,7 @@ enum Permission: String, CaseIterable, Sendable {
 
     var rationale: String {
         switch self {
-        case .inputMonitoring: "so utt can see your push-to-talk hotkey"
+        case .inputMonitoring: "so utt can see the key you hold"
         case .accessibility: "so utt can paste the transcript at your cursor"
         case .microphone: "so utt can hear you"
         }

@@ -26,19 +26,29 @@ struct OnboardingPermissions: View {
     private var missing: [Permission] { store.missingPermissions }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.small) {
-                ForEach(Array(order.enumerated()), id: \.element) { index, permission in
-                    PermissionStepCard(
-                        number: index + 1,
-                        permission: permission,
-                        granted: !missing.contains(permission),
-                        store: store
-                    )
+        // The relaunch card is pinned outside the scroller. Three ungranted cards
+        // already overflow the band, and macOS overlay scrollbars are invisible until
+        // you scroll — so the one card saying the switch will not reach utt until it
+        // restarts was the only thing guaranteed not to be seen.
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: Spacing.small) {
+                    ForEach(Array(order.enumerated()), id: \.element) { index, permission in
+                        PermissionStepCard(
+                            number: index + 1,
+                            permission: permission,
+                            granted: !missing.contains(permission),
+                            store: store
+                        )
+                    }
                 }
-                if store.needsRelaunch { RelaunchCard(store: store) }
+                .padding(Spacing.medium)
             }
-            .padding(Spacing.medium)
+            if store.needsRelaunch {
+                RelaunchCard(store: store)
+                    .padding(.horizontal, Spacing.medium)
+                    .padding(.bottom, Spacing.medium)
+            }
         }
         .onChange(of: missing) { old, new in
             // Whatever the floating card was helping with just landed.

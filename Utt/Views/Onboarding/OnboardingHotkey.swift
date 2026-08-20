@@ -15,15 +15,18 @@ struct OnboardingHotkey: View {
     private var capturing: Bool { store.settings.isRecordingHotkey }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.small) {
+        VStack(alignment: .leading, spacing: Spacing.extraSmall) {
             hotkeyCard
+            // Tight above, loose below. The paragraph explains the card it sits under;
+            // with equal gaps on both sides it read as belonging to neither surface.
             Text("""
-                utt ships with ⌃fn. Anything you can hold down works — even a modifier \
-                on its own — and every other key keeps doing what it always did.
+                Anything you can hold works — even a modifier on its own. Every other \
+                key keeps doing what it always did.
                 """)
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.bottom, Spacing.medium)
             doubleTapCard
             Spacer(minLength: 0)
         }
@@ -42,10 +45,14 @@ struct OnboardingHotkey: View {
                 Text("Press the keys…")
                     .font(Typography.primaryRow)
                     .foregroundStyle(Palette.accent)
-                    .frame(height: 27)
+                    .frame(height: 34)
             } else {
-                HotkeyGlyphs(hotkey: settings.hotkey, size: 20)
-                    .frame(height: 27)
+                // 27, so the cap comes out at 34 (`minHeight: size + 7`) — the
+                // artboard's `cap-lg`. On the one screen whose subject is the key, the
+                // key should be the biggest thing on it; at 20 it was 1.5× the ambient
+                // cap instead of 1.9×.
+                HotkeyGlyphs(hotkey: settings.hotkey, size: 27)
+                    .frame(height: 34)
             }
             Button(capturing ? "Cancel" : "Change") {
                 store.send(.settings(.hotkeyRecordingToggled))
@@ -54,7 +61,8 @@ struct OnboardingHotkey: View {
         .frame(maxWidth: .infinity)
         .padding(
             EdgeInsets(
-                top: 20, leading: Spacing.small, bottom: Spacing.medium, trailing: Spacing.small
+                top: Spacing.large, leading: Spacing.small, bottom: Spacing.medium,
+                trailing: Spacing.small
             )
         )
         .contentSurface(radius: Radius.medium)

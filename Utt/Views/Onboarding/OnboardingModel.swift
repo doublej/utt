@@ -7,7 +7,7 @@ import UttCore
 ///
 /// No model picker. utt has no benchmark across the four, so a list of names would
 /// be a choice with nothing to make it on — the screen states the pick and says
-/// switching is one click in Settings.
+/// where the rest are.
 struct OnboardingModel: View {
     let store: StoreOf<AppFeature>
     @Shared(.uttSettings) private var settings
@@ -19,7 +19,10 @@ struct OnboardingModel: View {
     }
 
     var body: some View {
-        VStack(spacing: Spacing.small) {
+        // `medium` between the cards, not `small`: the card's own inner rhythm is 8,
+        // and at 12 the gap between "the model" and "where files live" read as the
+        // same gap as the one between a progress bar and its footnote.
+        VStack(spacing: Spacing.medium) {
             modelCard
             storageCard
             Spacer(minLength: 0)
@@ -41,7 +44,7 @@ struct OnboardingModel: View {
             }
             phase
             Divider().padding(.horizontal, -Spacing.small)
-            Text("Picked for you. More live in Settings — switching later is one click.")
+            Text("Picked for you. The rest are in Settings.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -67,7 +70,9 @@ struct OnboardingModel: View {
                 .font(Typography.metadata)
                 .foregroundStyle(Palette.success)
         case .failed:
-            caption("Download failed", Palette.warning)
+            // Not "Download failed": the same state carries a CoreML compile failure,
+            // and the message below it already says which one it was.
+            caption("Failed", Palette.warning)
         case .idle:
             EmptyView()
         }
@@ -81,6 +86,11 @@ struct OnboardingModel: View {
             ProgressView(value: fraction)
                 .progressViewStyle(.linear)
                 .tint(Palette.accent)
+            // The one screen where a user is most likely to sit and wait for a bar
+            // that nothing is waiting on. Said once, here, and nowhere else.
+            Text("Keep going — this finishes in the background.")
+                .font(Typography.hint)
+                .foregroundStyle(Palette.textSecondary)
         case .loading:
             Text("Compiling for this Mac. One time, about half a minute.")
                 .font(Typography.hint)
@@ -104,16 +114,15 @@ struct OnboardingModel: View {
     private var storageCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             KickerLabel(text: "Where things live")
-            Spacer().frame(height: 7)
+            Spacer().frame(height: Spacing.extraSmall)
             Text("~/Library/Application Support/dev.jurrejan.utt")
                 .font(Typography.monoSmall)
                 .foregroundStyle(Palette.textSecondary)
                 .textSelection(.enabled)
-            Spacer().frame(height: 8)
+            Spacer().frame(height: Spacing.extraSmall)
             Text("""
                 The recording is deleted the moment the transcript comes back. \
-                Transcripts stay in your history until you clear it. Neither is ever \
-                uploaded.
+                Transcripts stay in your history until you clear it.
                 """)
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)

@@ -80,11 +80,7 @@ struct OnboardingFlow: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: Spacing.extraSmall) {
-            // The strip is ambient progress, so it goes away the moment there is
-            // nothing left to report — and on screen 3, where the model card already
-            // shows the same percentage with a bigger bar.
-            if !store.model.isReady, step != .model { ModelStrip(state: store.model) }
-            if step == .practice, practice.reps > 0 { practiceStatus }
+            statusRow.frame(height: Spacing.medium, alignment: .leading)
             HStack(spacing: Spacing.extraSmall) {
                 StepDots(current: step)
                 Spacer()
@@ -98,13 +94,31 @@ struct OnboardingFlow: View {
         .padding(Spacing.medium)
     }
 
+    /// One slot, always reserved, so the divider above the footer stays put. Without
+    /// it the band slid 48pt across the wizard — including a jump under the user's
+    /// hands on screen 5. The two rows can never both appear: a rep needs a
+    /// transcript, which needs a ready model, which is what hides the strip.
+    ///
+    /// The strip still stays off screen 3, where the model card shows the same
+    /// percentage with a bigger bar — with the slot reserved that no longer costs a
+    /// jump.
+    @ViewBuilder private var statusRow: some View {
+        if step == .practice, practice.reps > 0 {
+            practiceStatus
+        } else if !store.model.isReady, step != .model {
+            ModelStrip(state: store.model)
+        } else {
+            Color.clear
+        }
+    }
+
     private var practiceStatus: some View {
         HStack(spacing: Spacing.extraSmall) {
             Image(systemName: practice.isComplete ? "checkmark.circle.fill" : "circle.dashed")
                 .foregroundStyle(practice.isComplete ? Palette.success : Palette.textTertiary)
             Text(practice.isComplete
-                ? "All set — hold your hotkey and talk."
-                : "One down. One more and you are set.")
+                ? "utt is set up. Nothing else to do."
+                : "One down, one to go.")
                 .font(Typography.metadata)
                 .foregroundStyle(Palette.textSecondary)
         }
@@ -136,9 +150,9 @@ extension OnboardingFlow.Step {
         switch self {
         case .welcome: "Hold a key, talk, let go"
         case .permissions: "Let macOS hear you out"
-        case .model: "Your Mac does the listening"
-        case .hotkey: "Pick your push-to-talk"
-        case .practice: "Try it out"
+        case .model: "A model is on its way"
+        case .hotkey: "Your hotkey"
+        case .practice: "Say something"
         }
     }
 
@@ -147,8 +161,8 @@ extension OnboardingFlow.Step {
         case .welcome: "The words land wherever your cursor is."
         case .permissions: "Three switches, once. Nothing you say leaves this Mac."
         case .model: "One download, then utt never needs the network."
-        case .hotkey: "Hold it to record. Let go and the text lands."
-        case .practice: "Two quick goes and you are done."
+        case .hotkey: "utt picked one already. Keep it or change it here."
+        case .practice: "Two rounds and you are done."
         }
     }
 
@@ -180,10 +194,13 @@ private struct ModelStrip: View {
         }
     }
 
+    /// No engine name: the strip has no idea which one is loading, and naming
+    /// Parakeet in front of a WhisperKit download is worse than naming nothing.
+    /// `KickerLabel` already says "Model".
     private var caption: String {
         switch state {
-        case .idle: "Parakeet · queued"
-        case let .downloading(fraction): "Parakeet · downloading \(Int(fraction * 100))%"
+        case .idle: "Queued"
+        case let .downloading(fraction): "Downloading \(Int(fraction * 100))%"
         case .loading: "Compiling for this Mac"
         case .ready: "Ready"
         case let .failed(message): message

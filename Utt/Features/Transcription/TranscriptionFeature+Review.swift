@@ -61,7 +61,7 @@ extension TranscriptionFeature {
 
     func didPaste(_ state: inout State, _ pasted: Bool) -> Effect<Action> {
         guard pasted else {
-            state.status = .failed("Couldn't paste — the text is on your clipboard")
+            state.status = .failed("Could not paste — the text is on your clipboard")
             return .none
         }
         state.lastDeliveredAt = now

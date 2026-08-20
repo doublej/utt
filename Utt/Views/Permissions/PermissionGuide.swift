@@ -26,9 +26,17 @@ struct PermissionGuide: View {
                             store: store
                         )
                     }
-                    if store.needsRelaunch { RelaunchCard(store: store) }
                 }
                 .padding(Spacing.medium)
+            }
+            // Pinned outside the scroller: three ungranted cards already overflow the
+            // band, and macOS overlay scrollbars are invisible until you scroll — so
+            // the one card saying the switch will not reach utt until it restarts was
+            // the only thing guaranteed not to be seen.
+            if store.needsRelaunch {
+                RelaunchCard(store: store)
+                    .padding(.horizontal, Spacing.medium)
+                    .padding(.bottom, Spacing.medium)
             }
             Divider()
             footer
@@ -80,7 +88,7 @@ struct RelaunchCard: View {
         HStack(spacing: Spacing.extraSmall) {
             Image(systemName: "arrow.clockwise.circle.fill")
                 .foregroundStyle(Palette.warning)
-            Text("A grant landed while utt was running. macOS only hands it over on the next launch.")
+            Text("A switch you just flipped only reaches utt on the next launch.")
                 .font(Typography.hint)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
@@ -134,6 +142,8 @@ struct PermissionStepCard: View {
                         }
                     }
                 }
+                // Badge (22) + the header row's `Spacing.extraSmall`, so the script
+                // hangs off the title rather than off the badge. Moves if the badge does.
                 .padding(.leading, 30)
             }
         }
@@ -170,9 +180,9 @@ struct PermissionStepCard: View {
     /// Microphone is a request-only pane — no `+` button, no drop target — so it
     /// gets the shorter script.
     private var steps: [String] {
-        var steps = ["Click Open. System Settings lands on \(permission.settingsPath)."]
+        var steps = ["Click Open. System Settings opens on \(permission.settingsPath)."]
         if permission.supportsDropTarget {
-            steps.append("Look for utt in the list. Not there? Drag the floating utt card onto the list.")
+            steps.append("Find utt in the list. Not there? Drag the floating card onto it.")
         } else {
             steps.append("If macOS asks, click OK. Otherwise find utt in the list.")
         }

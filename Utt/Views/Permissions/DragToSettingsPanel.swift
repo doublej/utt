@@ -106,6 +106,11 @@ private struct DragCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.extraSmall) {
             handle
+            // Repeats step 3 of `PermissionStepCard.steps` on purpose. This panel is
+            // raised at the same moment System Settings comes to the front, so the
+            // sheet carrying that step is behind it and the card is the only
+            // instruction on screen. The redundancy is across windows, not down a
+            // screen — do not cut it as a duplicate.
             Text("Drop it in the \(permission.title) list, then switch utt on.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
