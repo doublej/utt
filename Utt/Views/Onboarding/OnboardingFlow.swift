@@ -146,11 +146,16 @@ struct OnboardingFlow: View {
 }
 
 extension OnboardingFlow.Step {
+    /// State-neutral, all five. `title` is static on the enum with no store to read,
+    /// and a header that narrates progress goes stale in place: the download often
+    /// finishes before the user has clicked this far, and on a re-run the model is
+    /// always already loaded — so `.model` names what the screen is about rather than
+    /// what it is currently doing, and the card below it carries the state.
     var title: String {
         switch self {
         case .welcome: "Hold a key, talk, let go"
         case .permissions: "Let macOS hear you out"
-        case .model: "A model is on its way"
+        case .model: "Your Mac does the listening"
         case .hotkey: "Your hotkey"
         case .practice: "Say something"
         }
