@@ -58,7 +58,15 @@ struct MenuBarContent: View {
 
         Divider()
 
-        Button("Open utt") { openWindow(id: "main") }
+        Button("Open utt") {
+            openWindow(id: "main")
+            // `openWindow` alone shows the window without making utt active — a
+            // MenuBarExtra click does not activate the app that owns it.
+            NSApp.activate()
+            DispatchQueue.main.async {
+                NSApp.uttMainWindow?.makeKeyAndOrderFront(nil)
+            }
+        }
         if store.updatesConfigured {
             Button("Check for Updates…") { store.send(.checkForUpdatesTapped) }
         }

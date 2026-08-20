@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: RecordingOverlay?
     private var hud: TranscriptHUD?
 
+    /// False until the launch has settled — see `presentWindowUnlessLaunchedQuietly`.
+    private var presentsWindowOnActivation = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // UttTests loads the app as its host. Booting the real store there resolves
         // every dependency to its unimplemented test value — the first one reached,
@@ -53,6 +56,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    /// Bringing utt to the front with its window closed used to change the menu bar
+    /// and nothing else — the scene's window stays closed until something reopens
+    /// it, and only the Window menu item SwiftUI generates did. A Dock click and
+    /// `open -a utt` arrive here as a reopen; ⌘-Tab sends no event at all and
+    /// arrives as an activation instead. utt has one window, so both answer the same.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        presentMainWindow()
+        return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard presentsWindowOnActivation else { return }
+        presentMainWindow()
+    }
+
+    /// Silent while the window is already on screen. The pill is that same window,
+    /// and clicking it activates utt — without this guard, every click on the pill
+    /// would drag it out of its floating level and make it key.
+    @MainActor
+    private func presentMainWindow() {
+        guard let window = NSApp.uttMainWindow, !window.isVisible else { return }
+        window.makeKeyAndOrderFront(nil)
+    }
 
     /// `utt://start`, `utt://stop`, `utt://toggle`, `utt://cancel` — the hotkey's
     /// four decisions, for anything that can open a URL: Raycast, Shortcuts, a
@@ -110,14 +137,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // window as part of finishing launch, so there is nothing to close or raise
         // yet at the point this is called.
         DispatchQueue.main.async {
-            // MenuBarExtra's window cannot become main; the app's window can.
+            // Matched by identifier, not `canBecomeMain`: in pill mode the window
+            // is borderless and fails that test, which made this a silent no-op.
             guard byUser != false else {
-                NSApp.windows.filter(\.canBecomeMain).forEach { $0.close() }
+                NSApp.uttMainWindow?.close()
                 log.notice("launched as a login item — staying in the menu bar")
+                // At login utt can be the only app running and end up active on its
+                // own, which would send the close above straight back through
+                // `applicationDidBecomeActive`. Nobody ⌘-Tabs to an app two seconds
+                // into logging in.
+                // ponytail: a delay, not a signal — AppKit has no "login settled" event.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    self.presentsWindowOnActivation = true
+                }
                 return
             }
             NSApp.activate()
-            NSApp.windows.first(where: \.canBecomeMain)?.makeKeyAndOrderFront(nil)
+            NSApp.uttMainWindow?.makeKeyAndOrderFront(nil)
+            self.presentsWindowOnActivation = true
         }
     }
 
