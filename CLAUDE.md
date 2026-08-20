@@ -158,6 +158,40 @@ store-credentials` and an app-specific password.
 `just sparkle-keys` once, and **back the private key up** — losing it means
 installed copies can never be updated again.
 
+## Versioning
+
+Semver, and `just bump` is the only thing that writes it. It moves all three
+together, behind `just check`, in one `release: X.Y.Z` commit:
+
+- `MARKETING_VERSION` — what a person sees, and what names the dmg and the zip
+- `CURRENT_PROJECT_VERSION` — a monotonic integer. Sparkle orders updates by it,
+  so a reused build number is an update nobody is ever offered, on machines
+  there is no other way to reach
+- an annotated `vX.Y.Z` tag, `utt X.Y.Z` — what a shipped file is traced back to
+
+A hook refuses hand-edits of either key; `.claude/scripts/guard_version_edit.py`
+is the guard and carries its own test.
+
+- `just next` — what the bump would decide, without deciding it
+- `just bump` — read the part off the commits since the last tag
+- `just bump major|minor|patch` — overrule it
+
+The part follows the commit messages, which are conventional commits:
+
+- **patch** — `fix:`, `perf:`, `refactor:`: nothing visible from outside changes
+- **minor** — `feat:`: a new setting, a new `utt://` verb, a new engine or model
+- **major** — `feat!:` or a `BREAKING CHANGE:` trailer: a removed `utt://` verb, a
+  settings key that stops being read, a default that cannot be migrated
+
+While the version is `0.x` a *derived* major lands as a minor — semver's own rule
+for pre-1.0, where nothing is promised yet. Reaching 1.0.0 is a decision rather
+than a consequence of a commit message, so it takes an explicit `just bump major`.
+
+Bump first, then the release pipeline above: every artifact after this point is
+named from `MARKETING_VERSION`. `docs/RELEASE-X.Y.Z.md` is written by hand and
+`bump` only warns when it is missing — what changed and why is prose, not
+something a script should be inventing.
+
 ## Known gaps
 
 - `SUFeedURL` and `SUPublicEDKey` in `Info.plist` are empty. `UpdaterClient`
