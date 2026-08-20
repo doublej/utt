@@ -19,14 +19,14 @@ struct PermissionGuide: View {
             ScrollView {
                 VStack(spacing: Spacing.small) {
                     ForEach(Array(Permission.allCases.enumerated()), id: \.element) { index, permission in
-                        StepCard(
+                        PermissionStepCard(
                             number: index + 1,
                             permission: permission,
                             granted: !missing.contains(permission),
-                            action: { open(permission) }
+                            store: store
                         )
                     }
-                    if store.needsRelaunch { relaunchCard }
+                    if store.needsRelaunch { RelaunchCard(store: store) }
                 }
                 .padding(Spacing.medium)
             }
@@ -69,7 +69,14 @@ struct PermissionGuide: View {
         .padding(Spacing.medium)
     }
 
-    private var relaunchCard: some View {
+}
+
+/// The amber "macOS is holding this one back" row. Shared with the onboarding
+/// flow, which shows the same three grants and hits the same wall.
+struct RelaunchCard: View {
+    let store: StoreOf<AppFeature>
+
+    var body: some View {
         HStack(spacing: Spacing.extraSmall) {
             Image(systemName: "arrow.clockwise.circle.fill")
                 .foregroundStyle(Palette.warning)
@@ -87,21 +94,16 @@ struct PermissionGuide: View {
                 .fill(Palette.warning.opacity(0.12))
         )
     }
-
-    /// `grantTapped` prompts when macOS still has a prompt left to spend and deep
-    /// links when it does not. The floating card only ever shows itself once a
-    /// System Settings window actually appears, so raising it either way is safe.
-    private func open(_ permission: Permission) {
-        store.send(.grantTapped(permission))
-        DragToSettingsPanel.shared.show(for: permission)
-    }
 }
 
-private struct StepCard: View {
+/// One numbered grant, its rationale, and the script for finding it in System
+/// Settings. Takes the store rather than a closure: both callers hold one, and the
+/// deep link and the floating drag card have to be raised together every time.
+struct PermissionStepCard: View {
     let number: Int
     let permission: Permission
     let granted: Bool
-    let action: () -> Void
+    let store: StoreOf<AppFeature>
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.extraSmall) {
@@ -115,7 +117,7 @@ private struct StepCard: View {
                 }
                 Spacer()
                 if !granted {
-                    Button("Open", action: action).font(Typography.metadata)
+                    Button("Open") { open() }.font(Typography.metadata)
                 }
             }
             if !granted {
@@ -155,6 +157,14 @@ private struct StepCard: View {
                     .foregroundStyle(Palette.accent)
             }
         }
+    }
+
+    /// `grantTapped` prompts when macOS still has a prompt left to spend and deep
+    /// links when it does not. The floating card only ever shows itself once a
+    /// System Settings window actually appears, so raising it either way is safe.
+    private func open() {
+        store.send(.grantTapped(permission))
+        DragToSettingsPanel.shared.show(for: permission)
     }
 
     /// Microphone is a request-only pane — no `+` button, no drop target — so it

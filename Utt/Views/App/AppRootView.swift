@@ -5,6 +5,8 @@ struct AppRootView: View {
     @Bindable var store: StoreOf<AppFeature>
     @State private var collapsed = false
     @State private var showingGuide = false
+    @State private var showingOnboarding = false
+    @Shared(.uttSettings) private var settings
     /// Shared rather than local: the transcript panel's "Add rule" opens this
     /// window on the Text tab from outside the window entirely.
     @Bindable private var route = SettingsRoute.shared
@@ -33,11 +35,15 @@ struct AppRootView: View {
         .animation(.smooth(duration: 0.25), value: collapsed)
         .animation(.smooth(duration: 0.25), value: showingSettings)
         .background(WindowConfigurator(collapsed: collapsed))
+        // Two sheets, two jobs. Repairing one permission six months in should not
+        // replay a welcome screen, so the banner and "Walk me through it" keep the
+        // guide and only a first launch gets the flow.
         .sheet(isPresented: $showingGuide) { PermissionGuide(store: store) }
+        .sheet(isPresented: $showingOnboarding) { OnboardingFlow(store: store) }
         // A first launch is the one moment where nothing is granted and the user is
         // watching, so the walkthrough opens itself rather than waiting to be found.
         .onChange(of: store.isFirstRun) { _, isFirstRun in
-            if isFirstRun == true { showingGuide = true }
+            if isFirstRun == true, !settings.hasCompletedOnboarding { showingOnboarding = true }
         }
     }
 

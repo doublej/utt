@@ -126,6 +126,11 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// microphone should be findable.
     public var showDockIcon: Bool = true
 
+    /// The first-run walkthrough has been seen through, or deliberately skipped.
+    /// Durable where "no settings file yet" is not: the file appears the moment
+    /// anything writes to it, which onboarding itself does.
+    public var hasCompletedOnboarding: Bool = false
+
     /// All defaults. Mutate the properties you want to change — every one is
     /// `public var`, which is why there is no 20-parameter memberwise init.
     public init() {}
@@ -170,6 +175,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case soundEffectsVolume
         case openOnLogin
         case showDockIcon
+        case hasCompletedOnboarding
     }
 
     // Decoding is split by section only to keep each function body short.
@@ -209,6 +215,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         soundEffectsVolume = try container.decodeIfPresent(Double.self, forKey: .soundEffectsVolume) ?? soundEffectsVolume
         openOnLogin = try container.decodeIfPresent(Bool.self, forKey: .openOnLogin) ?? openOnLogin
         showDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? showDockIcon
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? hasCompletedOnboarding
     }
 
     /// `useDoubleTapOnly` without the lock would mean "start on double-tap,
