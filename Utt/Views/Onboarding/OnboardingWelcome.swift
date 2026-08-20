@@ -47,12 +47,12 @@ struct OnboardingWelcome: View {
         .contentSurface(radius: Radius.medium)
     }
 
-    /// One `Text`, so the four steps wrap as a sentence rather than as four boxes.
+    /// One `Text`, so the three steps wrap as a sentence rather than as three boxes.
     /// Built as an `AttributedString` because the separators are a different tint
     /// and `Text` concatenation is deprecated on macOS 26.
     private var phrase: Text {
         var result = AttributedString()
-        for (index, step) in ["hold", "speak", "let go", "text at your cursor"].enumerated() {
+        for (index, step) in ["hold", "speak", "let go"].enumerated() {
             if index > 0 { result += tinted(" · ", Palette.textTertiary) }
             result += tinted(step, Palette.textSecondary)
         }

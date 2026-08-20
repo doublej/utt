@@ -18,8 +18,8 @@ struct OnboardingHotkey: View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             hotkeyCard
             Text("""
-                utt ships with ⌃fn. A modifier on its own is fine — anything you can \
-                hold down works, and utt only claims the exact chord you pick.
+                utt ships with ⌃fn. Anything you can hold down works — even a modifier \
+                on its own — and every other key keeps doing what it always did.
                 """)
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)

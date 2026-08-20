@@ -68,7 +68,7 @@ struct AppRootView: View {
     private var banner: String? {
         if store.needsRelaunch { return "A permission was granted — restart utt to pick it up." }
         if let first = store.missingPermissions.first {
-            return "\(first.title) is off, \(first.rationale)."
+            return "\(first.title) is off. Turn it on \(first.rationale)."
         }
         if case let .failed(message) = store.model { return message }
         if case let .failed(message) = store.transcription.status { return message }

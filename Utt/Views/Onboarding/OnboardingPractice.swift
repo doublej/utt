@@ -47,7 +47,7 @@ struct OnboardingPractice: View {
             field
             meter
             Spacer(minLength: 0)
-            if store.missingPermissions.contains(.inputMonitoring) { blockedBanner }
+            if let missing = store.missingPermissions.first { blockedBanner(for: missing) }
         }
         .padding(Spacing.medium)
         .onAppear { focused = true }
@@ -157,14 +157,17 @@ struct OnboardingPractice: View {
         }
     }
 
-    /// The one failure worth a dedicated affordance, because it is otherwise
-    /// silent: the user holds the key and nothing at all happens. Same string the
-    /// main window's banner builds, same amber treatment.
-    private var blockedBanner: some View {
+    /// Whichever grant is missing, not just the hotkey one: a denied mic reads as
+    /// silence and a denied paste reads as a paste that did nothing, and this is the
+    /// screen that exists so neither can fail without saying why. `missingPermissions`
+    /// arrives in `Permission.allCases` order, which is most-fatal-first, so the first
+    /// one is the one to name. Same string the main window's banner builds, same
+    /// amber treatment.
+    private func blockedBanner(for permission: Permission) -> some View {
         HStack(spacing: Spacing.extraSmall) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Palette.warning)
-            Text("\(Permission.inputMonitoring.title) is off, \(Permission.inputMonitoring.rationale).")
+            Text("\(permission.title) is off. Turn it on \(permission.rationale).")
                 .font(Typography.metadata)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Spacing.extraSmall)

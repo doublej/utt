@@ -35,9 +35,15 @@ struct OnboardingFlow: View {
             footer
         }
         .frame(width: 460, height: 580)
-        // Leaving on any screen has to drop the floating drag card, not just
-        // leaving screen 2 — the sheet is what was holding it up.
-        .onDisappear { DragToSettingsPanel.shared.hide() }
+        // Every way out lands here, which is why the finishing happens here rather
+        // than in `finish()`: Esc and the sheet's own dismissal never pass through a
+        // button, and a flow that closed without recording it would open again on the
+        // next launch. Leaving on any screen also has to drop the floating drag card,
+        // not just leaving screen 2 — the sheet is what was holding it up.
+        .onDisappear {
+            $settings.withLock { $0.hasCompletedOnboarding = true }
+            DragToSettingsPanel.shared.hide()
+        }
     }
 
     @ViewBuilder private var screen: some View {
@@ -61,9 +67,13 @@ struct OnboardingFlow: View {
                     .foregroundStyle(Palette.textSecondary)
             }
             Spacer(minLength: Spacing.small)
-            Button("Skip") { finish() }
-                .buttonStyle(.link)
-                .font(Typography.hint)
+            // Not on the last screen: Done *is* the leave there, so a second exit
+            // with a different label promises content that does not exist.
+            if step != .practice {
+                Button("Skip") { finish() }
+                    .buttonStyle(.link)
+                    .font(Typography.hint)
+            }
         }
         .padding(Spacing.medium)
     }
@@ -71,8 +81,9 @@ struct OnboardingFlow: View {
     private var footer: some View {
         VStack(alignment: .leading, spacing: Spacing.extraSmall) {
             // The strip is ambient progress, so it goes away the moment there is
-            // nothing left to report.
-            if !store.model.isReady { ModelStrip(state: store.model) }
+            // nothing left to report — and on screen 3, where the model card already
+            // shows the same percentage with a bigger bar.
+            if !store.model.isReady, step != .model { ModelStrip(state: store.model) }
             if step == .practice, practice.reps > 0 { practiceStatus }
             HStack(spacing: Spacing.extraSmall) {
                 StepDots(current: step)
@@ -112,14 +123,11 @@ struct OnboardingFlow: View {
         step = previous
     }
 
-    /// The one exit. `isFirstRun` is derived from "no settings file yet" and the
-    /// file appears the moment anything writes to it, so the durable flag is what
-    /// decides whether this ever opens again.
-    private func finish() {
-        $settings.withLock { $0.hasCompletedOnboarding = true }
-        DragToSettingsPanel.shared.hide()
-        dismiss()
-    }
+    /// Just the dismissal. `isFirstRun` is derived from "no settings file yet" and
+    /// the file appears the moment anything writes to it, so the durable flag is
+    /// what decides whether this ever opens again — and `onDisappear` sets it for
+    /// this route and every other one.
+    private func finish() { dismiss() }
 }
 
 extension OnboardingFlow.Step {

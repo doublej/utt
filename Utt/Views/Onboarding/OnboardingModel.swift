@@ -41,10 +41,7 @@ struct OnboardingModel: View {
             }
             phase
             Divider().padding(.horizontal, -Spacing.small)
-            Text("""
-                Picked for you. Three more live in Settings — switching later is one \
-                click, and it does not lock you in.
-                """)
+            Text("Picked for you. More live in Settings — switching later is one click.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
