@@ -41,6 +41,14 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// listed devices is present.
     public var microphonePriority: [String] = []
 
+    /// Names for the UIDs in `microphonePriority`, so a device that is not plugged
+    /// in can still be read as "RØDE NT-USB" rather than a bare CoreAudio UID. Only
+    /// the machine the device is attached to can supply the name, which is exactly
+    /// the machine that cannot supply it when it matters — hence remembering it.
+    /// Kept in step with the list by `SettingsFeature`; a missing entry is only a
+    /// worse label, never a worse device choice.
+    public var microphoneNames: [String: String] = [:]
+
     /// Mute system output while recording so podcast audio doesn't bleed into
     /// the mic. Off: muting other people's audio is a big thing to do quietly.
     public var muteWhileRecording: Bool = false
@@ -173,6 +181,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case useDoubleTapOnly
         case preRollEnabled
         case microphonePriority
+        case microphoneNames
         case muteWhileRecording
         case preventSystemSleep
         case keepMicrophoneWarm
@@ -203,6 +212,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         useDoubleTapOnly = try container.decodeIfPresent(Bool.self, forKey: .useDoubleTapOnly) ?? useDoubleTapOnly
         preRollEnabled = try container.decodeIfPresent(Bool.self, forKey: .preRollEnabled) ?? preRollEnabled
         microphonePriority = try container.decodeIfPresent([String].self, forKey: .microphonePriority) ?? microphonePriority
+        microphoneNames = try container.decodeIfPresent([String: String].self, forKey: .microphoneNames) ?? microphoneNames
         muteWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .muteWhileRecording) ?? muteWhileRecording
         preventSystemSleep = try container.decodeIfPresent(Bool.self, forKey: .preventSystemSleep) ?? preventSystemSleep
         keepMicrophoneWarm = try container.decodeIfPresent(Bool.self, forKey: .keepMicrophoneWarm) ?? keepMicrophoneWarm
