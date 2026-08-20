@@ -166,13 +166,19 @@ private extension AppFeature {
         )
     }
 
-    /// First run is "no settings file yet".
+    /// First run is "no settings file yet" — measured by **content, not existence**.
+    /// `@Shared(.uttSettings)` is a `FileStorageKey`, and it touches the path into
+    /// being as a zero-byte file when the store initialises, before this effect
+    /// runs. So `fileExists` is already true on a genuine first launch, which hid
+    /// both the onboarding sheet and the permission walkthrough. An empty file is
+    /// the storage layer, not a settings file: it fails to decode and `@Shared`
+    /// falls back to `UttSettings()` anyway.
     func checkFirstRun() -> Effect<Action> {
         .run { send in
-            let settingsExist = (try? URL.uttSettingsFile).map {
-                FileManager.default.fileExists(atPath: $0.path(percentEncoded: false))
-            } ?? false
-            await send(.firstRunChecked(!settingsExist))
+            let hasSettings = (try? URL.uttSettingsFile)
+                .flatMap { try? Data(contentsOf: $0) }
+                .map { !$0.isEmpty } ?? false
+            await send(.firstRunChecked(!hasSettings))
         }
     }
 

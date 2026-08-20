@@ -123,10 +123,11 @@ struct OnboardingFlow: View {
         step = previous
     }
 
-    /// Just the dismissal. `isFirstRun` is derived from "no settings file yet" and
-    /// the file appears the moment anything writes to it, so the durable flag is
-    /// what decides whether this ever opens again — and `onDisappear` sets it for
-    /// this route and every other one.
+    /// Just the dismissal. `isFirstRun` is derived from "no settings file *content*
+    /// yet" — the path itself is touched into being at store init — and the file
+    /// fills the moment anything writes to it, so the durable flag is what decides
+    /// whether this ever opens again, and `onDisappear` sets it for this route and
+    /// every other one.
     private func finish() { dismiss() }
 }
 
