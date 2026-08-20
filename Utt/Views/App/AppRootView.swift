@@ -45,6 +45,11 @@ struct AppRootView: View {
         .onChange(of: store.isFirstRun) { _, isFirstRun in
             if isFirstRun == true, !settings.hasCompletedOnboarding { showingOnboarding = true }
         }
+        // Settings can be opened from the transcript panel while the window is
+        // the pill — which has nowhere to show them. Expand first.
+        .onChange(of: showingSettings) { _, isOpen in
+            if isOpen { collapsed = false }
+        }
     }
 
     private var expanded: some View {

@@ -25,3 +25,6 @@ release/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Agent worktrees: full checkouts of this repo, not content of it.
+.claude/worktrees/

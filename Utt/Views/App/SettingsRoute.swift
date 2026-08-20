@@ -25,6 +25,12 @@ final class SettingsRoute {
         self.tab = tab
         isOpen = true
         NSApp.activate()
-        NSApp.windows.first(where: \.canBecomeMain)?.makeKeyAndOrderFront(nil)
+        // Deferred a turn: if the window is currently the pill it is borderless
+        // right now — AppRootView expands on `isOpen` and WindowConfigurator
+        // restores `.titled` on the next render pass, and only then can the
+        // window become key.
+        DispatchQueue.main.async {
+            NSApp.uttMainWindow?.makeKeyAndOrderFront(nil)
+        }
     }
 }

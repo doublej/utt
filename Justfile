@@ -187,6 +187,26 @@ check:
     @echo '→ Tests...'
     just test
     just test-app
+    @echo '→ Raycast extension...'
+    just raycast-check
+
+# The Raycast extension is plain TypeScript against the same JSON files the app
+# reads, so it needs no Xcode and nothing from the build above.
+
+[group('raycast')]
+raycast-check:
+    #!/usr/bin/env zsh
+    set -o pipefail
+    cd raycast
+    [[ -d node_modules ]] || bun install
+    bunx tsc --noEmit -p tsconfig.json
+    bun test
+
+# Loads the extension into Raycast and reloads it on every save. Leave it running.
+
+[group('raycast')]
+raycast-dev:
+    cd raycast && bunx ray develop
 
 # Everything below ships builds to other people. `just dmg` is the whole chain;
 # the recipes it depends on are listed separately because each one is worth
@@ -200,6 +220,21 @@ archive: generate
     xcodebuild {{ xcflags }} -scheme Utt -configuration Release \
         -archivePath "{{ archive_path }}" archive 2>&1 \
         | { command -v xcbeautify >/dev/null && xcbeautify --quiet || cat }
+
+# The version moves here and nowhere else: MARKETING_VERSION, the build number
+# Sparkle orders updates by, and the vX.Y.Z tag, in one commit behind the gate.
+# The part is read off the commits since the last tag — pass major|minor|patch
+# to overrule it.
+
+# Bump, commit and tag the version behind the quality gate.
+[group('release')]
+bump part="": check
+    python3 tools/bump-version.py {{ part }}
+
+# What `just bump` would decide, without deciding it.
+[group('release')]
+next part="":
+    @python3 tools/bump-version.py {{ part }} --dry-run
 
 # Sparkle explicitly discourages --deep; the export step signs nested code correctly.
 [group('release')]
@@ -320,3 +355,18 @@ overlay-preview: build
     open -e "$style"
     echo "editing $style — the overlay follows every save"
     wait $app
+
+# Pull upstream cookiecutter-template updates. Report-only without flags; --diffs / --apply.
+[group('setup')]
+update-scaffold *ARGS:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    repo="${COOKIECUTTER_TEMPLATES:-}"
+    if [[ -z "$repo" && -f .template-meta.json ]]; then
+        repo=$(python3 -c "import json; print(json.load(open('.template-meta.json'))['template_source']['path'])" 2>/dev/null || true)
+    fi
+    if [[ -z "$repo" || ! -d "$repo" ]]; then
+        echo "error: cookiecutter-templates repo not found — set \$COOKIECUTTER_TEMPLATES or fix template_source.path in .template-meta.json" >&2
+        exit 1
+    fi
+    python3 "$repo/tools/update_scaffold.py" {{ ARGS }}

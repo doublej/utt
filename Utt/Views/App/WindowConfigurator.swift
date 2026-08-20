@@ -23,8 +23,28 @@ struct WindowConfigurator: NSViewRepresentable {
     }
 }
 
+extension NSApplication {
+    /// The main scene's window, matched by identifier. In pill mode it is
+    /// borderless, and a borderless window answers `false` to `canBecomeMain` —
+    /// so any raise path filtering on that matches nothing at all and silently
+    /// does nothing. SwiftUI stamps `Window(id: "main")` into the identifier.
+    var uttMainWindow: NSWindow? {
+        windows.first { $0.identifier?.rawValue.hasPrefix("main") == true }
+    }
+}
+
 private final class WindowHookView: NSView {
-    var collapsed: Bool
+    /// Expanding from the pill restores `.titled`, which makes the window
+    /// key-capable again — but nothing makes it key. Raising exactly once per
+    /// pill→panel transition keeps typing working without stealing key on
+    /// every layout pass.
+    var collapsed: Bool {
+        didSet {
+            guard oldValue != collapsed else { return }
+            wantsRaise = !collapsed
+        }
+    }
+    private var wantsRaise = false
 
     init(collapsed: Bool) {
         self.collapsed = collapsed
@@ -55,6 +75,12 @@ private final class WindowHookView: NSView {
         // Keep the pill above ordinary windows: it is a status readout, and a status
         // readout you have to go looking for is not one.
         window.level = collapsed ? .floating : .normal
+        if wantsRaise {
+            wantsRaise = false
+            // Deferred: configure() runs inside a SwiftUI update pass, and the
+            // styleMask change above lands on the window in this same pass.
+            DispatchQueue.main.async { window.makeKeyAndOrderFront(nil) }
+        }
     }
 
     /// The pill drops `.titled` entirely. `fullSizeContentView` is not enough — the

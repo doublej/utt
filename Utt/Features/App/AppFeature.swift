@@ -232,7 +232,7 @@ private extension AppFeature {
     /// of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
         .run { [settings] _ in
-            await recording.arm(settings.preRollEnabled, settings.selectedMicrophoneID, settings.keepMicrophoneWarm)
+            await recording.arm(settings.preRollEnabled, settings.microphonePriority, settings.keepMicrophoneWarm)
             await appPresence.setOpensAtLogin(settings.openOnLogin)
             await appPresence.setShowsDockIcon(settings.showDockIcon)
         }

@@ -28,6 +28,7 @@ Utt/
   Views/             # SwiftUI, one directory per surface
   Resources/         # Info.plist, entitlements
 UttCore/             # SPM package: pure logic + all the tests
+raycast/             # Raycast extension — talks to the app through its JSON files
 docs/                # hotkey semantics spec, phase 0 brief and results
 ```
 
@@ -81,6 +82,18 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   the *other* engine, and the alternative to falling back is an app that cannot
   transcribe until you edit JSON. The engine actors track what they loaded, or
   switching model keeps transcribing on the old weights.
+- **Raycast talks to the app through Application Support, not a bridge.** The
+  extension in `raycast/` reads `history.json` and `devices.json` and writes
+  `microphonePriority` into `settings.json`; `@Shared(.fileStorage)` watches that
+  file, so an external write reaches a running app with no relaunch. `devices.json`
+  exists because a CoreAudio UID — the only stable way to name an input — cannot be
+  obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
+  devices every 3 s.
+- **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel` reach
+  `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt never
+  activates itself there, but a plain `open` activates it for the caller — and the
+  frontmost app when a recording *stops* is the app the transcript is pasted into,
+  so a foregrounding caller dictates into utt's own window.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going
@@ -101,6 +114,12 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
   `UttSettings`, then a control in `Utt/Views/Settings/`. Every key decodes
   independently so an old file never fails to load.
+- **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
+  `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
+  to be a file in Application Support first (`raycast/src/utt.ts` is the only place
+  that touches disk); anything it needs the app to *do* is a `utt://` verb.
+- **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
+  the `CFBundleURLTypes` comment in `Info.plist`.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
   case in `ParakeetClient.version(for:)` if it is a Parakeet one. Whisper ids are
   folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,
@@ -118,13 +137,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 
 ## Verification
 
-`just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` + `test`.
+`just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` +
+`test` + `raycast-check`.
 
 - `just run` — build, kill the running copy, launch
 - `just dr` — print the designated requirement (TCC stability check)
 - `just test` — `swift test` in `UttCore`
 - `just loc-check` / `dir-check` — thresholds from `.quality.json` (300 warn /
   400 error lines, 6 files per directory)
+- `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`
+- `just raycast-dev` — loads the extension into Raycast, reloads on save
 
 Release: `just archive` → `just export-app` → `just notarize` → `just dmg` →
 `just appcast`. `just dmg` is the shippable artifact — a drag-to-Applications
@@ -135,6 +157,40 @@ before anything is copied out of it.
 store-credentials` and an app-specific password.
 `just sparkle-keys` once, and **back the private key up** — losing it means
 installed copies can never be updated again.
+
+## Versioning
+
+Semver, and `just bump` is the only thing that writes it. It moves all three
+together, behind `just check`, in one `release: X.Y.Z` commit:
+
+- `MARKETING_VERSION` — what a person sees, and what names the dmg and the zip
+- `CURRENT_PROJECT_VERSION` — a monotonic integer. Sparkle orders updates by it,
+  so a reused build number is an update nobody is ever offered, on machines
+  there is no other way to reach
+- an annotated `vX.Y.Z` tag, `utt X.Y.Z` — what a shipped file is traced back to
+
+A hook refuses hand-edits of either key; `.claude/scripts/guard_version_edit.py`
+is the guard and carries its own test.
+
+- `just next` — what the bump would decide, without deciding it
+- `just bump` — read the part off the commits since the last tag
+- `just bump major|minor|patch` — overrule it
+
+The part follows the commit messages, which are conventional commits:
+
+- **patch** — `fix:`, `perf:`, `refactor:`: nothing visible from outside changes
+- **minor** — `feat:`: a new setting, a new `utt://` verb, a new engine or model
+- **major** — `feat!:` or a `BREAKING CHANGE:` trailer: a removed `utt://` verb, a
+  settings key that stops being read, a default that cannot be migrated
+
+While the version is `0.x` a *derived* major lands as a minor — semver's own rule
+for pre-1.0, where nothing is promised yet. Reaching 1.0.0 is a decision rather
+than a consequence of a commit message, so it takes an explicit `just bump major`.
+
+Bump first, then the release pipeline above: every artifact after this point is
+named from `MARKETING_VERSION`. `docs/RELEASE-X.Y.Z.md` is written by hand and
+`bump` only warns when it is missing — what changed and why is prose, not
+something a script should be inventing.
 
 ## Known gaps
 

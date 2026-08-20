@@ -68,13 +68,30 @@ private extension SettingsFeature {
     /// and the listener would have to hop threads to reach the store anyway.
     func watchDevices() -> Effect<Action> {
         .run { send in
+            var exported: [AudioDevice]?
             while !Task.isCancelled {
                 let devices = audioDevices.inputDevices()
                 await send(.devicesLoaded(devices, defaultName: audioDevices.defaultInputDevice()?.name))
+                if devices != exported {
+                    export(devices)
+                    exported = devices
+                }
                 try await clock.sleep(for: .seconds(3))
             }
         }
         .cancellable(id: CancelID.deviceWatch, cancelInFlight: true)
+    }
+
+    /// Publishes the device list where processes that are not CoreAudio clients can
+    /// read it — the Raycast extension picks microphones by UID, and a UID is not
+    /// something `system_profiler` will tell it. Best-effort: a failed write only
+    /// means Raycast shows a stale list.
+    func export(_ devices: [AudioDevice]) {
+        do {
+            try JSONEncoder().encode(devices).write(to: URL.uttDevicesFile, options: .atomic)
+        } catch {
+            log.debug("could not export device list: \(error.localizedDescription)")
+        }
     }
 
     /// "Only start on double-tap" without the lock would mean "start on double-tap,

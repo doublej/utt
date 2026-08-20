@@ -131,7 +131,7 @@ private extension TranscriptionFeature {
                     await sleepManagement.preventSleep("utt is recording")
                 }
                 if settings.muteWhileRecording { await mediaControl.mute() }
-                do { try await recording.start(settings.selectedMicrophoneID) } catch {
+                do { try await recording.start(settings.microphonePriority) } catch {
                     await send(.transcriptReady(.failure(error)))
                 }
             },

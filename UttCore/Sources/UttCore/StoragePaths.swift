@@ -28,6 +28,13 @@ public extension URL {
         get throws { try uttApplicationSupport.appending(component: "history.json") }
     }
 
+    /// The input devices utt can currently see, exported for other processes —
+    /// the Raycast extension needs CoreAudio UIDs to write `microphonePriority`,
+    /// and nothing outside a CoreAudio client can enumerate them.
+    static var uttDevicesFile: URL {
+        get throws { try uttApplicationSupport.appending(component: "devices.json") }
+    }
+
     /// Downloaded transcription model bundles.
     static var uttModelsDirectory: URL {
         get throws {

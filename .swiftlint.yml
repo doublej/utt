@@ -5,6 +5,9 @@ excluded:
   # sources get linted too (~12k violations). These catch them.
   - UttCore/.build
   - spike
+  # Agent worktrees are checkouts of this repo — linting them lints the same
+  # files twice, at whatever commit they happen to sit on.
+  - .claude/worktrees
   - Utt.xcodeproj
 
 # 20 is SwiftLint's default and it is wrong for this codebase: an AVAudioEngine
