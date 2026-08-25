@@ -24,6 +24,7 @@ release/
 .dolt/
 *.db
 .beads-credential-key
+.beads.gate.lock
 .beads/proxieddb/
 
 # Agent worktrees: full checkouts of this repo, not content of it.
