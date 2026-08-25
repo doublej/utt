@@ -44,7 +44,7 @@ struct SettingsFeature {
             case let .devicesLoaded(devices, name):
                 state.inputDevices = devices
                 state.defaultInputName = name
-                return .none
+                return rememberNames(from: devices)
             case let .hotkeyCaptured(hotkey):
                 state.isRecordingHotkey = false
                 $settings.withLock { $0.hotkey = hotkey }
@@ -92,6 +92,25 @@ private extension SettingsFeature {
         } catch {
             log.debug("could not export device list: \(error.localizedDescription)")
         }
+    }
+
+    /// A device can only be named while it is attached, which is never the moment
+    /// the name is needed — so it is captured from every poll instead. This is also
+    /// what gives names to UIDs that arrived without one: a list seeded from the
+    /// legacy `selectedMicrophoneID`, or a device added from Raycast.
+    ///
+    /// Names for UIDs no longer in the list go with them, so the map cannot grow
+    /// into a log of every microphone the machine has ever seen.
+    func rememberNames(from devices: [AudioDevice]) -> Effect<Action> {
+        let named = Dictionary(
+            settings.microphonePriority.map { uid in
+                (uid, devices.first { $0.id == uid }?.name ?? settings.microphoneNames[uid])
+            }.compactMap { uid, name in name.map { (uid, $0) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard named != settings.microphoneNames else { return .none }
+        $settings.withLock { $0.microphoneNames = named }
+        return .none
     }
 
     /// "Only start on double-tap" without the lock would mean "start on double-tap,

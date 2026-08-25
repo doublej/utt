@@ -70,6 +70,15 @@ enum CoreAudioDevices {
         allDeviceIDs().first { stringProperty($0, kAudioDevicePropertyDeviceUID) == uid }
     }
 
+    /// What a priority list means *right now*: the best listed device that is
+    /// actually plugged in, the system default when none of them is. Callers
+    /// compare this, never the list, to decide whether the open device is still the
+    /// right one — the answer changes under them as hardware comes and goes, while
+    /// the list they asked for stays exactly the same.
+    static func resolve(_ uids: [String]) -> AudioDeviceID? {
+        uids.lazy.compactMap { deviceID(forUID: $0) }.first ?? defaultInputID()
+    }
+
     static func describe(_ deviceID: AudioDeviceID) -> AudioDevice? {
         guard let uid = stringProperty(deviceID, kAudioDevicePropertyDeviceUID) else { return nil }
         let name = stringProperty(deviceID, kAudioObjectPropertyName) ?? uid

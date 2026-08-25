@@ -74,7 +74,7 @@ private struct MicrophonePicker: View {
     var body: some View {
         Picker("Microphone", selection: binding) {
             Text(defaultLabel).tag(String?.none)
-            ForEach(devices) { device in
+            ForEach(rows) { device in
                 Text(device.name).tag(String?.some(device.id))
             }
         }
@@ -85,6 +85,19 @@ private struct MicrophonePicker: View {
 
     private var defaultLabel: String {
         defaultName.map { "System default (\($0))" } ?? "System default"
+    }
+
+    /// The head of the priority list keeps a row even when it is not plugged in.
+    /// Without one the picker has no tag matching its own selection, renders blank,
+    /// and the next click through this menu drops a preference the user never
+    /// abandoned — the mic is off the desk, not off the list. It reads the same way
+    /// the priority card in Settings does, which is where the rest of the list is.
+    private var rows: [AudioDevice] {
+        guard let head = settings.microphonePriority.first,
+              !devices.contains(where: { $0.id == head })
+        else { return devices }
+        let name = settings.microphoneNames[head] ?? head
+        return devices + [AudioDevice(id: head, name: "\(name) (not connected)")]
     }
 
     /// Settings live in `@Shared`, not in feature state, so this writes through the

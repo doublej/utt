@@ -78,12 +78,30 @@ struct SettingsTests {
         #expect(decoded.microphonePriority.isEmpty)
     }
 
+    /// The names are the only way to read a priority list on a machine where none
+    /// of those devices is plugged in, so they have to survive a restart on their
+    /// own — the device list cannot supply what is not attached.
+    @Test
+    func rememberedNamesSurviveWithoutTheDevices() throws {
+        let decoded = try decodeSettings(
+            #"{"microphonePriority": ["rode", "yeti"], "microphoneNames": {"rode": "RØDE NT-USB"}}"#
+        )
+
+        #expect(decoded.microphonePriority == ["rode", "yeti"])
+        #expect(decoded.microphoneNames["rode"] == "RØDE NT-USB")
+        // A listed device that has never been seen simply has no name yet.
+        #expect(decoded.microphoneNames["yeti"] == nil)
+        // Files written before the names existed still decode, just unnamed.
+        #expect(try decodeSettings(#"{"microphonePriority": ["rode"]}"#).microphoneNames.isEmpty)
+    }
+
     @Test
     func roundTripPreservesCustomizedValues() throws {
         var settings = UttSettings()
         settings.hotkey = HotKey(key: .u, modifiers: [.control, .shift])
         settings.muteWhileRecording = true
         settings.microphonePriority = ["airpods", "builtin:mic"]
+        settings.microphoneNames = ["airpods": "AirPods Pro", "builtin:mic": "MacBook Pro Microphone"]
         settings.maxHistoryEntries = 10
         settings.minimumKeyTime = 0.42
         settings.wordRemappings = [

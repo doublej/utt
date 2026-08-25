@@ -160,10 +160,11 @@ private struct MicrophonePriorityCard: View {
 
     private func isPresent(_ uid: String) -> Bool { devices.contains { $0.id == uid } }
 
-    /// A device that has been unplugged since it was added still has to be nameable,
-    /// and its UID is all that was ever stored.
+    /// A device that has been unplugged since it was added still has to be nameable.
+    /// The remembered name carries it; a bare UID is the last resort, for a device
+    /// that has not been seen once since it was listed.
     private func name(of uid: String) -> String {
-        devices.first { $0.id == uid }?.name ?? uid
+        devices.first { $0.id == uid }?.name ?? settings.microphoneNames[uid] ?? uid
     }
 
     private func move(_ index: Int, by offset: Int) {
