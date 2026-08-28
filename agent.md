@@ -30,6 +30,14 @@ Run `just check` after every change. On failure, work in this order:
 2. `just build`
 3. `just test`
 
+### Delegating verification
+
+Don't block on `just check` while a feature is still in progress — hand it to the
+`verify-runner` subagent and keep building. It applies safe auto-fixes itself and writes
+anything it can't safely resolve to `.claude/tickets/` instead of stopping you. Read
+`.claude/tickets/` before treating a feature as done, and delete a ticket once you've
+confirmed its issue is fixed.
+
 ## Conventions
 
 - Reducer `switch` cases stay one line and delegate to a `private extension` method.

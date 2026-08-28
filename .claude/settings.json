@@ -43,7 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/scripts/guard_version_edit.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/scripts/guard_version_edit.py\""
           }
         ]
       }
