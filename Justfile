@@ -342,11 +342,18 @@ appcast:
     # the repo root, where they are not committed, and show an empty pane.
     # --maximum-deltas 0: a delta is a separate file that would have to be uploaded
     # alongside the zip, and an advertised delta that 404s fails the update outright.
+    # --maximum-versions 1: every zip lives on its own release, so its download URL
+    # carries its own tag — but generate_appcast rewrites *every* item's enclosure
+    # with the prefix of the run that touched it, which pointed 0.5.0 at v0.5.1's
+    # release. One item cannot go stale. Sparkle only ever offers the newest anyway.
+    # ponytail: raise this the day a release lifts LSMinimumSystemVersion — an older
+    # branch point has to stay in the feed, and its URL then has to be pinned by hand.
     "$bin" --download-url-prefix "{{ releases_url }}/download/v{{ version }}/" \
         --link "{{ repo_url }}" \
         --full-release-notes-url "{{ releases_url }}" \
         --embed-release-notes \
         --maximum-deltas 0 \
+        --maximum-versions 1 \
         "{{ appcast_dir }}"
     cp "{{ appcast_dir }}/appcast.xml" appcast.xml
     echo "→ appcast.xml rewritten — commit and push it, it *is* the feed"
