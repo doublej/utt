@@ -3,23 +3,40 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>0.5.1</title>
-            <pubDate>Fri, 28 Aug 2026 15:14:51 +0200</pubDate>
+            <title>0.5.2</title>
+            <pubDate>Fri, 28 Aug 2026 15:34:29 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-A fix to the update panel itself: what changed in a release now arrives with the
-update, so this page is no longer blank when you are deciding whether to install
-it.
+A pass over the words utt uses.
 
-Nothing else changed.
+## It says things you can act on
+
+When a transcription failed, utt used to hand you the error its speech library
+raised — a sentence with a number in it and no way forward. It now says what
+happened and what to do about it. The same goes for a model that will not load,
+and for the menu bar when setup is not finished: it points you at the window
+where the buttons are instead of listing what macOS calls its permissions.
+
+Elsewhere the wording just stopped describing the machinery. Setup no longer
+says it is "compiling". A microphone you have unplugged is named, not reduced to
+an identifier. The Text tab's rule tester is called **Try it out**, and its two
+fields say **what you say** and **what utt types**.
+
+## Updates check on their own now
+
+utt was only looking for a new version when you asked it to. The daily check now
+starts with the app, which is what it said on the tin in 0.5.0.
+
+Updates also carry their approval from Apple with them, so installing one works
+the same on a network that cannot reach Apple as on one that can.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.1/utt-0.5.1.zip" length="11013994" type="application/octet-stream" sparkle:edSignature="dC8PbA4lNpIUq6mxE4/PbjF1vZRTYJcEeD9y29QfzVOexehPQ0zOmBPJZ6BhF9YWqqYHbxUmYHsf3VKizkRSDw=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.2/utt-0.5.2.zip" length="11017358" type="application/octet-stream" sparkle:edSignature="UqWSGVr1974EHMcn8U6qvEF2Uh4/luRKOJE63wszoNARQeOsZPRtkISEo/I7vV807VJiy9drIebKpnKzZ1ZOAg=="/>
         </item>
     </channel>
 </rss>
