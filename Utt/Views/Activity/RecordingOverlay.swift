@@ -70,8 +70,12 @@ final class RecordingOverlay {
 private struct RecordingOverlayView: View {
     let store: StoreOf<AppFeature>
     let onRecordingStarted: () -> Void
+    @Shared(.uttSettings) private var settings
 
-    private var recording: Bool { store.transcription.isRecording }
+    /// Switched off, the panel stays where it is and draws nothing — the same
+    /// state it is in between recordings. A preview still draws, or the sliders
+    /// in `overlay.json` would have nothing to show.
+    private var recording: Bool { store.transcription.isRecording && settings.showRecordingOverlay }
     private var style: OverlayStyle { OverlayStyleStore.shared.style }
 
     var body: some View {

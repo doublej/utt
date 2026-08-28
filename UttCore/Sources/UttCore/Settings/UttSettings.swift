@@ -61,6 +61,13 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// keeps the system indicator lit indefinitely.
     public var keepMicrophoneWarm: Bool = false
 
+    /// Draw the dot-matrix indicator in the middle of the screen while recording.
+    /// On by default: it is the only feedback there is when the window is closed.
+    /// Off leaves the panel in place drawing nothing, which is what it already does
+    /// between recordings — the alternative, tearing the window down, would cost a
+    /// relaunch to get it back.
+    public var showRecordingOverlay: Bool = true
+
     // MARK: - Transcription
 
     /// Which engine runs. Parakeet is faster and better on English; Whisper is
@@ -204,6 +211,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case muteWhileRecording
         case preventSystemSleep
         case keepMicrophoneWarm
+        case showRecordingOverlay
         case transcriptionEngine
         case selectedModel
         case useClipboardPaste
@@ -236,6 +244,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         muteWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .muteWhileRecording) ?? muteWhileRecording
         preventSystemSleep = try container.decodeIfPresent(Bool.self, forKey: .preventSystemSleep) ?? preventSystemSleep
         keepMicrophoneWarm = try container.decodeIfPresent(Bool.self, forKey: .keepMicrophoneWarm) ?? keepMicrophoneWarm
+        showRecordingOverlay = try container.decodeIfPresent(Bool.self, forKey: .showRecordingOverlay) ?? showRecordingOverlay
     }
 
     private mutating func decodeModelAndOutput(from container: KeyedDecodingContainer<CodingKeys>) throws {

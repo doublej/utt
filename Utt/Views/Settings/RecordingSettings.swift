@@ -26,6 +26,8 @@ struct RecordingSettings: View {
                 .help("Recording starts instantly after your Mac wakes. The orange microphone dot stays lit while utt runs.")
             Toggle("Mute other audio while recording", isOn: bind(\.muteWhileRecording))
             Toggle("Keep the Mac awake while recording", isOn: bind(\.preventSystemSleep))
+            Toggle("Show the indicator in the middle of the screen", isOn: bind(\.showRecordingOverlay))
+                .help("The dot-matrix mark that appears while you talk. The menu bar icon still moves.")
         }
     }
 
