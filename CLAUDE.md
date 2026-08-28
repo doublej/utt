@@ -70,12 +70,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `com.apple.security.device.audio-input` is required independently of the
   sandbox — without it the mic is denied outright, with no prompt and no TCC
   record.
-- **No `LSUIElement`.** It made every launch start as an accessory, and an
-  accessory app is not granted activation by its own launch — so double-clicking
-  utt opened its window *behind* whatever was already on screen, and no
-  `NSApp.activate()` afterwards could take focus back. The Dock icon is a runtime
-  `setActivationPolicy` decision, and the login-item launch the key used to cover
-  is detected through `launchIsDefaultUserInfoKey` instead.
+- **No `LSUIElement`.** It made every launch start as an accessory, so
+  double-clicking utt opened its window *behind* whatever was already on screen.
+  The Dock icon is a runtime `setActivationPolicy` decision, and the login-item
+  launch the key used to cover is detected through `launchIsDefaultUserInfoKey`
+  instead.
+- **Fronting the app goes through `AppActivation.front()`.** macOS 14 made
+  activation cooperative: a bare `NSApp.activate()` only works if the active app
+  yielded, which nothing does for a menu bar app, so it is a silent no-op and the
+  window opens behind everything. `AppActivation` takes `ignoringOtherApps:` and
+  falls back to LaunchServices; a SwiftLint rule fails the build on the bare call.
 - **A model is named, never assumed.** `selectedModel` is a stored string read
   through `ModelCatalog.resolve(id:engine:)`, which falls back to the engine's
   recommendation — a settings file can name a model from an older build or from

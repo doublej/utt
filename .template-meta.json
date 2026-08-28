@@ -1,13 +1,13 @@
 {
   "template": "swift/macos",
-  "template_version": "3.1.0",
+  "template_version": "3.2.0",
   "template_source": {
     "type": "local",
     "path": "/Users/jurrejan/Documents/development/_management/cookiecutter-templates",
     "git_remote": "git@github.com:doublej/cookiecutter-templates.git",
     "git_sha": "fd11604ad9cbce67923302fcec830d13ab4e6860"
   },
-  "rendered_at": "2026-08-11T20:19:13.924665+00:00",
+  "rendered_at": "2026-08-18T19:58:02.480029+00:00",
   "context": {
     "project_name": "utt",
     "project_slug": "utt",

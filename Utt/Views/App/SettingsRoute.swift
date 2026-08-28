@@ -24,7 +24,7 @@ final class SettingsRoute {
     func open(_ tab: SettingsPanel.Tab) {
         self.tab = tab
         isOpen = true
-        NSApp.activate()
+        AppActivation.front()
         // Deferred a turn: if the window is currently the pill it is borderless
         // right now — AppRootView expands on `isOpen` and WindowConfigurator
         // restores `.titled` on the next render pass, and only then can the

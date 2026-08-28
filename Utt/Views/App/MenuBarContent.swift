@@ -62,7 +62,7 @@ struct MenuBarContent: View {
             openWindow(id: "main")
             // `openWindow` alone shows the window without making utt active — a
             // MenuBarExtra click does not activate the app that owns it.
-            NSApp.activate()
+            AppActivation.front()
             DispatchQueue.main.async {
                 NSApp.uttMainWindow?.makeKeyAndOrderFront(nil)
             }

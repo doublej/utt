@@ -126,10 +126,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// today.
     ///
     /// The bundle used to declare `LSUIElement` to keep the login-item launch quiet.
-    /// That started *every* launch as an accessory, and an accessory app is not
-    /// granted activation by its own launch — so double-clicking utt opened its
-    /// window behind whatever was already on screen, and no `NSApp.activate()` here
-    /// could take the focus back. The key is gone; this method covers both launches.
+    /// That started *every* launch as an accessory, so double-clicking utt opened its
+    /// window behind whatever was already on screen. The key is gone; this method
+    /// covers both launches. Taking the focus back needs `AppActivation.front()` —
+    /// a bare `NSApp.activate()` is a no-op while utt is an accessory.
     @MainActor
     private func presentWindowUnlessLaunchedQuietly(_ notification: Notification) {
         let byUser = notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool
@@ -152,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return
             }
-            NSApp.activate()
+            AppActivation.front()
             NSApp.uttMainWindow?.makeKeyAndOrderFront(nil)
             self.presentsWindowOnActivation = true
         }
