@@ -10,17 +10,15 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "updater")
 ///
 /// The updater only starts when `SUFeedURL` is present in the Info.plist. Sparkle
 /// aborts with an error when it starts without a feed, and an app that logs a fatal
-/// updater error on every launch is worse than one that cannot yet update — so
-/// until an appcast is actually hosted, `isConfigured` is false and the UI says so
-/// rather than offering a button that fails.
+/// updater error on every launch is worse than one that cannot update — so the guard
+/// stays: a build whose feed was stripped hides the update affordances instead of
+/// offering a button that fails.
 ///
-/// Shipping checklist, in order:
-///   1. `just sparkle-keys` — writes the EdDSA private key to the login keychain
-///      and prints the public key. **Back the private key up.** Losing it means
-///      every installed copy can no longer be updated, ever.
-///   2. Put the printed key in `Info.plist` as `SUPublicEDKey`.
-///   3. Host an appcast and put its URL in `Info.plist` as `SUFeedURL`.
-///   4. `just appcast` after each release to sign the archive and update the feed.
+/// The feed and the public key are set (see `Info.plist`), so the rest is per
+/// release and lives in `just publish`: notarize, upload the zip and the dmg to the
+/// GitHub release, then `just appcast` to sign the zip and rewrite `appcast.xml`.
+/// `SUEnableAutomaticChecks` is on, so a background check runs on its own; this
+/// client only covers the explicit "Check for Updates…" button.
 @DependencyClient
 struct UpdaterClient: Sendable {
     var isConfigured: @Sendable () -> Bool = { false }

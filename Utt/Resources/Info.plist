@@ -33,12 +33,21 @@
       <array><string>utt</string></array>
     </dict>
   </array>
-  <!-- Sparkle. Both are empty until an appcast is actually hosted; UpdaterClient
-       refuses to start the updater without a feed, because Sparkle aborts with a
-       fatal error when it starts without one. Fill SUPublicEDKey from
-       `just sparkle-keys`, then SUFeedURL, then `just appcast` per release. -->
-  <key>SUFeedURL</key><string></string>
-  <key>SUPublicEDKey</key><string></string>
-  <key>SUEnableAutomaticChecks</key><false/>
+  <!-- Sparkle. The feed is the appcast.xml committed at the root of this repo,
+       served raw by GitHub — a fixed URL that costs nothing to host and that
+       `just publish` rewrites and pushes on every release. It must stay reachable
+       for as long as any copy of utt is installed, so it is deliberately not tied
+       to a release tag or an asset id, both of which move.
+       SUPublicEDKey is the public half of the EdDSA key in the login keychain;
+       lose the private half and no installed copy can ever be updated again. -->
+  <key>SUFeedURL</key><string>https://raw.githubusercontent.com/doublej/utt/main/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>3f8pu0IeVTScmSSV33gb09yrNFct0DxKX72KrDLkDEY=</string>
+  <!-- Checking is on from the first launch, without Sparkle's "may I check for
+       updates?" prompt: utt already says on the tin that nothing leaves the
+       machine, and an update check that has to be opted into is one nobody turns
+       on. Installing still asks — SUAutomaticallyUpdate stays off, so an update
+       is never swapped in underneath a recording. -->
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
 </dict>
 </plist>

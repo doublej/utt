@@ -152,15 +152,32 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`
 - `just raycast-dev` — loads the extension into Raycast, reloads on save
 
-Release: `just archive` → `just export-app` → `just notarize` → `just dmg` →
-`just appcast`. `just dmg` is the shippable artifact — a drag-to-Applications
-image, signed and notarized itself, because Gatekeeper checks the container
-before anything is copied out of it.
+Release: `just bump` → `just publish`, which runs `archive` → `export-app` →
+`notarize` → `dmg` and then pushes the tag, creates the GitHub release from
+`docs/RELEASE-X.Y.Z.md` with the dmg and the zip attached, and finally rewrites
+and commits `appcast.xml`. `just dmg` is the shippable artifact — a
+drag-to-Applications image, signed and notarized itself, because Gatekeeper
+checks the container before anything is copied out of it.
 `export-app` writes `release/ExportOptions.plist` itself; `notarize` needs the
 `utt-notary` keychain profile, stored once with `xcrun notarytool
 store-credentials` and an app-specific password.
 `just sparkle-keys` once, and **back the private key up** — losing it means
 installed copies can never be updated again.
+
+The appcast is the load-bearing part:
+
+- **`appcast.xml` at the repo root is the live feed.** `SUFeedURL` points at its
+  `raw.githubusercontent.com` URL on `main`, so it is served for free and never
+  moves. Deleting it, renaming the branch, or making the repo private strands
+  every installed copy.
+- **`release/appcast/` is not disposable.** `generate_appcast` carries the
+  previous entries forward only from the appcast sitting next to the archives —
+  generating into the wiped `release/export/` would publish a feed containing
+  only the newest version.
+- **The appcast is committed last.** It is the only thing installed copies read,
+  so it must never name a download that is not attached to the release yet.
+- **Deltas are off** (`--maximum-deltas 0`). A delta is a separate file that would
+  have to be uploaded too, and an advertised delta that 404s fails the update.
 
 ## Versioning
 
@@ -198,9 +215,6 @@ something a script should be inventing.
 
 ## Known gaps
 
-- `SUFeedURL` and `SUPublicEDKey` in `Info.plist` are empty. `UpdaterClient`
-  refuses to start Sparkle without a feed (Sparkle aborts fatally otherwise), so
-  the update affordances stay hidden until an appcast is hosted.
 - The disk image has no custom window background or icon layout — the volume
   opens in plain icon view with `utt.app` and the `Applications` alias in it.
   Positioning them takes Finder AppleScript; it has not been worth it.

@@ -23,6 +23,13 @@ dmg_path := "release/utt-" + version + ".dmg"
 
 zip_path := export_dir + "/utt-" + version + ".zip"
 
+# Kept across releases, unlike export_dir: the appcast generator needs the previous
+# feed and its archives next to each other to carry old entries forward.
+
+appcast_dir := "release/appcast"
+repo_url := "https://github.com/doublej/utt"
+releases_url := repo_url + "/releases"
+
 # -skipMacroValidation: TCA and friends ship swift-syntax macro plugins, and Xcode
 # demands an interactive "trust" click per package whenever their fingerprint moves.
 # The pins in project.yml are the actual trust decision.
@@ -304,17 +311,61 @@ sparkle-keys:
     echo ''
     echo 'Put the printed key in Utt/Resources/Info.plist as SUPublicEDKey.'
 
-# Signs the notarized zip and updates the appcast. Needs SUFeedURL set first.
+# Signs the notarized zip and rewrites the committed appcast.
+#
+# The archives live in their own directory rather than in `release/export`, which
+# `export-app` wipes: generate_appcast carries the *previous* entries across from the
+# appcast it finds next to the archives, and a wiped directory would silently publish
+# a feed with only the newest version in it. --download-url-prefix applies to new
+# items only, so each entry keeps the release tag it was actually uploaded under.
+
 [group('release')]
 appcast:
     #!/usr/bin/env zsh
+    set -euo pipefail
     bin=$(find .build -name generate_appcast -type f -perm -111 2>/dev/null | head -1)
     if [[ -z "$bin" ]]; then
         echo "error: generate_appcast not built yet — run 'just build' first" >&2
         exit 1
     fi
-    "$bin" "{{ export_dir }}"
-    echo "appcast written to {{ export_dir }}/appcast.xml — upload it to SUFeedURL"
+    mkdir -p "{{ appcast_dir }}"
+    cp "{{ zip_path }}" "{{ appcast_dir }}/"
+    # Same basename as the archive: generate_appcast reads it as the release notes
+    # and embeds them in the item Sparkle shows before installing.
+    [[ -f "docs/RELEASE-{{ version }}.md" ]] \
+        && cp "docs/RELEASE-{{ version }}.md" "{{ appcast_dir }}/utt-{{ version }}.md"
+    # --maximum-deltas 0: a delta is a separate file that would have to be uploaded
+    # alongside the zip, and an advertised delta that 404s fails the update outright.
+    "$bin" --download-url-prefix "{{ releases_url }}/download/v{{ version }}/" \
+        --link "{{ repo_url }}" \
+        --full-release-notes-url "{{ releases_url }}" \
+        --maximum-deltas 0 \
+        "{{ appcast_dir }}"
+    cp "{{ appcast_dir }}/appcast.xml" appcast.xml
+    echo "→ appcast.xml rewritten — commit and push it, it *is* the feed"
+
+# Ship it: push the tag, publish the GitHub release, then the feed that points at it.
+#
+# The appcast is committed last on purpose. It is the only thing installed copies
+# read, so it must never name a download that is not on the release yet.
+
+[group('release')]
+publish: dmg
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    tag="v{{ version }}"
+    git rev-parse "$tag" >/dev/null 2>&1 \
+        || { echo "error: no tag $tag — run 'just bump' first" >&2; exit 1; }
+    notes="docs/RELEASE-{{ version }}.md"
+    [[ -f "$notes" ]] || { echo "error: $notes is missing" >&2; exit 1; }
+    git push --follow-tags
+    gh release create "$tag" --title "utt {{ version }}" --notes-file "$notes" \
+        "{{ dmg_path }}" "{{ zip_path }}"
+    just appcast
+    git add appcast.xml
+    git commit -m "release: appcast for {{ version }}"
+    git push
+    echo "→ utt {{ version }} published; the feed now offers it"
 
 [group('cleanup')]
 clean:
