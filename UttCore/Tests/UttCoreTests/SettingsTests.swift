@@ -23,16 +23,25 @@ struct SettingsTests {
         #expect(try roundTrip(settings) == settings)
     }
 
+    /// Every key falls back to its default except `hasCompletedOnboarding`, which
+    /// an *absent* key deliberately seeds to `true`: a settings file written before
+    /// the walkthrough existed belongs to someone already long past it.
+    private var defaultsAsDecodedFromAFile: UttSettings {
+        var settings = UttSettings()
+        settings.hasCompletedOnboarding = true
+        return settings
+    }
+
     @Test
     func missingKeysDecodeToDefaults() throws {
         let decoded = try decodeSettings("{}")
-        #expect(decoded == UttSettings())
+        #expect(decoded == defaultsAsDecodedFromAFile)
     }
 
     @Test
     func unknownKeysAreIgnored() throws {
         let decoded = try decodeSettings(#"{"aSettingWeRemoved": 42, "anotherOne": "gone"}"#)
-        #expect(decoded == UttSettings())
+        #expect(decoded == defaultsAsDecodedFromAFile)
     }
 
     @Test
@@ -194,6 +203,26 @@ struct SettingsTests {
         let decoded = try decodeSettings(#"{"deliveryMode":"review"}"#)
 
         #expect(decoded.deliveryMode == .review)
+    }
+
+    /// The flag is the only gate on the walkthrough, so these three cases are the
+    /// three people it has to tell apart: someone upgrading, someone resetting it
+    /// on purpose, and someone launching utt for the first time.
+    @Test
+    func aSettingsFileFromBeforeTheWalkthroughCountsAsOnboarded() throws {
+        #expect(try decodeSettings(#"{"openOnLogin": true}"#).hasCompletedOnboarding)
+    }
+
+    @Test
+    func anExplicitFalseSurvivesSoTheWalkthroughCanBeReplayed() throws {
+        #expect(try decodeSettings(#"{"hasCompletedOnboarding": false}"#).hasCompletedOnboarding == false)
+        #expect(try decodeSettings(#"{"hasCompletedOnboarding": true}"#).hasCompletedOnboarding)
+    }
+
+    // No file at all never reaches the decoder — @Shared falls back to this.
+    @Test
+    func aFreshInstallHasNotOnboarded() {
+        #expect(UttSettings().hasCompletedOnboarding == false)
     }
 }
 

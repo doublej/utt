@@ -42,9 +42,10 @@ struct AppRootView: View {
         .sheet(isPresented: $showingOnboarding) { OnboardingFlow(store: store) }
         // A first launch is the one moment where nothing is granted and the user is
         // watching, so the walkthrough opens itself rather than waiting to be found.
-        .onChange(of: store.isFirstRun) { _, isFirstRun in
-            if isFirstRun == true, !settings.hasCompletedOnboarding { showingOnboarding = true }
-        }
+        // The flag is the whole condition: a settings file exists from the first
+        // store write onwards, so anything derived from the file cannot tell a first
+        // launch from a deliberate replay.
+        .task { if !settings.hasCompletedOnboarding { showingOnboarding = true } }
         // Settings can be opened from the transcript panel while the window is
         // the pill — which has nowhere to show them. Expand first.
         .onChange(of: showingSettings) { _, isOpen in
@@ -60,7 +61,7 @@ struct AppRootView: View {
             }
             RecorderModule(store: store)
             if showingSettings {
-                SettingsPanel(store: store, showingGuide: $showingGuide)
+                SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
             } else {
                 HistoryList(store: store)
             }

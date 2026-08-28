@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsPanel: View {
     let store: StoreOf<AppFeature>
     @Binding var showingGuide: Bool
+    @Binding var showingOnboarding: Bool
     /// Shared, so the transcript panel can send someone straight to the Text tab.
     @Bindable private var route = SettingsRoute.shared
 
@@ -59,7 +60,7 @@ struct SettingsPanel: View {
         switch tab {
         case .recording: RecordingSettings(store: store)
         case .text: TextSettings()
-        case .general: GeneralSettings(store: store, showingGuide: $showingGuide)
+        case .general: GeneralSettings(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
         case .about: AboutSettings(store: store)
         }
     }

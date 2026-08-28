@@ -5,6 +5,7 @@ import UttCore
 struct GeneralSettings: View {
     let store: StoreOf<AppFeature>
     @Binding var showingGuide: Bool
+    @Binding var showingOnboarding: Bool
     @Shared(.uttSettings) private var settings
 
     var body: some View {
@@ -38,6 +39,7 @@ struct GeneralSettings: View {
             Toggle("Show in the Dock", isOn: bind(\.showDockIcon))
             Toggle("Open at login", isOn: bind(\.openOnLogin))
             HStack {
+                Button("Show the walkthrough again") { showingOnboarding = true }
                 Spacer()
                 Button("Reset to defaults", role: .destructive) {
                     store.send(.settings(.resetToDefaultsTapped))

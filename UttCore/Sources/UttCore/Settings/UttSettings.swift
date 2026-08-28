@@ -138,8 +138,9 @@ public struct UttSettings: Codable, Equatable, Sendable {
     public var showDockIcon: Bool = true
 
     /// The first-run walkthrough has been seen through, or deliberately skipped.
-    /// Durable where "no settings file yet" is not: the file appears the moment
-    /// anything writes to it, which onboarding itself does.
+    /// The *only* thing that decides whether it opens again, which is what makes
+    /// setting it back to `false` — by hand in this file, or with the button in
+    /// General — replay the flow without deleting everything else in here.
     public var hasCompletedOnboarding: Bool = false
 
     /// All defaults. Mutate the properties you want to change — every one is
@@ -155,6 +156,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         try decodeTextPipeline(from: container)
         try decodeApp(from: container)
         try seedMicrophonePriority(from: decoder)
+        try seedOnboardingCompletion(from: decoder)
         normalizeDoubleTapSettings()
         normalizeDelivery()
     }
@@ -175,6 +177,18 @@ public struct UttSettings: Codable, Equatable, Sendable {
                   .decodeIfPresent(String.self, forKey: .selectedMicrophoneID)
         else { return }
         microphonePriority = [uid]
+    }
+
+    /// A file written before the walkthrough existed belongs to someone who has
+    /// been using utt for months, so its absence means "already onboarded" rather
+    /// than "never onboarded". Key *absence* is what says so: an explicit `false`
+    /// is a deliberate reset and has to survive the launch that reads it, which is
+    /// the only thing that makes the flag resettable without deleting the file.
+    private mutating func seedOnboardingCompletion(from decoder: Decoder) throws {
+        guard try !decoder.container(keyedBy: CodingKeys.self)
+            .contains(.hasCompletedOnboarding)
+        else { return }
+        hasCompletedOnboarding = true
     }
 
     /// The on-disk key names. Spelled out rather than synthesised so renaming a

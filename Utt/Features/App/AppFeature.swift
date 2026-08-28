@@ -24,9 +24,6 @@ struct AppFeature {
         /// False until an appcast is actually hosted — see `UpdaterClient`. The UI
         /// hides the update affordances rather than offering one that cannot work.
         var updatesConfigured = false
-        /// Nil until the first-run check has run, so the UI does not flash a
-        /// welcome screen at someone who has been using utt for a month.
-        var isFirstRun: Bool?
         /// Catalog ids whose weights are on disk. Recomputed rather than observed:
         /// a model only appears or disappears because this reducer downloaded it.
         var downloadedModels: Set<String> = []
@@ -44,7 +41,6 @@ struct AppFeature {
         case prepareModelTapped
         case grantTapped(Permission)
         case relaunchTapped
-        case firstRunChecked(Bool)
         /// ⌥⇧V, or the menu bar item — put the last transcript back where the
         /// cursor is now.
         case pasteLastTapped
@@ -98,7 +94,6 @@ struct AppFeature {
                 }
             case .copyLastTapped: return withLastTranscript(state) { await pasteboard.copy($0) }
             case .checkForUpdatesTapped: return .run { _ in await updater.checkForUpdates() }
-            case let .firstRunChecked(isFirst): state.isFirstRun = isFirst; return .none
 
             // Child-to-parent is plain pattern matching on the child action —
             // no delegate-action ceremony. Every transcription action lands here,
@@ -161,25 +156,8 @@ private extension AppFeature {
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),
-            applySystemPreferences(),
-            checkFirstRun()
+            applySystemPreferences()
         )
-    }
-
-    /// First run is "no settings file yet" — measured by **content, not existence**.
-    /// `@Shared(.uttSettings)` is a `FileStorageKey`, and it touches the path into
-    /// being as a zero-byte file when the store initialises, before this effect
-    /// runs. So `fileExists` is already true on a genuine first launch, which hid
-    /// both the onboarding sheet and the permission walkthrough. An empty file is
-    /// the storage layer, not a settings file: it fails to decode and `@Shared`
-    /// falls back to `UttSettings()` anyway.
-    func checkFirstRun() -> Effect<Action> {
-        .run { send in
-            let hasSettings = (try? URL.uttSettingsFile)
-                .flatMap { try? Data(contentsOf: $0) }
-                .map { !$0.isEmpty } ?? false
-            await send(.firstRunChecked(!hasSettings))
-        }
     }
 
     /// A permission has to read as missing on **two consecutive polls** before the
