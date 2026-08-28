@@ -3,6 +3,33 @@
     <channel>
         <title>utt</title>
         <item>
+            <title>0.5.1</title>
+            <pubDate>Fri, 28 Aug 2026 15:14:51 +0200</pubDate>
+            <link>https://github.com/doublej/utt</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
+machine.
+
+This is the first release that installs itself, and it exists to prove that it
+does. Nothing in the app changed.
+
+## What is different
+
+The release notes you are reading are carried inside the update feed rather than
+fetched from a second address. Sparkle worked out that address from the feed's
+own location, which is a file in this repository and not a folder of notes, so
+the pane you would have read 0.5.0's notes in was empty. They travel with the
+update now.
+
+If you got here by clicking **Install Update** rather than by downloading a disk
+image, the thing this release was made to test worked.
+]]></description>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.1/utt-0.5.1.zip" length="11013994" type="application/octet-stream" sparkle:edSignature="dC8PbA4lNpIUq6mxE4/PbjF1vZRTYJcEeD9y29QfzVOexehPQ0zOmBPJZ6BhF9YWqqYHbxUmYHsf3VKizkRSDw=="/>
+        </item>
+        <item>
             <title>0.5.0</title>
             <pubDate>Fri, 28 Aug 2026 15:07:41 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
@@ -61,7 +88,7 @@ want it back.
 Settings written by an earlier version still load, and a file from before the
 walkthrough existed counts as already seen.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.0/utt-0.5.0.zip" length="11014053" type="application/octet-stream" sparkle:edSignature="Z/n+u/2rap+WJQbb0Sacy+TW6c9ioPs8UofG3tURtCe+N5dwncliLZc9q2+sxwFTr2bhJaM9hhf77OzFE7vgAA=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.1/utt-0.5.0.zip" length="11014053" type="application/octet-stream" sparkle:edSignature="Z/n+u/2rap+WJQbb0Sacy+TW6c9ioPs8UofG3tURtCe+N5dwncliLZc9q2+sxwFTr2bhJaM9hhf77OzFE7vgAA=="/>
         </item>
     </channel>
 </rss>
