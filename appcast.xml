@@ -1,0 +1,17 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>utt</title>
+        <item>
+            <title>0.5.0</title>
+            <pubDate>Fri, 28 Aug 2026 15:07:41 +0200</pubDate>
+            <link>https://github.com/doublej/utt</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:releaseNotesLink>https://raw.githubusercontent.com/doublej/utt/main/utt-0.5.0.md</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v0.5.0/utt-0.5.0.zip" length="11014053" type="application/octet-stream" sparkle:edSignature="Z/n+u/2rap+WJQbb0Sacy+TW6c9ioPs8UofG3tURtCe+N5dwncliLZc9q2+sxwFTr2bhJaM9hhf77OzFE7vgAA=="/>
+        </item>
+    </channel>
+</rss>
