@@ -38,12 +38,20 @@ time. It lands in `~/Documents/huggingface/`. Nothing is uploaded, then or ever.
 
 ## Updating
 
-In-app updates are not wired up yet (no signed appcast). To update: quit utt and
-replace `/Applications/utt.app` from the new disk image.
+utt updates itself. It looks for a new version once a day and tells you when
+there is one, with a summary of what changed and the choice to install it, be
+reminded later, or skip it. Nothing installs on its own. **Check for Updates…**
+in the menu bar asks straight away.
 
-Your permission grants survive the swap. Every release from this repo is signed
-by the same Developer ID team, and macOS keys the grants to that team rather than
-to an individual certificate, so even a certificate renewal leaves them alone.
+Checking sends nothing about you or your machine, and every update is signed —
+utt will not install one that is not.
+
+Your permissions survive an update. Every release is signed by the same
+Developer ID team, and macOS keys the grants to that team rather than to an
+individual certificate, so even a certificate renewal leaves them alone.
+
+Replacing `/Applications/utt.app` from a new disk image by hand still works if
+you would rather do it that way.
 
 ## Uninstalling
 

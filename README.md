@@ -14,6 +14,9 @@ The disk image is signed and notarized, so there is no quarantine flag to clear.
 [docs/INSTALL.md](docs/INSTALL.md) has the three permissions utt needs and how to
 uninstall.
 
+After that utt updates itself: it looks once a day, shows you what changed, and
+installs only when you say so.
+
 ## Requirements
 
 - macOS 26.0+, Apple silicon
