@@ -330,15 +330,22 @@ appcast:
     fi
     mkdir -p "{{ appcast_dir }}"
     cp "{{ zip_path }}" "{{ appcast_dir }}/"
-    # Same basename as the archive: generate_appcast reads it as the release notes
-    # and embeds them in the item Sparkle shows before installing.
-    [[ -f "docs/RELEASE-{{ version }}.md" ]] \
-        && cp "docs/RELEASE-{{ version }}.md" "{{ appcast_dir }}/utt-{{ version }}.md"
+    # Same basename as the archive: that is how generate_appcast finds the release
+    # notes for an item.
+    if [[ -f "docs/RELEASE-{{ version }}.md" ]]; then
+        cp "docs/RELEASE-{{ version }}.md" "{{ appcast_dir }}/utt-{{ version }}.md"
+    else
+        echo "warn: no docs/RELEASE-{{ version }}.md — the update will show no notes" >&2
+    fi
+    # --embed-release-notes: without it the notes become a *link*, and the URL is
+    # derived from SUFeedURL's directory — so Sparkle would fetch the notes from
+    # the repo root, where they are not committed, and show an empty pane.
     # --maximum-deltas 0: a delta is a separate file that would have to be uploaded
     # alongside the zip, and an advertised delta that 404s fails the update outright.
     "$bin" --download-url-prefix "{{ releases_url }}/download/v{{ version }}/" \
         --link "{{ repo_url }}" \
         --full-release-notes-url "{{ releases_url }}" \
+        --embed-release-notes \
         --maximum-deltas 0 \
         "{{ appcast_dir }}"
     cp "{{ appcast_dir }}/appcast.xml" appcast.xml
