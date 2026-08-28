@@ -29,3 +29,6 @@ release/
 
 # Agent worktrees: full checkouts of this repo, not content of it.
 .claude/worktrees/
+
+# Agent scratch: a manager session's dispatch notes, not project history.
+CLAUDE-MANAGER.md
