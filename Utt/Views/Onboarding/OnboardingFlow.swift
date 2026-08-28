@@ -206,7 +206,7 @@ private struct ModelStrip: View {
         switch state {
         case .idle: "Queued"
         case let .downloading(fraction): "Downloading \(Int(fraction * 100))%"
-        case .loading: "Compiling for this Mac"
+        case .loading: "Getting ready for this Mac"
         case .ready: "Ready"
         case let .failed(message): message
         }

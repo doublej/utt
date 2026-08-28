@@ -18,7 +18,7 @@ struct RuleBench: View {
     static let cannedSample = "um so I told claude code new line ship it comma please"
 
     var body: some View {
-        Card("Rule bench") {
+        Card("Try it out") {
             TextEditor(text: $sample)
                 .font(Typography.mono)
                 .scrollContentBackground(.hidden)
@@ -41,7 +41,7 @@ struct RuleBench: View {
 
             Divider()
 
-            Text(output.isEmpty ? "Nothing left after the rules." : output)
+            Text(output.isEmpty ? "Every word here is deleted by a rule." : output)
                 .font(Typography.mono)
                 .foregroundStyle(output.isEmpty ? Palette.textTertiary : Palette.textPrimary)
                 .textSelection(.enabled)

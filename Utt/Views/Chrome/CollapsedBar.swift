@@ -100,7 +100,7 @@ struct CollapsedBar: View {
             switch store.model {
             case let .downloading(fraction): subtitleText("Downloading model \(Int(fraction * 100))%")
             case .idle, .loading: subtitleText("Loading model…")
-            case .failed: subtitleText("Model unavailable")
+            case .failed: subtitleText("Model needs setting up")
             case .ready: EmptyView()
             }
         }

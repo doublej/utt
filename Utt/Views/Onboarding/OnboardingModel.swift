@@ -92,7 +92,7 @@ struct OnboardingModel: View {
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
         case .loading:
-            Text("Compiling for this Mac. One time, about half a minute.")
+            Text("Getting the model ready for this Mac. One time, about half a minute.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
         case let .failed(message):

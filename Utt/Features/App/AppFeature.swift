@@ -80,7 +80,7 @@ struct AppFeature {
             case let .modelPrepared(.success(loaded)):
                 let key = state.preparedKey
                 log.notice("\(key, privacy: .public) \(loaded ? "ready" : "failed", privacy: .public)")
-                state.model = loaded ? .ready : .failed("Could not load the transcription model")
+                state.model = loaded ? .ready : .failed("Could not load the model — try again")
                 refreshDownloaded(&state)
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
@@ -156,7 +156,10 @@ private extension AppFeature {
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),
-            applySystemPreferences()
+            applySystemPreferences(),
+            // Starting the updater is what schedules the daily check; nothing else
+            // touches it until the button is pressed.
+            .run { _ in await updater.start() }
         )
     }
 

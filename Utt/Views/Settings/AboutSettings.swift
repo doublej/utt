@@ -31,7 +31,7 @@ struct AboutSettings: View {
         }
 
         Card("Shortcuts") {
-            ShortcutRow(label: "Push to talk", hotkey: settings.hotkey)
+            ShortcutRow(label: "Push-to-talk", hotkey: settings.hotkey)
             ShortcutRow(label: "Paste last transcript", hotkey: AppFeature.pasteLastHotKey)
         }
 

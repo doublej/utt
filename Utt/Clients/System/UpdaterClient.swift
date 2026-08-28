@@ -22,6 +22,11 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "updater")
 @DependencyClient
 struct UpdaterClient: Sendable {
     var isConfigured: @Sendable () -> Bool = { false }
+    /// Brings the updater into existence, which is what schedules the daily check.
+    /// Without this call nothing checks until somebody presses the button — the
+    /// controller is a lazy `static let`, and a background updater that only starts
+    /// when asked is not a background updater.
+    var start: @Sendable () async -> Void
     var checkForUpdates: @Sendable () async -> Void
 }
 
@@ -31,10 +36,13 @@ extension UpdaterClient: DependencyKey {
         let configured = !(feed ?? "").isEmpty
         guard configured else {
             log.notice("no SUFeedURL — updates disabled")
-            return UpdaterClient(isConfigured: { false }, checkForUpdates: {})
+            return UpdaterClient(isConfigured: { false }, start: {}, checkForUpdates: {})
         }
         return UpdaterClient(
             isConfigured: { true },
+            start: {
+                await MainActor.run { _ = Sparkle.shared }
+            },
             checkForUpdates: {
                 await MainActor.run { Sparkle.shared.checkForUpdates(nil) }
             }

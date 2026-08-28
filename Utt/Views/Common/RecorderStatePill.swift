@@ -9,7 +9,7 @@ enum RecorderState {
         switch self {
         case .idle: "IDLE"
         case .recording: "REC"
-        case .transcribing: "TEXT"
+        case .transcribing: "BUSY"
         case .error: "ERR"
         }
     }

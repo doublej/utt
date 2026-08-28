@@ -113,7 +113,7 @@ private struct ModelRow: View {
                     )
                 }
             case .ready:
-                Label("Loaded", systemImage: "checkmark.circle.fill")
+                Label("Ready", systemImage: "checkmark.circle.fill")
                     .font(Typography.metadata)
                     .foregroundStyle(Palette.success)
             case let .failed(message):

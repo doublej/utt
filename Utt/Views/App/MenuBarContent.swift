@@ -77,7 +77,9 @@ struct MenuBarContent: View {
     private var statusLine: String {
         if store.needsRelaunch { return "Restart to apply permissions" }
         if !store.missingPermissions.isEmpty {
-            return "Needs \(store.missingPermissions.map(\.title).joined(separator: ", "))"
+            // The menu bar has no room to explain and no button to fix it with.
+            // The window has both, so it names the permissions and this points there.
+            return "Not ready — open utt to finish setup"
         }
         switch store.transcription.status {
         case .idle:

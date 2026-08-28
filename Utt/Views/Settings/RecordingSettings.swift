@@ -21,9 +21,9 @@ struct RecordingSettings: View {
 
         Card("Capture") {
             Toggle("Include audio from just before the keypress", isOn: bind(\.preRollEnabled))
-                .help("Keeps a rolling buffer so the first syllable is not clipped")
+                .help("Catches the first word when you start talking before you finish pressing")
             Toggle("Keep microphone warm through sleep and lock", isOn: bind(\.keepMicrophoneWarm))
-                .help("Prevents the engine from suspending on idle — keeps the mic-in-use indicator lit")
+                .help("Recording starts instantly after your Mac wakes. The orange microphone dot stays lit while utt runs.")
             Toggle("Mute other audio while recording", isOn: bind(\.muteWhileRecording))
             Toggle("Keep the Mac awake while recording", isOn: bind(\.preventSystemSleep))
         }
@@ -164,7 +164,7 @@ private struct MicrophonePriorityCard: View {
     /// The remembered name carries it; a bare UID is the last resort, for a device
     /// that has not been seen once since it was listed.
     private func name(of uid: String) -> String {
-        devices.first { $0.id == uid }?.name ?? settings.microphoneNames[uid] ?? uid
+        devices.first { $0.id == uid }?.name ?? settings.microphoneNames[uid] ?? "Unknown microphone"
     }
 
     private func move(_ index: Int, by offset: Int) {

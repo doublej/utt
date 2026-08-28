@@ -273,6 +273,12 @@ notarize: export-app
         --keychain-profile utt-notary --wait
     xcrun stapler staple "{{ export_dir }}/utt.app"
     xcrun stapler validate "{{ export_dir }}/utt.app"
+    # Zipped twice on purpose. The first zip is what goes to Apple, and the ticket
+    # only exists once that has come back — so the app inside it is unstapled, and
+    # that zip is also what Sparkle hands to the installer. An app that has to ask
+    # Apple online to prove itself is one that fails behind a captive portal.
+    rm -f "{{ zip_path }}"
+    ditto -c -k --keepParent "{{ export_dir }}/utt.app" "{{ zip_path }}"
 
 # The image is signed and notarized in its own right: Gatekeeper checks the
 # container before anything is copied out of it, so an unsigned .dmg around a

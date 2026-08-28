@@ -36,7 +36,7 @@ struct ReplacementList: View {
             }
             .font(Typography.metadata)
 
-            Text("Leave the written side empty to delete the word.")
+            Text("Leave the right side empty to delete the word.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textTertiary)
         }
@@ -92,15 +92,15 @@ private struct RemappingRow: View {
             Image(systemName: hits ? "circle.fill" : "circle")
                 .font(.system(size: 6))
                 .foregroundStyle(hits ? Palette.accent : Palette.textTertiary)
-                .help(hits ? "Fires in the bench sample" : "No match in the bench sample")
+                .help(hits ? "Matches the text above" : "No match in the text above")
             Toggle("", isOn: field(\.isEnabled))
                 .labelsHidden()
-            TextField("heard", text: field(\.match))
+            TextField("what you say", text: field(\.match))
             Image(systemName: deletes ? "arrow.right.to.line.compact" : "arrow.right")
                 .font(.system(size: 10))
                 .foregroundStyle(Palette.textTertiary)
                 .help(deletes ? "Deletes the word" : "Replaces the word")
-            TextField("written", text: field(\.replacement))
+            TextField("what utt types", text: field(\.replacement))
             Button {
                 $settings.withLock { $0.wordRemappings.removeAll { $0.id == rule.id } }
             } label: {

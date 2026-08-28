@@ -35,7 +35,7 @@ struct DeliveryCard: View {
             dismissDelay
 
             Toggle("Leave the transcript on the clipboard", isOn: bind(\.copyToClipboard))
-                .help("On: utt does not restore what you had copied before")
+                .help("On: the transcript stays on your clipboard instead of what was there before")
         }
     }
 

@@ -34,7 +34,9 @@ extension TranscriptionFeature {
 
         case let .failure(error):
             log.error("transcription failed: \(error.localizedDescription)")
-            state.status = .failed(error.localizedDescription)
+            // The sentence a person reads is written here, not lifted from the
+            // error: an ASRError's localizedDescription is a framework error number.
+            state.status = .failed("Could not turn that into text. Try again.")
             return .none
         }
     }
