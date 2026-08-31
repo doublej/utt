@@ -83,7 +83,7 @@ private actor PasteboardActor {
         }
 
         let board = NSPasteboard.general
-        let previous = board.string(forType: .string)
+        let previous = Self.snapshot(board)
 
         // clearContents() is what bumps changeCount; setString does not bump it again.
         // So this return value is the one to compare against on restore.
@@ -105,11 +105,27 @@ private actor PasteboardActor {
             log.debug("pasteboard changed under us (\(board.changeCount) != \(ourChange)); not restoring")
             return true
         }
-        if let previous {
-            board.clearContents()
-            board.setString(previous, forType: .string)
-        }
+        board.clearContents()
+        _ = board.writeObjects(previous)
         return true
+    }
+
+    /// A detached copy of everything on the pasteboard. The items themselves go
+    /// stale the moment `clearContents()` runs, so the data has to be pulled out
+    /// now — and it has to be every type, not `string(forType:)`: a clipboard
+    /// holding an image, a file, or styled text answers that with nil, and the
+    /// old code then had nothing to put back and left the transcript sitting
+    /// there. Lazily promised data (file promises) does not survive the round
+    /// trip; there is no way to re-vend another app's promise.
+    private static func snapshot(_ board: NSPasteboard) -> [NSPasteboardItem] {
+        board.pasteboardItems?.compactMap { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                guard let data = item.data(forType: type) else { continue }
+                copy.setData(data, forType: type)
+            }
+            return copy.types.isEmpty ? nil : copy
+        } ?? []
     }
 
     /// Undo is not ours to confirm: the keystroke goes to whoever has focus, and
