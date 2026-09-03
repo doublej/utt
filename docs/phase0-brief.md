@@ -148,7 +148,7 @@ Ship a real `.app`, never a bare Mach-O: since Tahoe 26.1, bare Unix executables
 - `/private/tmp/claude-501/-Users-jurrejan-Documents-development-python/cc95fedf-246e-4f1e-8371-abb69675e803/scratchpad/make-signing-identity.sh`
 - `/private/tmp/claude-501/-Users-jurrejan-Documents-development-python/cc95fedf-246e-4f1e-8371-abb69675e803/scratchpad/refs/{FluidAudio,argmax-oss-swift}`
 - `/private/tmp/claude-501/-Users-jurrejan-Documents-development-python/cc95fedf-246e-4f1e-8371-abb69675e803/scratchpad/deps/{tca,deps141,sparkle,sauce}`
-- `/Users/jurrejan/Documents/development/python/utty/utty/Hotkey/{GlobalHotkeyService.swift,GlobalHotkeyService+TapCallback.swift,HotkeyMatcher.swift,HotkeyFSM.swift}`
-- `/Users/jurrejan/Documents/development/python/utty/utty/Design/{Palette,Typography,Spacing,Surface,Shadow}.swift`
-- `/Users/jurrejan/Documents/development/python/utty/{Justfile,.quality.json,.swiftlint.yml,scripts/Info.plist}`
+- `/Users/jurrejan/dev/python/utty/utty/Hotkey/{GlobalHotkeyService.swift,GlobalHotkeyService+TapCallback.swift,HotkeyMatcher.swift,HotkeyFSM.swift}`
+- `/Users/jurrejan/dev/python/utty/utty/Design/{Palette,Typography,Spacing,Surface,Shadow}.swift`
+- `/Users/jurrejan/dev/python/utty/{Justfile,.quality.json,.swiftlint.yml,scripts/Info.plist}`
 - `/Users/jurrejan/.uttertype/settings.json`

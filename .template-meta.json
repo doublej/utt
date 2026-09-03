@@ -3,7 +3,7 @@
   "template_version": "3.3.0",
   "template_source": {
     "type": "local",
-    "path": "/Users/jurrejan/Documents/development/_management/cookiecutter-templates",
+    "path": "/Users/jurrejan/dev/_management/cookiecutter-templates",
     "git_remote": "git@github.com:doublej/cookiecutter-templates.git",
     "git_sha": "fd11604ad9cbce67923302fcec830d13ab4e6860"
   },

@@ -34,7 +34,7 @@ struct Engine {
 }
 
 let wav = CommandLine.arguments.dropFirst().first
-    ?? "/Users/jurrejan/Documents/development/swift/utt/spike/spike-mic.wav"
+    ?? "/Users/jurrejan/dev/swift/utt/spike/spike-mic.wav"
 let url = URL(fileURLWithPath: wav)
 guard FileManager.default.fileExists(atPath: url.path) else {
     print("✗ no audio at \(url.path) — run the permissions spike first")
