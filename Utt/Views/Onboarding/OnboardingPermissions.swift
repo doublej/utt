@@ -42,11 +42,12 @@ struct OnboardingPermissions: View {
                         )
                     }
                 }
-                .padding(Spacing.medium)
+                .padding(.horizontal, Spacing.large)
+                .padding(.bottom, Spacing.medium)
             }
             if store.needsRelaunch {
                 RelaunchCard(store: store)
-                    .padding(.horizontal, Spacing.medium)
+                    .padding(.horizontal, Spacing.large)
                     .padding(.bottom, Spacing.medium)
             }
         }

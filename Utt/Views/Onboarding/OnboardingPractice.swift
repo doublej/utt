@@ -54,7 +54,7 @@ struct OnboardingPractice: View {
             Spacer(minLength: 0)
             if let missing = store.missingPermissions.first { blockedBanner(for: missing) }
         }
-        .padding(Spacing.medium)
+        .padding(.horizontal, Spacing.large)
         .onAppear { focused = true }
         // A rep counts when a transcript actually *landed*, which is what this
         // screen exists to prove. `lastTranscript` alone would also count a paste

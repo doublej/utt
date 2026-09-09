@@ -27,7 +27,7 @@ struct OnboardingModel: View {
             storageCard
             Spacer(minLength: 0)
         }
-        .padding(Spacing.medium)
+        .padding(.horizontal, Spacing.large)
     }
 
     private var modelCard: some View {

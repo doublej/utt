@@ -27,14 +27,15 @@ struct OnboardingFlow: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            screen.frame(maxWidth: .infinity, maxHeight: .infinity)
-            Divider()
-            footer
+        HStack(spacing: 0) {
+            OnboardingRail(step: step)
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                screen.frame(maxWidth: .infinity, maxHeight: .infinity)
+                footer
+            }
         }
-        .frame(width: 460, height: 580)
+        .frame(width: 720, height: 540)
         // Every way out lands here, which is why the finishing happens here rather
         // than in `finish()`: Esc and the sheet's own dismissal never pass through a
         // button, and a flow that closed without recording it would open again on the
@@ -59,8 +60,7 @@ struct OnboardingFlow: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Spacing.small) {
-            UttMark(size: 36)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(step.title).font(Typography.pageTitle)
                 Text(step.subtitle)
                     .font(Typography.subtitle)
@@ -76,40 +76,37 @@ struct OnboardingFlow: View {
                     .font(Typography.hint)
             }
         }
-        .padding(Spacing.medium)
+        .padding(.horizontal, Spacing.large)
+        .padding(.top, Spacing.large)
+        .padding(.bottom, Spacing.medium)
     }
 
+    /// The status sits beside the buttons rather than above them, so a strip that
+    /// comes and goes never moves the button under the user's hands.
     private var footer: some View {
-        VStack(alignment: .leading, spacing: Spacing.extraSmall) {
-            statusRow.frame(height: Spacing.medium, alignment: .leading)
-            HStack(spacing: Spacing.extraSmall) {
-                StepDots(current: step)
-                Spacer()
-                if step != .welcome {
-                    Button("Back") { back() }
-                }
-                Button(step.primaryLabel) { advance() }
-                    .keyboardShortcut(.defaultAction)
+        HStack(spacing: Spacing.extraSmall) {
+            statusRow
+            Spacer(minLength: Spacing.small)
+            if step != .welcome {
+                Button("Back") { back() }
             }
+            Button(step.primaryLabel) { advance() }
+                .buttonStyle(.borderedProminent)
+                .tint(Palette.accent)
+                .keyboardShortcut(.defaultAction)
         }
-        .padding(Spacing.medium)
+        .controlSize(.large)
+        .padding(Spacing.large)
     }
 
-    /// One slot, always reserved, so the divider above the footer stays put. Without
-    /// it the band slid 48pt across the wizard — including a jump under the user's
-    /// hands on screen 5. The two rows can never both appear: a rep needs a
-    /// transcript, which needs a ready model, which is what hides the strip.
-    ///
-    /// The strip still stays off screen 3, where the model card shows the same
-    /// percentage with a bigger bar — with the slot reserved that no longer costs a
-    /// jump.
+    /// The two rows can never both appear: a rep needs a transcript, which needs a
+    /// ready model, which is what hides the strip. The strip stays off screen 3,
+    /// where the model card shows the same percentage with a bigger bar.
     @ViewBuilder private var statusRow: some View {
         if step == .practice, practice.reps > 0 {
             practiceStatus
         } else if !store.model.isReady, step != .model {
             ModelStrip(state: store.model)
-        } else {
-            Color.clear
         }
     }
 
@@ -169,6 +166,17 @@ extension OnboardingFlow.Step {
         case .model: "One download, then utt never needs the network."
         case .hotkey: "utt picked one already. Keep it or change it here."
         case .practice: "Two rounds and you are done."
+        }
+    }
+
+    /// The rail's word for the step: a noun, where `title` is the invitation.
+    var railTitle: String {
+        switch self {
+        case .welcome: "Welcome"
+        case .permissions: "Permissions"
+        case .model: "Model"
+        case .hotkey: "Hotkey"
+        case .practice: "Practice"
         }
     }
 
@@ -238,23 +246,5 @@ private struct ModelStrip: View {
         default:
             EmptyView()
         }
-    }
-}
-
-/// Filled cumulatively, so the row reads as progress rather than as a carousel.
-private struct StepDots: View {
-    let current: OnboardingFlow.Step
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(OnboardingFlow.Step.allCases, id: \.self) { step in
-                Circle()
-                    .fill(step.rawValue <= current.rawValue
-                        ? Palette.accent
-                        : Palette.textTertiary.opacity(0.35))
-                    .frame(width: 5, height: 5)
-            }
-        }
-        .accessibilityLabel("Step \(current.rawValue + 1) of \(OnboardingFlow.Step.allCases.count)")
     }
 }

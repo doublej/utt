@@ -30,7 +30,7 @@ struct OnboardingHotkey: View {
             doubleTapCard
             Spacer(minLength: 0)
         }
-        .padding(Spacing.medium)
+        .padding(.horizontal, Spacing.large)
         // While the recorder is armed every key event goes to it instead of the
         // processor. Walking off this screen mid-capture would leave the next
         // screen's hotkey dead and the keyboard swallowed.
@@ -61,7 +61,7 @@ struct OnboardingHotkey: View {
         .frame(maxWidth: .infinity)
         .padding(
             EdgeInsets(
-                top: Spacing.large, leading: Spacing.small, bottom: Spacing.medium,
+                top: Spacing.extraLarge, leading: Spacing.small, bottom: Spacing.large,
                 trailing: Spacing.small
             )
         )

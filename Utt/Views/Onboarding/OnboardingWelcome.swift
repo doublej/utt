@@ -1,57 +1,59 @@
 import ComposableArchitecture
 import SwiftUI
 
-/// Screen 1: what the app does, in one gesture — and the privacy claim made
+/// Screen 1: what the app does, in three facts — and the privacy claim made
 /// *before* the microphone is asked for, which is the one ordering every
-/// competitor gets backwards.
+/// competitor gets backwards. The lock animation that makes the claim plays on
+/// the rail, where the mark lives on every screen.
 struct OnboardingWelcome: View {
     @Shared(.uttSettings) private var settings
-    /// Locked → unlatched → open → glint → locked. It ends sealed, which is what
-    /// makes it a privacy mark rather than a "permissions granted" one — the
-    /// reason it plays here and nowhere else in the flow.
-    @State private var lock = OneShotPatternPlayer(
-        frames: LockAnimation.frames, interval: LockAnimation.frameInterval
-    )
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            // 96, not 44: at 44 the dot geometry draws 5pt lit dots, which measured
-            // as the palest ink in the window — the one animated, branded element on
-            // the cover screen was weaker than the 11pt caption under it.
-            PatternMark(pattern: lock.pattern, size: 96)
-            Spacer().frame(height: Spacing.large)
-            Text("Nothing you say leaves this Mac.")
-                .font(Typography.primaryRow)
-            Spacer().frame(height: Spacing.extraSmall)
-            Text("No account, no sign-up. Setup is five screens, about ninety seconds.")
-                .font(Typography.hint)
-                .foregroundStyle(Palette.textSecondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer().frame(height: Spacing.extraLarge)
-            gestureCard
+        VStack(alignment: .leading, spacing: Spacing.large) {
+            Fact("keyboard", title: "Hold a key and talk") {
+                Text("Let go, and the words are typed wherever your cursor is. Every app you type in.")
+                // Read from settings rather than hardcoded to ⌃fn, because this screen
+                // is also what a re-run shows.
+                HotkeyGlyphs(hotkey: settings.hotkey)
+                    .padding(.top, Spacing.xxs)
+            }
+            Fact("lock.shield", title: "Nothing you say leaves this Mac") {
+                Text("The model runs here. No account, no sign-up, and no network once it is downloaded.")
+            }
+            Fact("timer", title: "About ninety seconds") {
+                Text("Three permissions, one download, one practice run.")
+            }
             Spacer(minLength: 0)
         }
-        .padding(Spacing.medium)
-        .onAppear { lock.play() }
+        .padding(.horizontal, Spacing.large)
+        .padding(.top, Spacing.small)
+    }
+}
+
+/// One thing worth knowing before anything is asked for: the category tile the
+/// settings use, a title, and a line under it.
+private struct Fact<Detail: View>: View {
+    let systemImage: String
+    let title: String
+    @ViewBuilder let detail: () -> Detail
+
+    init(_ systemImage: String, title: String, @ViewBuilder detail: @escaping () -> Detail) {
+        self.systemImage = systemImage
+        self.title = title
+        self.detail = detail
     }
 
-    /// A specimen, not a third telling of the gesture: the header title and subtitle
-    /// have already said it, and the only thing this card can add is *which* key —
-    /// read from settings rather than hardcoded to ⌃fn, because this screen is also
-    /// what a re-run shows. It hugs its content so it reads as a chip rather than a
-    /// 39%-filled rail.
-    private var gestureCard: some View {
-        HStack(spacing: Spacing.small) {
-            HotkeyGlyphs(hotkey: settings.hotkey)
-            Text("works in every app you type in")
-                .font(Typography.metadata)
-                .foregroundStyle(Palette.textSecondary)
+    var body: some View {
+        HStack(alignment: .top, spacing: Spacing.small) {
+            CategoryIcon(systemImage, size: 32)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(title).font(Typography.primaryRow)
+                detail()
+                    .font(Typography.hint)
+                    .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .padding(Spacing.small)
-        .contentSurface(radius: Radius.medium)
     }
 }
 
