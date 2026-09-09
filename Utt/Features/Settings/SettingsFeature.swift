@@ -30,7 +30,7 @@ struct SettingsFeature {
         case engineChanged(TranscriptionEngine)
         case modelChanged(String)
         case apiChanged(ApiSettings)
-        case reconnectMicrophoneTapped
+        case reconnectMicrophoneTapped(String)
         case resetToDefaultsTapped
     }
 
