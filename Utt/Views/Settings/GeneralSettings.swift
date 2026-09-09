@@ -35,6 +35,8 @@ struct GeneralSettings: View {
             }
         }
 
+        ApiCard(store: store)
+
         Card("App") {
             Toggle("Show in the Dock", isOn: bind(\.showDockIcon))
             Toggle("Open at login", isOn: bind(\.openOnLogin))

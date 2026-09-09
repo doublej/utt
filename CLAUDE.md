@@ -19,6 +19,7 @@ project.yml          # XcodeGen source of truth for the project
 Utt/
   App/               # @main, AppDelegate, lifecycle
   Clients/           # @DependencyClient wrappers around the system
+    Api/             # http listener, routes, the settings it acts on
     Input/           # event tap, pasteboard
     Recording/       # capture, devices, idle suspension
     System/          # permissions, sleep, sounds, presence, updates
@@ -93,6 +94,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   exists because a CoreAudio UID — the only stable way to name an input — cannot be
   obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
   devices every 3 s.
+- **The API's reach is enforced twice.** `ApiAccess` decides both what the
+  listener binds to and which peers are accepted; "This Mac only" binds loopback
+  so the port never appears on an interface, and the peer filter still runs.
+  Everything, `/health` included, needs the bearer token, and an enabled API with
+  an empty token yields no `ApiConfiguration` and therefore no listener.
+- **The API card binds through the store, not `@Shared`.** Every other settings
+  control writes the shared file directly, which reaches no reducer — fine for a
+  value something reads later, useless for one that has to start a listener now.
+  `SettingsFeature.apiChanged` is the only write path, and it is what mints the
+  token on first switch-on.
 - **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel` reach
   `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt never
   activates itself there, but a plain `open` activates it for the caller — and the
@@ -122,6 +133,9 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
   to be a file in Application Support first (`raycast/src/utt.ts` is the only place
   that touches disk); anything it needs the app to *do* is a `utt://` verb.
+- **Add an API endpoint** → one `case` in `ApiRoutes.respond`, one section in
+  `docs/api.md`. Anything parsed before the token is checked belongs in
+  `UttCore/Api/` with tests — that is the part a stranger can reach.
 - **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
   the `CFBundleURLTypes` comment in `Info.plist`.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
@@ -225,6 +239,7 @@ something a script should be inventing.
 ## Related context
 
 - [agent.md](agent.md) — verify loop, auto-fix commands, boundaries
+- [docs/api.md](docs/api.md) — the HTTP API: reach, auth, endpoints
 - [docs/hotkey-semantics.md](docs/hotkey-semantics.md) — the press/hold/double-tap
   spec the `HotKeyProcessor` tests are written against
 - [docs/phase0-results.md](docs/phase0-results.md) — what the spike actually

@@ -59,6 +59,7 @@ struct AppFeature {
     @Dependency(\.updater) var updater
     @Dependency(\.permissions) var permissions
     @Dependency(\.transcription) var transcription
+    @Dependency(\.apiServer) var apiServer
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -114,8 +115,13 @@ struct AppFeature {
             // Preparing here rather than there is what keeps the status readout
             // honest — done in the child, the UI would still say "Ready" about a
             // model that is no longer loaded.
+            // `applySystemPreferences` too, because the API server closes over the
+            // engine and model it should transcribe with.
             case .settings(.engineChanged), .settings(.modelChanged):
-                return prepareModel(&state)
+                return .merge(prepareModel(&state), applySystemPreferences())
+
+            case .settings(.apiChanged):
+                return applySystemPreferences()
 
             case .settings(.resetToDefaultsTapped):
                 return .merge(syncProcessor(state), applySystemPreferences(), prepareModel(&state))
@@ -213,15 +219,24 @@ private extension AppFeature {
     }
 
     /// Everything in settings that lives outside this process: the armed engine,
-    /// the login item and the Dock icon. Pre-roll keeps the microphone open between
-    /// recordings, so both its toggle and the device choice have to reach the
-    /// recorder — a ring filled from the old microphone would prepend half a second
-    /// of the wrong room.
+    /// the login item, the Dock icon and the API listener. Pre-roll keeps the
+    /// microphone open between recordings, so both its toggle and the device choice
+    /// have to reach the recorder — a ring filled from the old microphone would
+    /// prepend half a second of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
-        .run { [settings] _ in
+        .run { [settings, transcription] _ in
             await recording.arm(settings.preRollEnabled, settings.microphonePriority, settings.keepMicrophoneWarm)
             await appPresence.setOpensAtLogin(settings.openOnLogin)
             await appPresence.setShowsDockIcon(settings.showDockIcon)
+            // A caller gets the same text the hotkey would have pasted: the engine
+            // the settings name, then the user's own replacement and formatting
+            // rules. An API that answered with the raw transcript would be a second
+            // pipeline to keep in step with the first.
+            await apiServer.apply(settings.api.configuration) { url in
+                let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
+                let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
+                return settings.applyTextTransforms(to: text)
+            }
         }
     }
 
