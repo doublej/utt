@@ -1,3 +1,4 @@
+import ComposableArchitecture
 import Dependencies
 import DependenciesMacros
 import Foundation
@@ -199,10 +200,16 @@ enum PluginStore {
         )
     }
 
+    /// Manifests are re-read three times a second, so the same refusal would fill
+    /// the log forever. Said once per manifest, and again only if the plugin
+    /// changes what it declares.
+    private static let reported = LockIsolated(Set<String>())
+
     private static func refused(_ declared: [String], kept: [String], of id: String, kind: String) {
         let missing = declared.filter { !kept.contains($0) }
         guard !missing.isEmpty else { return }
         let keys = missing.joined(separator: ", ")
+        guard reported.withValue({ $0.insert("\(id).\(kind): \(keys)").inserted }) else { return }
         log.notice("\(id, privacy: .public): \(kind, privacy: .public) refused — \(keys, privacy: .public)")
     }
 
