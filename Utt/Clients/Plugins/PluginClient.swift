@@ -71,7 +71,19 @@ enum PluginStore {
     /// Reconciles what is on disk with what the manifest and the API settings now
     /// say, and writes only when they differ — so a plugin watching the revision
     /// sees it move on a real change and stand still otherwise.
+    /// Where a plugin drops audio for transcription. Created for any plugin that
+    /// declared `sendsAudio`: it cannot write into a directory that does not exist,
+    /// and it has no way to know whether utt has ever seen its manifest.
+    static func jobsDirectory(_ id: String) -> URL? {
+        guard PluginManifest.isSafeIdentifier(id),
+              let directory = try? URL.uttPluginsDirectory.appendingPathComponent("\(id).jobs")
+        else { return nil }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     static func reconcile(_ plugin: InstalledPlugin, api: PluginApiAccess?) {
+        if plugin.manifest.sendsAudio { _ = jobsDirectory(plugin.id) }
         let desired = plugin.settings.reduce(into: [String: PluginValue]()) { $0[$1.key] = $1.value }
         let wanted = plugin.manifest.needsApi ? api : nil
         let current = valuesFile(plugin.id)

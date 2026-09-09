@@ -44,8 +44,16 @@ struct PluginPage: View {
             }
         }
 
-        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi {
+        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi || plugin.manifest.sendsAudio {
             SettingsGroup("Access") {
+                if plugin.manifest.sendsAudio {
+                    SettingRow(
+                        "Sends audio to be transcribed",
+                        detail: "Hands clips straight to utt through a folder of its own. Transcribed on this Mac, with your engine and your text rules. Nothing goes over the network."
+                    ) {
+                        Image(systemName: "waveform").foregroundStyle(Palette.textTertiary)
+                    }
+                }
                 if plugin.manifest.wantsTranscripts {
                     SettingRow(
                         "Receives your transcripts",

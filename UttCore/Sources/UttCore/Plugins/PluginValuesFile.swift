@@ -83,3 +83,28 @@ public struct PluginTranscript: Codable, Equatable, Sendable {
         self.app = app
     }
 }
+
+/// The answer to one audio file a plugin dropped in its jobs directory, written
+/// beside it as `<name>.json`.
+///
+/// Exactly one of `text` and `error` is present. A plugin that finds neither has
+/// read the file while it was being written, which the atomic write makes
+/// impossible — so treat that as a bug worth reporting rather than a state.
+public struct PluginJobResult: Codable, Equatable, Sendable {
+    public var text: String?
+    /// Why it could not be transcribed, in words a person could be shown.
+    public var error: String?
+    /// When utt finished with it, ISO 8601.
+    public var finishedAt: String
+
+    public init(text: String? = nil, error: String? = nil, finishedAt: String) {
+        self.text = text
+        self.error = error
+        self.finishedAt = finishedAt
+    }
+
+    /// Audio a plugin may hand over. The extension is how AVFoundation picks its
+    /// reader — a wav named `.m4a` fails to open however correct its bytes are —
+    /// so it is the plugin's declaration of the format, and the only one.
+    public static let audioExtensions: Set<String> = ["wav", "m4a", "mp3", "aiff", "flac", "caf"]
+}

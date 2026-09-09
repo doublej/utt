@@ -24,11 +24,20 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// `<id>.transcript.json` as each one finishes. This hands a local program
     /// everything dictated on this Mac, so the plugin's page says so plainly.
     public var wantsTranscripts = false
+    /// The plugin sends audio to be transcribed, by dropping a file in its own jobs
+    /// directory. utt writes the text back beside it. This is the direct lane: no
+    /// listener, no token, and nothing on the network.
+    public var sendsAudio = false
+    /// The plugin's own colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark
+    /// in it while transcribing that plugin's audio, so a clip arriving from
+    /// somewhere else is visibly not utt's own dictation.
+    public var tint: String?
 
     public init(
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
-        needsApi: Bool = false, wantsTranscripts: Bool = false
+        needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
+        tint: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -37,10 +46,13 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.settings = settings
         self.needsApi = needsApi
         self.wantsTranscripts = wantsTranscripts
+        self.sendsAudio = sendsAudio
+        self.tint = tint
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, blurb, systemImage, settings, needsApi, wantsTranscripts
+        case id, name, blurb, systemImage, settings
+        case needsApi, wantsTranscripts, sendsAudio, tint
     }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
@@ -56,6 +68,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         settings = (try? container.decodeIfPresent([PluginSetting].self, forKey: .settings)) as? [PluginSetting] ?? []
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
+        sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
+        tint = try? container.decodeIfPresent(String.self, forKey: .tint)
     }
 
     /// At most this many rows on a plugin's page. A plugin asking for more has a
@@ -79,8 +93,38 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             systemImage: systemImage.flatMap { Self.isSafeSymbol($0) ? $0 : nil },
             settings: Array(settings),
             needsApi: needsApi,
-            wantsTranscripts: wantsTranscripts
+            wantsTranscripts: wantsTranscripts,
+            sendsAudio: sendsAudio,
+            // Dropped rather than corrected: a colour utt cannot read is one the
+            // plugin did not mean, and guessing at it would light the menu bar in
+            // something nobody chose.
+            tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 }
         )
+    }
+
+    /// The tint as three 0...1 components, or nil when it is not a colour.
+    ///
+    /// Kept here rather than in the view layer because it is a plugin-supplied
+    /// string, which makes it the same kind of thing as every other field on this
+    /// type: parsed strictly, refused rather than repaired.
+    public var rgb: PluginRGB? { tint.flatMap { Self.rgb(from: $0) } }
+
+    /// `#RGB` or `#RRGGBB`, with or without the hash. Anything else is not a colour.
+    static func rgb(from hex: String) -> PluginRGB? {
+        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard digits.allSatisfy(\.isHexDigit) else { return nil }
+        let pairs: [String]
+        switch digits.count {
+        // #RGB is shorthand for #RRGGBB — "f0a" is "ff00aa", not "0f0a00".
+        case 3: pairs = digits.map { "\($0)\($0)" }
+        case 6: pairs = stride(from: 0, to: 6, by: 2).map {
+            String(digits[digits.index(digits.startIndex, offsetBy: $0)...].prefix(2))
+        }
+        default: return nil
+        }
+        let values = pairs.compactMap { UInt8($0, radix: 16).map { Double($0) / 255 } }
+        guard values.count == 3 else { return nil }
+        return PluginRGB(red: values[0], green: values[1], blue: values[2])
     }
 
     /// The settings this manifest asks for, with the stored choices applied.
@@ -118,130 +162,5 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         let trimmed = flattened.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
         return String(trimmed.prefix(limit))
-    }
-}
-
-/// One control on a plugin's page.
-public struct PluginSetting: Codable, Hashable, Sendable, Identifiable {
-    public enum Kind: String, Codable, Hashable, Sendable {
-        case bool, string, number, choice
-    }
-
-    public var id: String { key }
-    public let key: String
-    public let kind: Kind
-    public let label: String
-    /// The explanation under the control — utt puts it on the page, not in a tooltip.
-    public var detail: String?
-    /// `choice` only.
-    public var options: [String] = []
-    /// What the control shows until someone changes it.
-    public var value: PluginValue
-
-    public init(
-        key: String, kind: Kind, label: String,
-        detail: String? = nil, options: [String] = [], value: PluginValue
-    ) {
-        self.key = key
-        self.kind = kind
-        self.label = label
-        self.detail = detail
-        self.options = options
-        self.value = value
-    }
-
-    enum CodingKeys: String, CodingKey { case key, kind, label, detail, options, value }
-
-    /// Forgiving for the same reason as the manifest's: a `bool` setting has no
-    /// `options` to give, and demanding the key would reject every plugin that
-    /// omits it — which is every plugin.
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        key = try container.decode(String.self, forKey: .key)
-        kind = try container.decode(Kind.self, forKey: .kind)
-        label = try container.decode(String.self, forKey: .label)
-        detail = try? container.decodeIfPresent(String.self, forKey: .detail)
-        options = (try? container.decodeIfPresent([String].self, forKey: .options)) as? [String] ?? []
-        // No default is the plugin declining to choose one; the kind decides what
-        // an absent value means, and `sanitized()` fills it in.
-        value = (try? container.decodeIfPresent(PluginValue.self, forKey: .value)) as? PluginValue ?? .bool(false)
-    }
-
-    public static let maximumOptions = 16
-
-    /// Nil when the row could not be rendered honestly — an unusable key or label,
-    /// a default that disagrees with the kind, or a choice with nothing to choose.
-    public func sanitized() -> PluginSetting? {
-        guard PluginManifest.isSafeIdentifier(key), let label = PluginManifest.text(label)
-        else { return nil }
-        let options = options
-            .compactMap { PluginManifest.text($0, limit: 40) }
-            .prefix(Self.maximumOptions)
-        guard kind != .choice || !options.isEmpty else { return nil }
-        // A `choice` defaulting to something outside its own options would show an
-        // empty picker; falling back to the first option is the only honest answer.
-        let value = resolvedValue(options: Array(options))
-        return PluginSetting(
-            key: key,
-            kind: kind,
-            label: label,
-            detail: detail.flatMap { PluginManifest.text($0, limit: 160) },
-            options: Array(options),
-            value: value
-        )
-    }
-
-    /// Whether a value the plugin — or utt's own stored file — offers can be shown
-    /// in this control at all.
-    public func accepts(_ candidate: PluginValue) -> Bool {
-        switch (kind, candidate) {
-        case (.bool, .bool), (.string, .string), (.number, .number): true
-        case let (.choice, .string(text)): options.contains(text)
-        default: false
-        }
-    }
-
-    private func resolvedValue(options: [String]) -> PluginValue {
-        switch (kind, value) {
-        case (.bool, .bool), (.string, .string), (.number, .number): value
-        case let (.choice, .string(text)) where options.contains(text): value
-        case (.bool, _): .bool(false)
-        case (.string, _): .string("")
-        case (.number, _): .number(0)
-        case (.choice, _): .string(options[0])
-        }
-    }
-}
-
-/// A settings value, carried as the JSON scalar it is — `true`, `"text"`, `3` —
-/// so a plugin reads its own values file without knowing anything about utt.
-public enum PluginValue: Codable, Hashable, Sendable {
-    case bool(Bool)
-    case string(String)
-    case number(Double)
-
-    public init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        // Bool before Double: JSON `true` decodes as a number in some encoders, and
-        // a boolean setting arriving as 1 would render a text field.
-        if let flag = try? container.decode(Bool.self) {
-            self = .bool(flag)
-        } else if let number = try? container.decode(Double.self) {
-            self = .number(number)
-        } else if let text = try? container.decode(String.self) {
-            self = .string(text)
-        } else {
-            throw DecodingError.dataCorruptedError(
-                in: container, debugDescription: "not a bool, number or string")
-        }
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case let .bool(flag): try container.encode(flag)
-        case let .string(text): try container.encode(text)
-        case let .number(number): try container.encode(number)
-        }
     }
 }

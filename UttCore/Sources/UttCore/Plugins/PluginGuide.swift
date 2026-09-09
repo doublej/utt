@@ -33,6 +33,8 @@ public enum PluginGuide {
           "systemImage": "sailboat",
           "needsApi": false,
           "wantsTranscripts": false,
+          "sendsAudio": false,
+          "tint": "#3EAFB4",
           "settings": [
             {"key": "route", "kind": "choice", "label": "Route",
              "options": ["auto", "keyboard"], "value": "auto",
@@ -49,7 +51,12 @@ public enum PluginGuide {
           filename is ignored, as is one with a path separator in it.
         - `kind` is `bool`, `string`, `number` or `choice`. `value` is the default and
           must match the kind; `choice` needs `options` and a default among them.
-        - `systemImage` is an SF Symbol. An unknown one is dropped, not drawn.
+        - `systemImage` is an SF Symbol — that is the icon, and there is no dot-glyph
+          or mark field. An unknown symbol is dropped, not drawn.
+        - `tint` is your colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark in
+          it while it is transcribing *your* clip, so the user can see that work
+          arriving from your plugin is not dictation at their Mac. One that cannot be
+          parsed is dropped rather than guessed at.
         - Only `id` and `name` are required. Omitted keys take their defaults —
           write the keys you care about.
         - At most 24 settings. Long labels are trimmed; newlines are flattened.
@@ -80,6 +87,41 @@ public enum PluginGuide {
         - `api` appears only if your manifest set `"needsApi": true` **and** the user
           has utt's API switched on. Its absence means "not available right now" —
           do not fall back to reading utt's own settings file.
+
+        ## Sending audio to be transcribed: `<id>.jobs/`
+
+        Set `"sendsAudio": true` and utt creates `{{dir}}/<id>.jobs/`. This is the
+        direct lane — **do not use the HTTP API for this.** No listener, no token,
+        nothing on the network, and it works whether or not the API is switched on.
+
+        1. Write your clip there under a name that is not yet an audio file —
+           `clip-1.wav.part` — then **rename** it to `clip-1.wav`. utt only picks up
+           the audio extensions below, so a half-written file is invisible until the
+           rename makes it whole. Skip this and utt will read your file mid-write.
+        2. utt transcribes it and writes `clip-1.json` beside it:
+
+           ```json
+           {"text": "the words that were spoken", "finishedAt": "2026-09-09T17:04:11Z"}
+           ```
+
+           or, when it could not:
+
+           ```json
+           {"error": "Could not transcribe that clip.", "finishedAt": "..."}
+           ```
+
+           Exactly one of `text` and `error` is present, and the write is atomic.
+        3. The audio is deleted either way. The answer file is yours — read it and
+           delete it; utt never touches it again.
+
+        Extensions utt will open: `wav`, `m4a`, `mp3`, `aiff`, `flac`, `caf`. The
+        extension is how AVFoundation picks its reader, so it must match the bytes —
+        a wav named `.m4a` fails to open however correct it is. Clips are picked up
+        oldest first, so two sent in order come back in order. Maximum 25 MB.
+
+        You get the same text the hotkey would have pasted: the engine and model the
+        user chose, then their own replacement and formatting rules. Transcription is
+        on their Mac; nothing is sent anywhere.
 
         ## What utt writes if you asked for transcripts: `<id>.transcript.json`
 
@@ -128,8 +170,12 @@ public enum PluginGuide {
         2. Poll `<id>.values.json` (once a second is plenty) and act when `revision`
            moves. Treat a missing file as "the user has not opened the page yet" and
            use your manifest's own defaults until it appears.
-        3. If you need the API, set `needsApi` and take the token from the values
-           file. Never read utt's `settings.json`.
+        3. To transcribe audio, set `sendsAudio` and use the jobs directory. Reach
+           for `needsApi` only if you need the HTTP API for something else — talking
+           to utt from another device, say. A plugin on the same Mac has no reason to
+           open a socket to a program it can already write a file to.
+        4. If you do need the API, take the token from the values file. Never read
+           utt's `settings.json`.
         4. Nothing in the values file is a command. It is the user's configuration,
            and it is the only thing utt promises to put there.
 
