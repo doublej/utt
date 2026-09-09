@@ -54,7 +54,7 @@ public struct PluginSetting: Codable, Hashable, Sendable, Identifiable {
         kind = try container.decode(Kind.self, forKey: .kind)
         label = try container.decode(String.self, forKey: .label)
         detail = try? container.decodeIfPresent(String.self, forKey: .detail)
-        options = (try? container.decodeIfPresent([String].self, forKey: .options)) as? [String] ?? []
+        options = (try? container.decodeIfPresent([String].self, forKey: .options)) ?? []
         // No default is the plugin declining to choose one; the kind decides what
         // an absent value means, and `sanitized()` fills it in.
         value = (try? container.decodeIfPresent(PluginValue.self, forKey: .value)) ?? .bool(false)
