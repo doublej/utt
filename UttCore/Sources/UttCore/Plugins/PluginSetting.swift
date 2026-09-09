@@ -57,7 +57,7 @@ public struct PluginSetting: Codable, Hashable, Sendable, Identifiable {
         options = (try? container.decodeIfPresent([String].self, forKey: .options)) as? [String] ?? []
         // No default is the plugin declining to choose one; the kind decides what
         // an absent value means, and `sanitized()` fills it in.
-        value = (try? container.decodeIfPresent(PluginValue.self, forKey: .value)) as? PluginValue ?? .bool(false)
+        value = (try? container.decodeIfPresent(PluginValue.self, forKey: .value)) ?? .bool(false)
     }
 
     public static let maximumOptions = 16
