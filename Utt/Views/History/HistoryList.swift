@@ -76,7 +76,7 @@ struct HistoryList: View {
         switch history.history.count {
         case 0: "Nothing kept yet."
         case 1: "One transcript, text only."
-        case let n: "\(n) transcripts, newest first. Text only."
+        case let count: "\(count) transcripts, newest first. Text only."
         }
     }
 

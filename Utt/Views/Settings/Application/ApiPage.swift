@@ -60,7 +60,10 @@ struct ApiPage: View {
                 }
             }
             SettingsGroup("Token") {
-                SettingRow("Bearer token", detail: "Every request has to carry it.") {
+                SettingRow(
+                    "Bearer token",
+                    detail: "Every request has to carry it. New replaces it at once: every client set up with the old one gets 401 until it is given this one."
+                ) {
                     Text(api.token)
                         .font(Typography.monoSmall)
                         .foregroundStyle(Palette.textSecondary)

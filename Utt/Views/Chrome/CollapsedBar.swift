@@ -5,7 +5,6 @@ import SwiftUI
 /// the two things worth glancing at: whether it is recording, and which mic.
 struct CollapsedBar: View {
     let store: StoreOf<AppFeature>
-    @Binding var showingSettings: Bool
     @Binding var collapsed: Bool
 
     private var recording: Bool { store.transcription.isRecording }
@@ -22,16 +21,9 @@ struct CollapsedBar: View {
             )
             label
             Spacer(minLength: Spacing.extraSmall)
-            // The pair reads as one control cluster; 12pt between them made the
-            // gear look like it had drifted off on its own.
-            HStack(spacing: Spacing.xxs) {
-                iconButton("gearshape", size: 12, help: "Settings") {
-                    collapsed = false
-                    showingSettings = true
-                }
-                // A chevron carries less ink than a gear at the same point size.
-                iconButton("chevron.down", size: 13, help: "Expand") { collapsed = false }
-            }
+            // One control: the window has a rail with everything on it, so the
+            // pill's only job is to get out of the way and come back.
+            iconButton("chevron.down", size: 13, help: "Expand") { collapsed = false }
         }
         .padding(.leading, Spacing.extraLarge)
         .padding(.trailing, Spacing.large)

@@ -6,7 +6,7 @@ import SwiftUI
 enum AppSection: String, CaseIterable, Identifiable {
     case history
     case hotkey, microphone, model
-    case delivery, text, history_ = "historySettings"
+    case delivery, text, retention
     case sounds, permissions, general, about
     case api
 
@@ -17,7 +17,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     static let groups: [(title: String, sections: [AppSection])] = [
         ("", [.history]),
         ("Dictate", [.hotkey, .microphone, .model]),
-        ("Output", [.delivery, .text, .history_]),
+        ("Output", [.delivery, .text, .retention]),
         ("App", [.sounds, .permissions, .general, .about]),
         ("Connect", [.api])
     ]
@@ -32,7 +32,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .model: "Model"
         case .delivery: "Delivery"
         case .text: "Text"
-        case .history_: "History"
+        case .retention: "History"
         case .sounds: "Sounds & Indicator"
         case .permissions: "Permissions"
         case .general: "General"
@@ -49,7 +49,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .model: "cpu"
         case .delivery: "text.cursor"
         case .text: "textformat"
-        case .history_: "clock.arrow.circlepath"
+        case .retention: "clock.arrow.circlepath"
         case .sounds: "speaker.wave.2"
         case .permissions: "lock.shield"
         case .general: "gearshape"
@@ -68,7 +68,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .model: "The engine and the model doing the transcribing. Everything runs on this Mac."
         case .delivery: "Where a transcript goes when you let go of the key."
         case .text: "How the words are cleaned up before they are pasted."
-        case .history_: "What utt keeps of what you said."
+        case .retention: "What utt keeps of what you said."
         case .sounds: "What you hear and see while a recording is running."
         case .permissions: "What macOS has to allow before utt can hear you and type for you."
         case .general: "How utt sits in the system."

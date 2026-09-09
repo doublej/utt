@@ -24,7 +24,7 @@ struct AppRootView: View {
     var body: some View {
         Group {
             if collapsed {
-                CollapsedBar(store: store, showingSettings: $route.isOpen, collapsed: $collapsed)
+                CollapsedBar(store: store, collapsed: $collapsed)
             } else {
                 expanded
             }

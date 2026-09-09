@@ -40,7 +40,7 @@ struct SettingsPanel: View {
         case .model: ModelPage(store: store)
         case .delivery: DeliveryPage()
         case .text: TextPage()
-        case .history_: HistoryPage()
+        case .retention: HistoryPage()
         case .sounds: SoundsPage()
         case .permissions: PermissionsPage(store: store, showingGuide: $showingGuide)
         case .general: GeneralPage(store: store, showingOnboarding: $showingOnboarding)
