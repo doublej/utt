@@ -23,6 +23,7 @@ struct ApiCard: View {
             Toggle("Let other apps and devices send audio", isOn: bind(\.enabled))
                 .help("Serves POST /transcribe from this Mac. The clip is still transcribed here — nothing leaves the machine.")
             if api.enabled {
+                status
                 Divider()
                 reach
                 address
@@ -31,6 +32,27 @@ struct ApiCard: View {
                 Divider()
                 handover
             }
+        }
+    }
+
+    /// What the listener is doing, which is not what the toggle says. A port
+    /// already in use leaves the switch on and nothing answering, and without this
+    /// the only way to find that out is a client that cannot connect.
+    @ViewBuilder
+    private var status: some View {
+        switch store.apiState {
+        case .off:
+            Text("Starting…")
+                .font(Typography.hint)
+                .foregroundStyle(Palette.textTertiary)
+        case let .listening(port):
+            Text("Listening on port \(String(port)).")
+                .font(Typography.hint)
+                .foregroundStyle(Palette.textTertiary)
+        case let .failed(reason):
+            Text(reason)
+                .font(Typography.hint)
+                .foregroundStyle(Palette.warning)
         }
     }
 

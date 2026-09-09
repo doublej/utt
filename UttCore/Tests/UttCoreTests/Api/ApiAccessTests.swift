@@ -14,35 +14,59 @@ import Testing
 struct ApiAccessTests {
     // MARK: - Scope
 
+    /// What this Mac's own interfaces say its networks are. `.localNetwork` is
+    /// decided against these, not against the private ranges.
+    private let home = [
+        IPPrefix(address: IPAddress("192.168.178.0")!, bits: 24),
+        IPPrefix(address: IPAddress("2001:db8:1234:5678::")!, bits: 64)
+    ]
+
     @Test("this Mac lets loopback in and nothing else")
     func thisMacIsLoopbackOnly() {
-        #expect(ApiAccess.thisMac.allows(peer: "127.0.0.1"))
-        #expect(ApiAccess.thisMac.allows(peer: "::1"))
-        #expect(!ApiAccess.thisMac.allows(peer: "192.168.1.20"))
-        #expect(!ApiAccess.thisMac.allows(peer: "8.8.8.8"))
+        #expect(ApiAccess.thisMac.allows(peer: "127.0.0.1", localPrefixes: home))
+        #expect(ApiAccess.thisMac.allows(peer: "::1", localPrefixes: home))
+        #expect(!ApiAccess.thisMac.allows(peer: "192.168.178.20", localPrefixes: home))
+        #expect(!ApiAccess.thisMac.allows(peer: "8.8.8.8", localPrefixes: home))
     }
 
-    @Test("the local network is loopback plus the private ranges")
-    func localNetworkCoversPrivateRanges() {
-        for peer in ["127.0.0.1", "10.0.0.4", "172.16.3.1", "172.31.255.254", "192.168.1.20", "169.254.4.4"] {
-            #expect(ApiAccess.localNetwork.allows(peer: peer), "\(peer) should be local")
+    @Test("the local network is the networks this Mac is actually on")
+    func localNetworkFollowsTheInterfaces() {
+        #expect(ApiAccess.localNetwork.allows(peer: "127.0.0.1", localPrefixes: home))
+        #expect(ApiAccess.localNetwork.allows(peer: "192.168.178.20", localPrefixes: home))
+        #expect(!ApiAccess.localNetwork.allows(peer: "192.168.178.20", localPrefixes: []))
+        #expect(!ApiAccess.localNetwork.allows(peer: "8.8.8.8", localPrefixes: home))
+    }
+
+    /// The reason this is not a private-range test. A phone on the same Wi-Fi very
+    /// often has only a globally routable IPv6 address, and refusing it refuses the
+    /// case the feature exists for.
+    @Test("a globally addressed IPv6 peer on this Mac's own subnet is local")
+    func globalIPv6OnTheSameSubnetIsLocal() {
+        #expect(ApiAccess.localNetwork.allows(peer: "2001:db8:1234:5678::42", localPrefixes: home))
+        #expect(!ApiAccess.localNetwork.allows(peer: "2001:db8:9999::1", localPrefixes: home))
+    }
+
+    /// The other half. A VPN hands out a private address for a network on the far
+    /// side of the world; "looks private" would have let it straight in.
+    @Test("a private address on someone else's network is not local")
+    func privateAddressesElsewhereAreRefused() {
+        for peer in ["10.8.0.6", "172.16.3.1", "192.168.1.20", "fd12:3456::1"] {
+            #expect(!ApiAccess.localNetwork.allows(peer: peer, localPrefixes: home), "\(peer) is not on this Mac")
         }
-        for peer in ["8.8.8.8", "172.15.0.1", "172.32.0.1", "1.1.1.1"] {
-            #expect(!ApiAccess.localNetwork.allows(peer: peer), "\(peer) should not be local")
-        }
     }
 
-    @Test("IPv6 unique-local and link-local count as the local network")
-    func localNetworkCoversIPv6() {
-        #expect(ApiAccess.localNetwork.allows(peer: "fd12:3456::1"))
-        #expect(ApiAccess.localNetwork.allows(peer: "fe80::1c2b:3d4e:5f60:7a8b"))
-        #expect(!ApiAccess.localNetwork.allows(peer: "2001:db8::1"))
+    /// Link-local is the same physical link by definition, and carries no prefix an
+    /// interface reports.
+    @Test("link-local peers are local")
+    func linkLocalIsLocal() {
+        #expect(ApiAccess.localNetwork.allows(peer: "fe80::1c2b:3d4e:5f60:7a8b%en0", localPrefixes: []))
+        #expect(ApiAccess.localNetwork.allows(peer: "169.254.4.4", localPrefixes: []))
     }
 
-    @Test("anywhere means anywhere")
+    @Test("anywhere means anywhere, parseable or not")
     func anywhereAllowsEverything() {
-        #expect(ApiAccess.anywhere.allows(peer: "8.8.8.8"))
-        #expect(ApiAccess.anywhere.allows(peer: ""))
+        #expect(ApiAccess.anywhere.allows(peer: "8.8.8.8", localPrefixes: []))
+        #expect(ApiAccess.anywhere.allows(peer: "", localPrefixes: []))
     }
 
     /// A loopback caller reaching a dual-stack listener arrives as `::ffff:127.0.0.1`,
@@ -50,18 +74,20 @@ struct ApiAccessTests {
     /// reason to refuse a connection that is genuinely local.
     @Test("mapped IPv4 and zone ids are read, not refused")
     func normalizesAddressForms() {
-        #expect(ApiAccess.thisMac.allows(peer: "::ffff:127.0.0.1"))
-        #expect(ApiAccess.localNetwork.allows(peer: "fe80::1%en0"))
-        #expect(ApiAccess.thisMac.allows(peer: "[::1]"))
+        #expect(ApiAccess.thisMac.allows(peer: "::ffff:127.0.0.1", localPrefixes: home))
+        #expect(ApiAccess.thisMac.allows(peer: "[::1]", localPrefixes: home))
     }
 
-    /// The narrow scopes are the ones a wrong answer would open up, so an address
-    /// this cannot parse is the internet as far as they are concerned.
+    /// The narrow scopes are the ones a wrong answer opens up, so anything that is
+    /// not an address is the internet as far as they are concerned. The last two are
+    /// what a split-on-the-separator reader gets wrong: dropping the parts that will
+    /// not convert leaves four octets that read as loopback, and "starts with fd" is
+    /// true of a word as much as of an address.
     @Test("an unreadable address is refused by every scope but anywhere")
     func unparseableAddressesAreRefused() {
-        for peer in ["", "not-an-address", "999.1.1.1", "127.0.0"] {
-            #expect(!ApiAccess.thisMac.allows(peer: peer), "\(peer) should not be loopback")
-            #expect(!ApiAccess.localNetwork.allows(peer: peer), "\(peer) should not be local")
+        for peer in ["", "not-an-address", "999.1.1.1", "127.0.0", "127.0.0.1.extra", "fdgarbage"] {
+            #expect(!ApiAccess.thisMac.allows(peer: peer, localPrefixes: home), "\(peer) is not loopback")
+            #expect(!ApiAccess.localNetwork.allows(peer: peer, localPrefixes: home), "\(peer) is not local")
         }
     }
 

@@ -8,7 +8,7 @@ import Foundation
 public enum ApiAccess: String, Codable, CaseIterable, Sendable {
     /// Loopback only. The port never appears on a network interface at all.
     case thisMac
-    /// Loopback plus private and link-local peers — a phone on the same Wi-Fi.
+    /// Loopback plus anything on a network this Mac is itself on.
     case localNetwork
     /// Anything that can reach the port. Needs a port forward to mean anything,
     /// and leaves the token as the only thing standing.
@@ -25,67 +25,34 @@ public enum ApiAccess: String, Codable, CaseIterable, Sendable {
     public var detail: String {
         switch self {
         case .thisMac: "Only programs running on this Mac can reach it."
-        case .localNetwork: "Devices on your Wi-Fi or LAN can reach it too."
+        case .localNetwork: "Devices on a network this Mac is on — matched against this Mac's own interfaces, not against private-looking addresses."
         case .anywhere: "Any address that can reach the port. The token is then the only protection."
         }
     }
 
-    /// Whether a caller at `peer` is inside this scope. `peer` is a bare IP
-    /// literal — no port, IPv6 zone ids and `::ffff:` mappings tolerated.
-    public func allows(peer: String) -> Bool {
+    /// Whether a caller at `peer` may connect. `peer` is a bare IP literal — no
+    /// port; IPv6 zone ids and `::ffff:` mappings are tolerated.
+    ///
+    /// `localPrefixes` is what this Mac's own interfaces say its networks are, and
+    /// `.localNetwork` is decided against those rather than against the private
+    /// ranges — "has a private address" and "is on my network" are different
+    /// questions, and answering the first one gets both halves wrong. A VPN hands
+    /// out a private address for a network on the other side of the world, and a
+    /// home network running IPv6 hands the phone on the same Wi-Fi a globally
+    /// routable address. The first would have been let in and the second refused.
+    ///
+    /// An address that does not parse is refused by everything but `.anywhere`.
+    public func allows(peer: String, localPrefixes: [IPPrefix]) -> Bool {
+        guard let address = IPAddress(peer) else { return self == .anywhere }
         switch self {
-        case .anywhere: true
-        case .localNetwork: IPAddressScope.of(peer) != .publicInternet
-        case .thisMac: IPAddressScope.of(peer) == .loopback
+        case .anywhere: return true
+        case .thisMac: return address.isLoopback
+        case .localNetwork:
+            // Link-local is the same physical link by definition, and carries no
+            // prefix an interface would report.
+            if address.isLoopback || address.isLinkLocal { return true }
+            return localPrefixes.contains { $0.contains(address) }
         }
-    }
-}
-
-/// Coarse classification of an IP literal, which is all the access filter needs.
-/// Deliberately fails towards `.publicInternet`: an address this cannot parse is
-/// treated as the widest thing it could be, never the narrowest.
-enum IPAddressScope: Equatable {
-    case loopback
-    case privateNetwork
-    case publicInternet
-
-    static func of(_ address: String) -> IPAddressScope {
-        let bare = normalize(address)
-        return bare.contains(".") ? version4(bare) : version6(bare)
-    }
-
-    /// Strips the `[…]` brackets a URL form adds, the `%en0` zone an IPv6
-    /// link-local address carries, and the `::ffff:` prefix that hides an IPv4
-    /// peer inside an IPv6 socket — which is exactly how a loopback caller
-    /// arrives on a dual-stack listener.
-    private static func normalize(_ address: String) -> String {
-        var bare = address.lowercased()
-        bare = bare.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if let zone = bare.firstIndex(of: "%") { bare = String(bare[..<zone]) }
-        if let mapped = bare.range(of: "::ffff:") { bare = String(bare[mapped.upperBound...]) }
-        return bare
-    }
-
-    private static func version4(_ address: String) -> IPAddressScope {
-        let octets = address.split(separator: ".", omittingEmptySubsequences: false)
-            .compactMap { UInt8($0) }
-        guard octets.count == 4 else { return .publicInternet }
-        switch (octets[0], octets[1]) {
-        case (127, _): return .loopback
-        case (10, _), (192, 168), (169, 254): return .privateNetwork
-        case (172, 16...31): return .privateNetwork
-        default: return .publicInternet
-        }
-    }
-
-    private static func version6(_ address: String) -> IPAddressScope {
-        if address == "::1" || address == "0:0:0:0:0:0:0:1" { return .loopback }
-        // fc00::/7 unique-local and fe80::/10 link-local. Both are decidable from
-        // the leading hex digits, so there is no need to expand the address.
-        let head = address.prefix(3)
-        if head.hasPrefix("fc") || head.hasPrefix("fd") { return .privateNetwork }
-        if ["fe8", "fe9", "fea", "feb"].contains(String(head)) { return .privateNetwork }
-        return .publicInternet
     }
 }
 
@@ -178,4 +145,15 @@ public enum ApiToken {
         }
         return difference == 0
     }
+}
+
+/// What the listener is actually doing, as opposed to what the settings ask for.
+///
+/// The two come apart: a port already in use leaves the settings switched on and
+/// nothing listening, and `NWListener` reports that asynchronously, long after the
+/// call that started it returned.
+public enum ApiServerState: Equatable, Sendable {
+    case off
+    case listening(port: UInt16)
+    case failed(String)
 }

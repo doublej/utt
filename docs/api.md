@@ -14,12 +14,27 @@ from it, and every accepted connection is filtered against the peer address.
 | Setting | Binds to | Accepts |
 | --- | --- | --- |
 | This Mac only | `127.0.0.1` | loopback |
-| This Mac and my local network | all interfaces | loopback, `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `fc00::/7`, `fe80::/10` |
+| This Mac and my local network | all interfaces | loopback, link-local, and any peer on a subnet this Mac's own interfaces report |
 | Anywhere | all interfaces | anything that reaches the port |
+
+"Local network" is decided against this Mac's own interfaces, read fresh from
+`getifaddrs` on every connection — not against the private address ranges. Those
+are a different question and get both halves wrong: a VPN hands out a private
+address for a network on the other side of the world, and a home network running
+IPv6 hands the phone on the same Wi-Fi a globally routable address. The first
+would be let in and the second refused.
+
+An address that does not parse is refused by everything except "Anywhere".
 
 "Anywhere" still needs a port forward to mean anything from outside the LAN, and
 at that point the token is the only protection. There is no TLS: put it behind a
 reverse proxy or a VPN if the traffic leaves your own network.
+
+If the port is already in use the listener never starts, and the settings card
+says so instead of showing a switch that is on with nothing behind it. `NWListener`
+reports that asynchronously and documents it as terminal, so utt drops the
+configuration with the failed listener — which is what lets the next edit start a
+new one rather than matching the old settings and doing nothing.
 
 ## Auth
 

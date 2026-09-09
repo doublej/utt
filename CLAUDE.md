@@ -97,6 +97,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
 - **The API's reach is enforced twice.** `ApiAccess` decides both what the
   listener binds to and which peers are accepted; "This Mac only" binds loopback
   so the port never appears on an interface, and the peer filter still runs.
+  "Local network" means a subnet `getifaddrs` says this Mac is on, not a private
+  address range — a VPN peer is private and elsewhere, and a phone on the same
+  Wi-Fi is very often globally addressed over IPv6. Peer addresses parse through
+  `inet_pton` or not at all: a split-on-the-separator reader lets `127.0.0.1.extra`
+  through as loopback, which is the access filter failing *open*.
+- **A failed listener takes its configuration with it.** `NWListener` reports a
+  failed bind asynchronously and documents it as terminal. Leaving
+  `configuration` set means the next apply matches, does nothing, and the port
+  stays dead while the settings still read "on" — so `.failed` tears down and
+  `AppFeature.apiState` puts the reason in the card.
   Everything, `/health` included, needs the bearer token, and an enabled API with
   an empty token yields no `ApiConfiguration` and therefore no listener. `/docs`
   is the one endpoint that also takes the token from the query string — a browser

@@ -17,6 +17,11 @@ struct ApiServerClient: Sendable {
         _ configuration: ApiConfiguration?,
         _ transcribe: @escaping @Sendable (URL) async throws -> String
     ) async -> Void
+
+    /// What the listener is actually doing. A stream rather than a return value
+    /// because `NWListener` reports a failed bind asynchronously, long after the
+    /// call that started it came back.
+    var states: @Sendable () -> AsyncStream<ApiServerState> = { .finished }
 }
 
 extension ApiServerClient: DependencyKey {
@@ -25,7 +30,8 @@ extension ApiServerClient: DependencyKey {
         return ApiServerClient(
             apply: { configuration, transcribe in
                 await server.apply(configuration, transcribe: transcribe)
-            }
+            },
+            states: { server.states() }
         )
     }()
 }

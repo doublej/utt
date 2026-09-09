@@ -24,11 +24,28 @@ actor ApiServer {
     private var transcribe: Transcriber?
     /// Held so an in-flight connection is not deallocated mid-request.
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+    /// The request each connection is busy with, so tearing the listener down does
+    /// not leave a transcription running that will answer into a scope the user has
+    /// just narrowed. Cancelling cannot interrupt a decode already inside the
+    /// engine; it does stop the reply and release the connection.
+    private var work: [ObjectIdentifier: Task<Void, Never>] = [:]
+    private var observers: [UUID: AsyncStream<ApiServerState>.Continuation] = [:]
+    private var state: ApiServerState = .off
+
+    /// What the listener is actually doing, which is not what the settings say: a
+    /// port already in use leaves the settings on and nothing listening.
+    nonisolated func states() -> AsyncStream<ApiServerState> {
+        AsyncStream { continuation in
+            let id = UUID()
+            Task { await self.observe(id, continuation) }
+            continuation.onTermination = { _ in Task { await self.stopObserving(id) } }
+        }
+    }
 
     /// Idempotent in the configuration: every settings edit re-applies this, and
     /// restarting the listener each time would drop a request in flight because the
     /// user toggled an unrelated checkbox. The transcriber is refreshed regardless —
-    /// it carries the engine and model choice, which is exactly what may have changed.
+    /// it carries the engine and model choice, which is what may have changed.
     func apply(_ configuration: ApiConfiguration?, transcribe: @escaping Transcriber) {
         self.transcribe = transcribe
         guard configuration != self.configuration else { return }
@@ -38,11 +55,8 @@ actor ApiServer {
     }
 
     func stop() {
-        listener?.cancel()
-        listener = nil
-        configuration = nil
-        for connection in connections.values { connection.cancel() }
-        connections.removeAll()
+        teardown()
+        report(.off)
     }
 
     private func start(_ configuration: ApiConfiguration) {
@@ -64,17 +78,51 @@ actor ApiServer {
             listener.newConnectionHandler = { [weak self] connection in
                 Task { await self?.accept(connection) }
             }
-            listener.stateUpdateHandler = { state in
-                guard case let .failed(error) = state else { return }
-                log.error("listener failed: \(error.localizedDescription, privacy: .public)")
+            listener.stateUpdateHandler = { [weak self] update in
+                Task { await self?.listenerChanged(to: update) }
             }
             listener.start(queue: queue)
             self.listener = listener
+            // Recorded now, not on `.ready`: a second apply while the listener is
+            // still coming up must match and do nothing, rather than start a second.
             self.configuration = configuration
-            log.notice("listening on \(configuration.port) for \(configuration.access.rawValue, privacy: .public)")
         } catch {
             log.error("could not listen on \(configuration.port): \(error.localizedDescription, privacy: .public)")
+            report(.failed(Self.explain(error)))
         }
+    }
+
+    /// `.failed` is documented as terminal — the listener never recovers. Dropping
+    /// the stored configuration with it is the load-bearing part: without that, the
+    /// next apply sees the same settings, matches, and does nothing, so the port
+    /// stays dead until the app is relaunched while the settings still read "on".
+    private func listenerChanged(to update: NWListener.State) {
+        switch update {
+        case .ready:
+            guard let configuration else { return }
+            log.notice("listening on \(configuration.port) for \(configuration.access.rawValue, privacy: .public)")
+            report(.listening(port: configuration.port))
+        case let .failed(error):
+            log.error("listener failed: \(error.localizedDescription, privacy: .public)")
+            let reason = Self.explain(error)
+            teardown()
+            report(.failed(reason))
+        default:
+            break
+        }
+    }
+
+    private func teardown() {
+        // Cleared first: cancelling with the handler still attached calls straight
+        // back in for the `.cancelled` transition.
+        listener?.stateUpdateHandler = nil
+        listener?.cancel()
+        listener = nil
+        configuration = nil
+        for task in work.values { task.cancel() }
+        work.removeAll()
+        for connection in connections.values { connection.cancel() }
+        connections.removeAll()
     }
 
     private func accept(_ connection: NWConnection) {
@@ -83,7 +131,7 @@ actor ApiServer {
             return
         }
         let peer = Self.peer(of: connection)
-        guard configuration.access.allows(peer: peer) else {
+        guard configuration.access.allows(peer: peer, localPrefixes: LocalInterfaces.prefixes()) else {
             log.notice("refused \(peer, privacy: .public), outside \(configuration.access.rawValue, privacy: .public)")
             connection.cancel()
             return
@@ -125,10 +173,11 @@ actor ApiServer {
             )
             // Off the actor: transcribing takes seconds, and holding the actor for
             // them would stall every other connection behind this one.
-            Task { [weak self] in
+            work[ObjectIdentifier(connection)] = Task { [weak self] in
                 let response = await ApiRoutes.respond(
                     to: request, configuration: configuration, transcribe: transcribe
                 )
+                guard !Task.isCancelled else { return }
                 await self?.send(response, over: connection)
             }
         } catch HttpParseError.incomplete where !ended {
@@ -141,8 +190,34 @@ actor ApiServer {
     /// The send completion holds the connection, so dropping it from the registry
     /// here cannot deallocate it before the bytes are out.
     private func send(_ response: Data, over connection: NWConnection) {
-        connections.removeValue(forKey: ObjectIdentifier(connection))
+        let id = ObjectIdentifier(connection)
+        connections.removeValue(forKey: id)
+        work.removeValue(forKey: id)
         connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
+    }
+
+    private func observe(_ id: UUID, _ continuation: AsyncStream<ApiServerState>.Continuation) {
+        observers[id] = continuation
+        continuation.yield(state)
+    }
+
+    private func stopObserving(_ id: UUID) {
+        observers.removeValue(forKey: id)
+    }
+
+    private func report(_ update: ApiServerState) {
+        guard update != state else { return }
+        state = update
+        for continuation in observers.values { continuation.yield(update) }
+    }
+
+    /// The one failure worth naming: the settings offer a port, and "already in use"
+    /// is the answer the user can act on.
+    private static func explain(_ error: Error) -> String {
+        guard case let .posix(code)? = error as? NWError, code == .EADDRINUSE else {
+            return error.localizedDescription
+        }
+        return "That port is already in use by another program."
     }
 
     /// The remote address of an inbound connection. An answer this cannot read comes

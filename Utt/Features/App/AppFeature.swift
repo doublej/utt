@@ -30,6 +30,9 @@ struct AppFeature {
         /// Which engine and model the readout above describes, so re-picking what is
         /// already loaded does not unload it and pay the compile a second time.
         var preparedKey = ""
+        /// What the API listener is doing, which is not what the settings ask for:
+        /// a port already in use leaves the switch on and nothing listening.
+        var apiState: ApiServerState = .off
     }
 
     enum Action {
@@ -38,6 +41,7 @@ struct AppFeature {
         case keyEventReceived(KeyEvent)
         case modelPreparation(ModelPreparation)
         case modelPrepared(Result<Bool, Never>)
+        case apiStateChanged(ApiServerState)
         case prepareModelTapped
         case grantTapped(Permission)
         case relaunchTapped
@@ -51,7 +55,7 @@ struct AppFeature {
         case history(HistoryFeature.Action)
     }
 
-    enum CancelID { case keyEvents, permissionPoll, modelPrepare }
+    enum CancelID { case keyEvents, permissionPoll, modelPrepare, apiStates }
 
     @Dependency(\.keyEventMonitor) var keyEventMonitor
     @Dependency(\.recording) var recording
@@ -83,6 +87,9 @@ struct AppFeature {
                 log.notice("\(key, privacy: .public) \(loaded ? "ready" : "failed", privacy: .public)")
                 state.model = loaded ? .ready : .failed("Could not load the model — try again")
                 refreshDownloaded(&state)
+                return .none
+            case let .apiStateChanged(update):
+                state.apiState = update
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
             case let .grantTapped(permission): return grant(permission)
@@ -159,6 +166,13 @@ private extension AppFeature {
                 }
             }
             .cancellable(id: CancelID.permissionPoll),
+
+            .run { send in
+                for await update in apiServer.states() {
+                    await send(.apiStateChanged(update))
+                }
+            }
+            .cancellable(id: CancelID.apiStates),
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),
