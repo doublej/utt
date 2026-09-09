@@ -218,7 +218,7 @@ private extension PluginValue {
     }
 }
 
-private extension String {
+extension String {
     /// A status key as a person reads it: `lastRelay` → "Last relay". Plugins write
     /// camelCase keys, and rendering one verbatim puts "LastRelay" on the page.
     /// No dictionary and no title-casing — the key's own words, in its own order.

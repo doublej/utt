@@ -116,7 +116,7 @@ enum PluginStore {
     /// A request and nothing more: utt writes the key the user pressed and the
     /// plugin decides what that means. Nothing here starts a process.
     static func request(_ id: String, action key: String) {
-        guard PluginManifest.isSafeIdentifier(id), PluginManifest.isSafeIdentifier(key),
+        guard PluginManifest.isSafeIdentifier(id), PluginManifest.isSafeKey(key),
               let url = try? URL.uttPluginsDirectory.appendingPathComponent("\(id).action.json")
         else { return }
         let previous = (try? Data(contentsOf: url))

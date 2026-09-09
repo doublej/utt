@@ -32,6 +32,10 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// in it while transcribing that plugin's audio, so a clip arriving from
     /// somewhere else is visibly not utt's own dictation.
     public var tint: String?
+    /// Give the plugin a menu bar item of its own, beside utt's. It carries the
+    /// plugin's symbol and colour, and a menu built from what the plugin already
+    /// declares — its status lines, its buttons, its daemon.
+    public var showsInMenuBar = false
     /// Buttons on the plugin's page. Pressing one writes a request the plugin picks
     /// up — utt never runs anything itself.
     public var actions: [PluginAction] = []
@@ -43,7 +47,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil
+        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
+        showsInMenuBar: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -56,11 +61,12 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.tint = tint
         self.actions = actions
         self.daemon = daemon
+        self.showsInMenuBar = showsInMenuBar
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, tint, actions, daemon
+        case needsApi, wantsTranscripts, sendsAudio, tint, actions, daemon, showsInMenuBar
     }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
@@ -80,6 +86,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         tint = try? container.decodeIfPresent(String.self, forKey: .tint)
         actions = (try? container.decodeIfPresent([PluginAction].self, forKey: .actions)) as? [PluginAction] ?? []
         daemon = try? container.decodeIfPresent(PluginDaemon.self, forKey: .daemon)
+        showsInMenuBar = (try? container.decodeIfPresent(Bool.self, forKey: .showsInMenuBar)) ?? false
     }
 
     /// At most this many rows on a plugin's page. A plugin asking for more has a
@@ -118,7 +125,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             // something nobody chose.
             tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 },
             actions: Array(actionsSeen),
-            daemon: daemon.flatMap { $0.isUsable ? $0 : nil }
+            daemon: daemon.flatMap { $0.isUsable ? $0 : nil },
+            showsInMenuBar: showsInMenuBar
         )
     }
 
@@ -161,7 +169,18 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         }
     }
 
-    /// Lowercase, and no path separators: this becomes `plugins/<id>.values.json`.
+    /// A setting or action key. Unlike an id it never becomes a filename, so case
+    /// is free — and it has to be, because a plugin naturally writes `openLog` and
+    /// `lastRelay`. Holding keys to the id's lowercase rule silently dropped every
+    /// camelCase one, which is a plugin arriving with half its buttons missing.
+    public static func isSafeKey(_ key: String) -> Bool {
+        !key.isEmpty && key.count <= 64
+            && key.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }
+    }
+
+    /// Lowercase, and no path separators: this becomes `plugins/<id>.values.json`,
+    /// and a case-insensitive filesystem would let `Deckhand` and `deckhand` fight
+    /// over the same file.
     public static func isSafeIdentifier(_ id: String) -> Bool {
         !id.isEmpty && id.count <= 64
             && id.allSatisfy { $0.isASCII && ($0.isLowercase || $0.isNumber || "._-".contains($0)) }
