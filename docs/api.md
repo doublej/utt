@@ -33,11 +33,26 @@ The token is generated the first time the API is switched on and shown in the
 settings card. "New" replaces it, which locks out every caller set up with the
 old one. An empty token means the server does not start at all.
 
+`/docs` also accepts `?token=…`, because a browser address bar cannot set a
+header. Nothing that carries audio does — a token in a URL is one a proxy log or
+a history entry gets to keep.
+
 ## Endpoints
 
 Base URL is `http://<host>:<port>` — `127.0.0.1` for "This Mac only", otherwise
 this Mac's Bonjour name (`something.local`), which survives the DHCP lease its IP
 does not.
+
+### `GET /docs`
+
+The OpenAPI reference, rendered by Redoc, served by utt itself so it always
+describes the build that is answering. The settings card's **API reference** link
+opens it with the token already in the URL.
+
+The document is inlined in the page, so the browser makes one authenticated
+request and Redoc never sees the token. The Redoc bundle itself comes from a CDN,
+so the page needs the internet once; `no-referrer` keeps the token in the address
+bar out of the request for it.
 
 ### `GET /health`
 
@@ -72,6 +87,15 @@ caller gets exactly what utt would have pasted.
 
 Errors are `{"error": "..."}` with `400` (not audio, or an empty body), `401`
 (token), `404` (path), `413` (too large) or `500` (the engine failed).
+
+## Writing a client
+
+The settings card's **Copy guide for an LLM** button puts a complete brief on the
+clipboard: this install's base URL, the wire format, the audio settings that
+produce what the engine wants, a worked `URLSession` client and the mistakes a
+model otherwise makes — multipart bodies, expecting keep-alive, "cleaning up" a
+transcript that is already finished. The token is left as a placeholder, because
+a brief pasted into a chat window should not carry the secret with it.
 
 ## Shape
 

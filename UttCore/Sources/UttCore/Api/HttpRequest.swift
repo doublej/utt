@@ -4,14 +4,24 @@ import Foundation
 /// sends `AUTHORIZATION` is not a client worth rejecting.
 public struct HttpRequest: Equatable, Sendable {
     public let method: String
-    /// Path only; any query string is already stripped.
+    /// Path only; the query string is parsed out into `query`.
     public let path: String
+    /// Percent-decoded query items. `/docs` takes its token here, because a
+    /// browser address bar cannot set an Authorization header.
+    public let query: [String: String]
     public let headers: [String: String]
     public let body: Data
 
-    public init(method: String, path: String, headers: [String: String], body: Data) {
+    public init(
+        method: String,
+        path: String,
+        query: [String: String] = [:],
+        headers: [String: String],
+        body: Data
+    ) {
         self.method = method
         self.path = path
+        self.query = query
         self.headers = headers
         self.body = body
     }
@@ -47,7 +57,7 @@ public enum HttpRequestParser {
         }
 
         var lines = head.components(separatedBy: "\r\n")
-        let (method, path) = try requestLine(lines.removeFirst())
+        let start = try requestLine(lines.removeFirst())
         let headers = self.headers(from: lines)
         let length = try contentLength(headers, maximumBodyBytes: maximumBodyBytes)
 
@@ -56,16 +66,45 @@ public enum HttpRequestParser {
             throw HttpParseError.incomplete
         }
         let bodyEnd = buffer.index(bodyStart, offsetBy: length)
-        return HttpRequest(method: method, path: path, headers: headers, body: Data(buffer[bodyStart..<bodyEnd]))
+        return HttpRequest(
+            method: start.method, path: start.path, query: start.query,
+            headers: headers, body: Data(buffer[bodyStart..<bodyEnd])
+        )
     }
 
-    private static func requestLine(_ line: String) throws -> (method: String, path: String) {
+    /// The first line of a request, split.
+    private struct RequestLine {
+        let method: String
+        let path: String
+        let query: [String: String]
+    }
+
+    private static func requestLine(_ line: String) throws -> RequestLine {
         let fields = line.split(separator: " ", omittingEmptySubsequences: true)
         guard fields.count >= 2 else { throw HttpParseError.malformed }
-        // The query string is dropped rather than parsed: nothing this API does is
-        // configurable per request, so a `?` is decoration.
-        let path = String(fields[1].split(separator: "?", maxSplits: 1)[0])
-        return (String(fields[0]).uppercased(), path)
+        let target = fields[1].split(separator: "?", maxSplits: 1)
+        return RequestLine(
+            method: String(fields[0]).uppercased(),
+            path: String(target[0]),
+            query: target.count > 1 ? queryItems(String(target[1])) : [:]
+        )
+    }
+
+    /// Enough of a query parser for one token. A repeated name keeps its first
+    /// value, so appending `&token=` to a link cannot overwrite the real one.
+    private static func queryItems(_ raw: String) -> [String: String] {
+        var items: [String: String] = [:]
+        for pair in raw.split(separator: "&") {
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            let name = decoded(String(parts[0]))
+            guard items[name] == nil else { continue }
+            items[name] = parts.count > 1 ? decoded(String(parts[1])) : ""
+        }
+        return items
+    }
+
+    private static func decoded(_ text: String) -> String {
+        text.replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? text
     }
 
     private static func headers(from lines: [String]) -> [String: String] {
@@ -94,8 +133,16 @@ public enum HttpRequestParser {
 /// takes every keep-alive timeout out of the picture.
 public enum HttpResponse {
     public static func json(status: Int, _ body: Data) -> Data {
+        response(status: status, contentType: "application/json", body: body)
+    }
+
+    public static func html(status: Int, _ page: String) -> Data {
+        response(status: status, contentType: "text/html; charset=utf-8", body: Data(page.utf8))
+    }
+
+    private static func response(status: Int, contentType: String, body: Data) -> Data {
         let head = "HTTP/1.1 \(status) \(reason(status))\r\n"
-            + "Content-Type: application/json\r\n"
+            + "Content-Type: \(contentType)\r\n"
             + "Content-Length: \(body.count)\r\n"
             + "Connection: close\r\n\r\n"
         var response = Data(head.utf8)

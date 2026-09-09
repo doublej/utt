@@ -98,7 +98,10 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   listener binds to and which peers are accepted; "This Mac only" binds loopback
   so the port never appears on an interface, and the peer filter still runs.
   Everything, `/health` included, needs the bearer token, and an enabled API with
-  an empty token yields no `ApiConfiguration` and therefore no listener.
+  an empty token yields no `ApiConfiguration` and therefore no listener. `/docs`
+  is the one endpoint that also takes the token from the query string — a browser
+  address bar cannot set a header — and it is the reason the `Host` header is
+  sanitised before `ApiDocs` interpolates it into a `<script>`.
 - **The API card binds through the store, not `@Shared`.** Every other settings
   control writes the shared file directly, which reaches no reducer — fine for a
   value something reads later, useless for one that has to start a listener now.
@@ -133,9 +136,11 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
   to be a file in Application Support first (`raycast/src/utt.ts` is the only place
   that touches disk); anything it needs the app to *do* is a `utt://` verb.
-- **Add an API endpoint** → one `case` in `ApiRoutes.respond`, one section in
-  `docs/api.md`. Anything parsed before the token is checked belongs in
-  `UttCore/Api/` with tests — that is the part a stranger can reach.
+- **Add an API endpoint** → one `case` in `ApiRoutes.respond`, one path in
+  `ApiDocs.paths`, one section in `docs/api.md`. Anything parsed before the token
+  is checked belongs in `UttCore/Api/` with tests — that is the part a stranger
+  can reach. The OpenAPI document is a hand-escaped string, so it is parsed in a
+  test: a bad escape renders a blank reference rather than failing to build.
 - **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
   the `CFBundleURLTypes` comment in `Info.plist`.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching

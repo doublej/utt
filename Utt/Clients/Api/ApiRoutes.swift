@@ -19,8 +19,11 @@ enum ApiRoutes {
         }
         switch (request.method, request.path) {
         case ("GET", "/health"): return health()
+        case ("GET", "/docs"): return docs(request, configuration)
         case ("POST", "/transcribe"): return await transcribeClip(request, transcribe)
-        default: return HttpResponse.error(status: 404, "Only GET /health and POST /transcribe exist.")
+        default: return HttpResponse.error(
+            status: 404, "Only GET /health, GET /docs and POST /transcribe exist."
+        )
         }
     }
 
@@ -36,17 +39,36 @@ enum ApiRoutes {
 
     /// Every endpoint, `/health` included. One that answers before the token is
     /// checked is one that tells a scanner what it found.
+    ///
+    /// `/docs` alone also takes the token from the query string, because a browser
+    /// address bar cannot set a header. Nothing that carries audio does — a token in
+    /// a URL is one a proxy log or a history entry gets to keep.
     private static func authorized(_ request: HttpRequest, token: String) -> Bool {
-        guard let header = request.headers["authorization"] else { return false }
-        let prefix = "bearer "
-        let offered = header.lowercased().hasPrefix(prefix) ? String(header.dropFirst(prefix.count)) : header
-        return ApiToken.matches(offered.trimmingCharacters(in: .whitespaces), token)
+        if let header = request.headers["authorization"] {
+            let prefix = "bearer "
+            let offered = header.lowercased().hasPrefix(prefix)
+                ? String(header.dropFirst(prefix.count))
+                : header
+            if ApiToken.matches(offered.trimmingCharacters(in: .whitespaces), token) { return true }
+        }
+        guard request.path == "/docs", let offered = request.query["token"] else { return false }
+        return ApiToken.matches(offered, token)
     }
 
     private static func health() -> Data {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let body = (try? JSONSerialization.data(withJSONObject: ["ok": true, "version": version])) ?? Data()
         return HttpResponse.json(status: 200, body)
+    }
+
+    /// The OpenAPI reference, rendered by Redoc, served from the app so it always
+    /// describes the build that is answering at the address the browser reached.
+    private static func docs(_ request: HttpRequest, _ configuration: ApiConfiguration) -> Data {
+        let server = ApiDocs.server(host: request.headers["host"], fallbackPort: configuration.port)
+        return HttpResponse.html(status: 200, ApiDocs.redocPage(server: server, version: version))
+    }
+
+    private static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     }
 
     /// The body is the audio, whole, with no multipart wrapper: a recorder has one

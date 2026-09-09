@@ -47,10 +47,28 @@ struct HttpRequestTests {
         #expect(parsed.headers["authorization"] == "Bearer abc")
     }
 
-    @Test("the query string is dropped so routing sees a bare path")
-    func stripsTheQueryString() throws {
-        let raw = request("GET /health?verbose=1 HTTP/1.1\r\n\r\n")
-        #expect(try HttpRequestParser.parse(raw, maximumBodyBytes: cap).path == "/health")
+    @Test("the query string leaves the path and lands in query")
+    func splitsTheQueryString() throws {
+        let raw = request("GET /docs?token=abc%20123&expand=1 HTTP/1.1\r\n\r\n")
+        let parsed = try HttpRequestParser.parse(raw, maximumBodyBytes: cap)
+        #expect(parsed.path == "/docs")
+        #expect(parsed.query["token"] == "abc 123")
+        #expect(parsed.query["expand"] == "1")
+    }
+
+    /// The docs link carries the token in the query, so a second `token=` appended
+    /// to it must not be the one that gets checked.
+    @Test("a repeated query name keeps its first value")
+    func firstQueryValueWins() throws {
+        let raw = request("GET /docs?token=real&token=forged HTTP/1.1\r\n\r\n")
+        #expect(try HttpRequestParser.parse(raw, maximumBodyBytes: cap).query["token"] == "real")
+    }
+
+    @Test("no query string is an empty query, not a missing path")
+    func handlesAMissingQuery() throws {
+        let parsed = try HttpRequestParser.parse(request("GET /health HTTP/1.1\r\n\r\n"), maximumBodyBytes: cap)
+        #expect(parsed.path == "/health")
+        #expect(parsed.query.isEmpty)
     }
 
     @Test("no content-length means an empty body")
@@ -131,6 +149,13 @@ struct HttpRequestTests {
         #expect(response.contains("Content-Length: \(body.count)\r\n"))
         #expect(response.contains("Connection: close\r\n"))
         #expect(response.hasSuffix("\r\n\r\n" + #"{"text":"hello"}"#))
+    }
+
+    @Test("an html response says so in its content type")
+    func buildsAnHtmlResponse() throws {
+        let page = try #require(String(data: HttpResponse.html(status: 200, "<p>hi</p>"), encoding: .utf8))
+        #expect(page.contains("Content-Type: text/html; charset=utf-8\r\n"))
+        #expect(page.hasSuffix("<p>hi</p>"))
     }
 
     @Test("an error response is json a client can read")

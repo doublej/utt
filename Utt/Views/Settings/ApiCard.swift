@@ -3,9 +3,9 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-/// The transcription API's controls. The address and the token are on screen
-/// because the thing being configured runs on another device, and showing them is
-/// the app's only way to hand them over.
+/// The transcription API's controls. The address, the token and the reference are
+/// on screen because the thing being configured runs on another device, and showing
+/// them is the app's only way to hand them over.
 ///
 /// Unlike the other settings cards these bindings go through the store rather than
 /// writing `@Shared` directly: a bare write reaches no reducer, and switching the
@@ -13,6 +13,8 @@ import UttCore
 struct ApiCard: View {
     let store: StoreOf<AppFeature>
     @Shared(.uttSettings) private var settings
+    /// Which button last copied, so it can say so. Cleared on a timer.
+    @State private var copied: String?
 
     private var api: ApiSettings { settings.api }
 
@@ -26,6 +28,8 @@ struct ApiCard: View {
                 address
                 port
                 token
+                Divider()
+                handover
             }
         }
     }
@@ -51,7 +55,8 @@ struct ApiCard: View {
                 .font(Typography.monoSmall)
                 .foregroundStyle(Palette.textSecondary)
                 .textSelection(.enabled)
-            Button("Copy") { copy(url) }.font(Typography.metadata)
+            Button(label("address", "Copy")) { copy(url, as: "address") }
+                .font(Typography.metadata)
         }
     }
 
@@ -76,8 +81,29 @@ struct ApiCard: View {
                 .textSelection(.enabled)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Button("Copy") { copy(api.token) }.font(Typography.metadata)
+            Button(label("token", "Copy")) { copy(api.token, as: "token") }
+                .font(Typography.metadata)
             Button("New") { replaceToken() }.font(Typography.metadata)
+        }
+    }
+
+    /// The two ways to hand this API to someone who has to build against it: a brief
+    /// for a model, and the reference for a person.
+    private var handover: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Button(label("guide", "Copy guide for an LLM")) {
+                    copy(ApiGuide.markdown(baseURL: url), as: "guide")
+                }
+                Spacer()
+                if let reference {
+                    Link("API reference", destination: reference)
+                }
+            }
+            .font(Typography.metadata)
+            Text("The guide is a complete brief — endpoints, audio format, worked code — with the token left as a placeholder to fill in.")
+                .font(Typography.hint)
+                .foregroundStyle(Palette.textTertiary)
         }
     }
 
@@ -89,15 +115,31 @@ struct ApiCard: View {
         return "http://\(host):\(api.port)"
     }
 
+    /// The token rides in the query string because a browser address bar cannot set
+    /// a header. `/docs` is the only endpoint that accepts it there.
+    private var reference: URL? {
+        let token = api.token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? api.token
+        return URL(string: "\(url)/docs?token=\(token)")
+    }
+
     private func replaceToken() {
         var api = settings.api
         api.token = ApiToken.generate()
         store.send(.settings(.apiChanged(api)))
     }
 
-    private func copy(_ text: String) {
+    private func label(_ name: String, _ idle: String) -> String {
+        copied == name ? "Copied" : idle
+    }
+
+    private func copy(_ text: String, as name: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        copied = name
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            if copied == name { copied = nil }
+        }
     }
 
     private func bind<Value>(_ keyPath: WritableKeyPath<ApiSettings, Value>) -> Binding<Value> {
