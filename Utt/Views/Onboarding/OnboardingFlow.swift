@@ -35,7 +35,7 @@ struct OnboardingFlow: View {
                 footer
             }
         }
-        .frame(width: 720, height: 540)
+        .frame(width: 700, height: 540)
         // Every way out lands here, which is why the finishing happens here rather
         // than in `finish()`: Esc and the sheet's own dismissal never pass through a
         // button, and a flow that closed without recording it would open again on the

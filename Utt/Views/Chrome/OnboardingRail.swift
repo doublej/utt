@@ -24,7 +24,7 @@ struct OnboardingRail: View {
             UttWordmark(size: 13)
         }
         .padding(Spacing.large)
-        .frame(width: 236)
+        .frame(width: 220)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.lcdGround)
         .environment(\.colorScheme, .dark)

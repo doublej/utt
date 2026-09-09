@@ -64,7 +64,7 @@ struct HistoryList: View {
     }
 
     private var toolbar: some View {
-        PageHeader("clock.arrow.circlepath", title: "History", subtitle: subtitle) {
+        PageHeader(AppSection.history.systemImage, title: AppSection.history.title, subtitle: subtitle) {
             searchField
             actionButton("trash", help: "Clear history") { store.send(.history(.clearTapped)) }
                 .disabled(history.history.isEmpty)

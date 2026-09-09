@@ -18,8 +18,7 @@ struct AppRootView: View {
     /// geometry is a reducer that cannot be tested without a screen.
     private var size: CGSize {
         if collapsed { return CGSize(width: 360, height: 48) }
-        if showingSettings { return CGSize(width: 820, height: 760) }
-        return CGSize(width: 720, height: 540)
+        return CGSize(width: 900, height: 720)
     }
 
     var body: some View {
@@ -54,18 +53,23 @@ struct AppRootView: View {
     }
 
     private var expanded: some View {
-        VStack(spacing: Spacing.extraSmall) {
-            HeaderBar(store: store, showingSettings: $route.isOpen, collapsed: $collapsed)
-            if let banner {
-                BannerRow(text: banner, action: bannerAction)
+        HStack(spacing: 0) {
+            AppRail(store: store, selection: $route.section) {
+                route.section = .history
+                collapsed = true
             }
-            if showingSettings {
-                SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
-            } else {
-                HistoryList(store: store)
+            VStack(spacing: Spacing.extraSmall) {
+                if let banner {
+                    BannerRow(text: banner, action: bannerAction)
+                }
+                if showingSettings {
+                    SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
+                } else {
+                    HistoryList(store: store)
+                }
             }
+            .padding(Spacing.medium)
         }
-        .padding(Spacing.medium)
     }
 
     /// One line, for the one problem most worth fixing right now. Three stacked
