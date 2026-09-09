@@ -79,9 +79,13 @@ private let pluginGuideTemplate = #"""
         - `detail` on a setting is the sentence under its label. It is where the
           explanation goes; utt has no tooltips.
         - At most 24 settings. Long labels are trimmed; newlines are flattened.
+        - `showsInMenuBar` is a top-level flag, and it is **all your actions or
+          none** — there is no per-action opt-in. Every button you declare is one
+          mis-click away, which is the bar for declaring one at all.
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
-          that is why.
+          that is why — and utt names the refused key in its log, which you can read
+          with `log show --predicate 'subsystem == "dev.jurrejan.utt"' --last 5m`.
 
         ## Buttons: `actions`, and `<id>.action.json`
 
