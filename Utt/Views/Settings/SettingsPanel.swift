@@ -46,6 +46,20 @@ struct SettingsPanel: View {
         case .general: GeneralPage(store: store, showingOnboarding: $showingOnboarding)
         case .about: AboutPage(store: store)
         case .api: ApiPage(store: store)
+        case .plugins: PluginsPage(store: store)
+        case let .plugin(manifest):
+            // Resolved against the live list rather than drawn from the section:
+            // the section carries the manifest as it was when the rail was built,
+            // and the plugin's status and values move under it.
+            if let plugin = store.settings.plugins.first(where: { $0.id == manifest.id }) {
+                PluginPage(store: store, plugin: plugin)
+            } else {
+                Card {
+                    Text("\(manifest.name) is no longer installed.")
+                        .font(Typography.hint)
+                        .foregroundStyle(Palette.textTertiary)
+                }
+            }
         }
     }
 }
