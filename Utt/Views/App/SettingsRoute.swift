@@ -14,7 +14,7 @@ final class SettingsRoute {
     static let shared = SettingsRoute()
 
     var isOpen = false
-    var tab: SettingsPanel.Tab = .recording
+    var tab: SettingsPanel.Tab = .hotkey
 
     private init() {}
 

@@ -2,26 +2,35 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-/// The model card: which engine, which model, and — the part a menu could never
+/// The model page: which engine, which model, and — the part a menu could never
 /// show — the state of every model at once.
 ///
 /// A `Picker` was the wrong control here. It hides three of the four choices
 /// behind a click, and the two facts that decide the choice are per-model: is it
 /// already on this disk, and is it the one currently in memory. Rows show both
 /// without being opened, at the cost of the height four rows take.
-struct ModelSettings: View {
+struct ModelPage: View {
     let store: StoreOf<AppFeature>
     @Shared(.uttSettings) private var settings
 
     var body: some View {
-        Card("Model") {
-            Picker("Engine", selection: engineBinding) {
-                ForEach(TranscriptionEngine.allCases, id: \.self) { engine in
-                    Text(engine.displayName).tag(engine)
+        SettingsGroup("Engine") {
+            SettingRow(
+                "Engine",
+                detail: "Parakeet is faster and better on English. Whisper is the fallback for what Parakeet cannot hear."
+            ) {
+                Picker("Engine", selection: engineBinding) {
+                    ForEach(TranscriptionEngine.allCases, id: \.self) { engine in
+                        Text(engine.displayName).tag(engine)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 180)
             }
-            .padding(.bottom, Spacing.xxs)
+        }
 
+        SettingsGroup("Models") {
             ForEach(ModelCatalog.models(for: settings.transcriptionEngine)) { model in
                 ModelRow(
                     model: model,

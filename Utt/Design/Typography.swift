@@ -1,6 +1,8 @@
 import SwiftUI
 
 enum Typography {
+    static let pageTitle = Font.system(size: 20, weight: .semibold)
+    static let subtitle = Font.system(size: 12, weight: .regular)
     static let sectionTitle = Font.system(size: 13, weight: .semibold)
     static let cardTitle = Font.system(size: 13, weight: .semibold)
     static let primaryRow = Font.system(size: 14, weight: .regular)

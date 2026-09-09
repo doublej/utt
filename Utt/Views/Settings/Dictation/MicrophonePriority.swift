@@ -2,104 +2,22 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-struct RecordingSettings: View {
-    let store: StoreOf<AppFeature>
-    @Shared(.uttSettings) private var settings
-
-    var body: some View {
-        Card("Hotkey") {
-            HotkeyRow(store: store)
-            Divider()
-            Toggle("Double-tap to lock recording on", isOn: bind(\.doubleTapLockEnabled))
-            Toggle("Only start on double-tap", isOn: bind(\.useDoubleTapOnly))
-                .disabled(!settings.doubleTapLockEnabled)
-                .help("Ignores a plain hold, for a hotkey you also hold for other reasons")
-            minimumHold
-        }
-
-        MicrophonePriorityCard(devices: store.settings.inputDevices)
-
-        Card("Capture") {
-            Toggle("Include audio from just before the keypress", isOn: bind(\.preRollEnabled))
-                .help("Catches the first word when you start talking before you finish pressing")
-            Toggle("Keep microphone warm through sleep and lock", isOn: bind(\.keepMicrophoneWarm))
-                .help("Recording starts instantly after your Mac wakes. The orange microphone dot stays lit while utt runs.")
-            Toggle("Mute other audio while recording", isOn: bind(\.muteWhileRecording))
-            Toggle("Keep the Mac awake while recording", isOn: bind(\.preventSystemSleep))
-            Toggle("Show the indicator in the middle of the screen", isOn: bind(\.showRecordingOverlay))
-                .help("The dot-matrix mark that appears while you talk. The menu bar icon still moves.")
-        }
-    }
-
-    private var minimumHold: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text("Ignore presses shorter than")
-                    .font(Typography.primaryRow)
-                Spacer()
-                Text(String(format: "%.2fs", settings.minimumKeyTime))
-                    .font(Typography.monoSmall)
-                    .foregroundStyle(Palette.textSecondary)
-                    .monospacedDigit()
-            }
-            Slider(value: bind(\.minimumKeyTime), in: 0.05...1.0, step: 0.05)
-            Text("A brush against the key should not start a recording.")
-                .font(Typography.hint)
-                .foregroundStyle(Palette.textTertiary)
-        }
-    }
-
-    private func bind<Value>(
-        _ keyPath: WritableKeyPath<UttSettings, Value>
-    ) -> Binding<Value> {
-        Binding(
-            get: { settings[keyPath: keyPath] },
-            set: { newValue in $settings.withLock { $0[keyPath: keyPath] = newValue } }
-        )
-    }
-}
-
-/// Shows the current hotkey and swaps to a live capture field while recording one.
-private struct HotkeyRow: View {
-    let store: StoreOf<AppFeature>
-    @Shared(.uttSettings) private var settings
-
-    var body: some View {
-        HStack {
-            Text("Push-to-talk")
-                .font(Typography.primaryRow)
-            Spacer()
-            if store.settings.isRecordingHotkey {
-                Text("Press the keys…")
-                    .font(Typography.metadata)
-                    .foregroundStyle(Palette.accent)
-            } else {
-                HotkeyGlyphs(hotkey: settings.hotkey)
-            }
-            Button(store.settings.isRecordingHotkey ? "Cancel" : "Change") {
-                store.send(.settings(.hotkeyRecordingToggled))
-            }
-            .font(Typography.metadata)
-        }
-    }
-}
-
 /// The ordered list of preferred inputs. Capture takes the first one that is
 /// plugged in, so this is "AirPods, else the Yeti, else the system default".
 ///
 /// Up/down buttons rather than `List`'s `.onMove`: the settings panel is a
 /// `ScrollView`, and a `List` nested in one gets its own scroller and a fixed
 /// height it will not give up.
-private struct MicrophonePriorityCard: View {
+struct MicrophonePriority: View {
     let devices: [AudioDevice]
     @Shared(.uttSettings) private var settings
 
     private var priority: [String] { settings.microphonePriority }
 
     var body: some View {
-        Card("Microphone priority") {
+        Card("Priority") {
             if priority.isEmpty {
-                Text("Following the system default input.")
+                Text("Following the system default input. Add a microphone to prefer it whenever it is plugged in.")
                     .font(Typography.hint)
                     .foregroundStyle(Palette.textTertiary)
             } else {

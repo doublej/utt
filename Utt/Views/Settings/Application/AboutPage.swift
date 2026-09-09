@@ -2,9 +2,8 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-struct AboutSettings: View {
+struct AboutPage: View {
     let store: StoreOf<AppFeature>
-    @Shared(.uttSettings) private var settings
 
     private var version: String {
         let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
@@ -13,29 +12,22 @@ struct AboutSettings: View {
     }
 
     var body: some View {
-        Card("utt") {
-            HStack {
+        SettingsGroup {
+            SettingRow("utt", detail: "Transcription that runs on this Mac. Nothing is uploaded.") {
                 UttWordmark(size: 15, recording: false)
-                Spacer()
+            }
+            SettingRow("Version") {
                 Text(version)
                     .font(Typography.monoSmall)
                     .foregroundStyle(Palette.textTertiary)
-            }
-            Text("Transcription that runs on this Mac. Nothing is uploaded.")
-                .font(Typography.hint)
-                .foregroundStyle(Palette.textSecondary)
-            if store.updatesConfigured {
-                Button("Check for Updates…") { store.send(.checkForUpdatesTapped) }
-                    .font(Typography.metadata)
+                if store.updatesConfigured {
+                    Button("Check for Updates…") { store.send(.checkForUpdatesTapped) }
+                        .font(Typography.metadata)
+                }
             }
         }
 
-        Card("Shortcuts") {
-            ShortcutRow(label: "Push-to-talk", hotkey: settings.hotkey)
-            ShortcutRow(label: "Paste last transcript", hotkey: AppFeature.pasteLastHotKey)
-        }
-
-        Card("Attribution") {
+        SettingsGroup("Attribution") {
             // The converted model card lists Apache-2.0 in places; NVIDIA's upstream
             // NeMo licence is authoritative and it is CC-BY-4.0. Attribution is a
             // condition of that licence, not a courtesy.
@@ -53,33 +45,13 @@ struct AboutSettings: View {
     }
 }
 
-private struct ShortcutRow: View {
-    let label: String
-    let hotkey: HotKey
-
-    var body: some View {
-        HStack {
-            Text(label).font(Typography.primaryRow)
-            Spacer()
-            HotkeyGlyphs(hotkey: hotkey)
-        }
-    }
-}
-
 private struct AttributionRow: View {
     let title: String
     let detail: String
     let url: String
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(Typography.primaryRow)
-                Text(detail)
-                    .font(Typography.hint)
-                    .foregroundStyle(Palette.textTertiary)
-            }
-            Spacer()
+        SettingRow(title, detail: detail) {
             if let link = URL(string: url) {
                 Link("Open", destination: link).font(Typography.metadata)
             }

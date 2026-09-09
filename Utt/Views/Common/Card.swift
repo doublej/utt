@@ -4,10 +4,13 @@ import SwiftUI
 /// what the Design notes call the "muddy 2005 UI" look.
 struct Card<Content: View>: View {
     let title: String?
+    /// Between children. Settings rows sit closer than free-form content.
+    var spacing: CGFloat = Spacing.small
     @ViewBuilder let content: () -> Content
 
-    init(_ title: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(_ title: String? = nil, spacing: CGFloat = Spacing.small, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
+        self.spacing = spacing
         self.content = content
     }
 
@@ -21,7 +24,7 @@ struct Card<Content: View>: View {
                     .padding(.horizontal, Spacing.medium)
                     .padding(.bottom, 2)
             }
-            VStack(alignment: .leading, spacing: Spacing.small) {
+            VStack(alignment: .leading, spacing: spacing) {
                 content()
             }
             .padding(Spacing.medium)
