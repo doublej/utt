@@ -85,7 +85,12 @@ enum ApiRoutes {
         defer { try? FileManager.default.removeItem(at: url) }
         do {
             try request.body.write(to: url, options: .atomic)
-            let text = try await transcribe(url)
+            // The caller knew the vocabulary before it sent the clip. A header
+            // rather than a field, because the body is the audio and wrapping it
+            // in an envelope would cost every client a multipart encoder.
+            let hints = (request.headers["x-utt-hints"] ?? "")
+                .split(separator: ",").map(String.init)
+            let text = TranscriptHints.apply(try await transcribe(url), hints: hints)
             let body = (try? JSONSerialization.data(withJSONObject: ["text": text])) ?? Data()
             return HttpResponse.json(status: 200, body)
         } catch {

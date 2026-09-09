@@ -119,12 +119,30 @@ actor PluginJobs {
                 Self.answer(result, for: audio)
                 return
             }
-            result = PluginJobResult(text: try await transcribe(audio), finishedAt: finishedAt)
+            let text = try await transcribe(audio)
+            result = PluginJobResult(
+                text: TranscriptHints.apply(text, hints: Self.hints(for: audio)),
+                finishedAt: finishedAt
+            )
         } catch {
             log.error("job \(audio.lastPathComponent, privacy: .public) failed: \(error.localizedDescription)")
             result = PluginJobResult(error: "Could not transcribe that clip.", finishedAt: finishedAt)
         }
         Self.answer(result, for: audio)
+    }
+
+    /// Words the plugin knew were coming, from `<name>.hints.json` beside the clip.
+    ///
+    /// Read at transcription time rather than at pickup, and absent is simply none:
+    /// a plugin that writes the hints after renaming the audio in has lost the race
+    /// it was told about, and gets an uncorrected transcript rather than an error.
+    private static func hints(for audio: URL) -> [String] {
+        let url = audio.deletingPathExtension().appendingPathExtension("hints.json")
+        guard let data = try? Data(contentsOf: url),
+              let hints = try? JSONDecoder().decode([String].self, from: data)
+        else { return [] }
+        try? FileManager.default.removeItem(at: url)
+        return hints
     }
 
     /// Every audio file waiting in a jobs directory, oldest first so a plugin that
