@@ -1,0 +1,96 @@
+Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
+machine.
+
+That sentence has been true since the first build, and it is the reason this one
+is 1.0.0 rather than 0.6. Everything the app set out to do, it now does: it
+hears you, it types for you, it stays out of the way, and the audio never goes
+anywhere. What is left is no longer "the missing part" — it is other things,
+which is what a first version is supposed to feel like.
+
+## Other apps and devices can send audio to it
+
+There is an API now. Switch it on under **Connect → API** and something else —
+a phone, a script, another Mac — can send a clip and get the text back. The
+transcription still happens here, on this machine, with the model you chose.
+
+You decide how far it reaches: this Mac only, your local network, or anywhere.
+"This Mac only" means the port does not appear on any network interface at all,
+not merely that requests are turned away. Local network means a network this Mac
+is actually on, which is not the same as an address that merely looks private —
+a VPN is private and elsewhere, and a phone on your own Wi-Fi very often has a
+public address.
+
+Every request needs the token utt gives you. There is a reference you can open
+in a browser, and a button that copies a brief for a language model, if you are
+having one write the client.
+
+## Programs can put their own settings in this window
+
+A plugin is another program you install yourself that wants a page in utt's
+window instead of a settings screen of its own. It says what it is in a file;
+utt draws the page, saves what you choose where the program can read it, and
+tells it what it asked for.
+
+Each plugin's page lists exactly what it is being given — whether it receives
+your transcripts, whether it holds your API token — so it is visible rather than
+something you would have to go looking for. If a plugin runs a background
+daemon, utt shows what the system says about it: running, stopped, or never
+installed. A crashed daemon can no longer claim to be fine.
+
+Plugins can also hand utt audio directly, without the API being switched on at
+all. Nothing goes over the network for that; it is one program passing a file to
+another on the same machine. While utt is transcribing a plugin's clip, the menu
+bar mark runs in that plugin's own colour, so work arriving from your phone
+never looks like something being said at your desk.
+
+**Connect → Plugins** explains all of it, and has a guide you can paste into a
+language model if you want to write one.
+
+## It tells your microphones apart
+
+Every input now says what it is: built-in, headphone jack, USB, Bluetooth,
+Continuity, or a virtual device like BlackHole. A list of names told you nothing
+about which one was the phone on your desk, and the phone is the one that stops
+working.
+
+Continuity says which kind, too — **USB** or **Wi-Fi** — because they are not
+the same situation, and "plug it in" is only useful advice if you know which one
+you are looking at. utt remembers, so a microphone you have unplugged still says
+what it connected through.
+
+A Continuity microphone can go quiet while still looking perfectly present: the
+phone is listed, still selected, sending nothing. Each one now has its own
+reconnect button, next to the device it actually reopens.
+
+## Words it was never going to get right
+
+An app sending a clip usually knows the words that are coming — the name of the
+project, the tool being talked about, its own name. utt did not, so those were
+exactly the ones that came back wrong: "cogwheel" as "cockwheel", "TUI" as
+"Tu Y".
+
+A caller can now send that vocabulary along with the clip, and utt corrects near
+misses against it. It is deliberately careful: a word is only replaced when it
+was already nearly right, because a wrong correction reads perfectly well and
+says something else. It will not rescue an ordinary word misheard as another
+ordinary word — "three" heard as "tree" is not something a word list can reach.
+
+This applies to clips sent by other apps. Dictation at your own keyboard is
+unchanged.
+
+## A window you can find things in
+
+The settings were four tabs that had become bins; "General" held permissions,
+the model, sounds and the Dock icon, and the only way to find anything was to
+read every card. There is now a rail down the side and one page per thing, each
+with a line at the top saying what is on it.
+
+The transcript list lives in the same rail, so you move between what you said
+and how utt behaves the same way you move between any two pages. The old
+cogwheel is gone — the window is either open or it is the pill.
+
+## Updating
+
+If you are on 0.5.x, utt will offer this to you. Nothing you have set up needs
+redoing: your hotkey, your microphones, your text rules and your history all
+carry over.
