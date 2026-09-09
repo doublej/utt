@@ -3,50 +3,52 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>1.1.0</title>
-            <pubDate>Wed, 09 Sep 2026 18:08:04 +0200</pubDate>
+            <title>1.1.1</title>
+            <pubDate>Wed, 09 Sep 2026 18:55:56 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-A release about plugins standing on their own.
+A correction to how plugins reach the menu bar, and two things about them that
+were quietly wrong.
 
-## A plugin can have its own menu bar icon
+## A plugin belongs under utt's icon, not beside it
 
-Until now a plugin lived inside utt's window. If it wanted to be reachable
-without opening that window — the way a background program usually is — it had
-to ship a second menu bar app of its own, built and signed and updated
-separately, whose entire job was to be an icon.
+1.1.0 gave a plugin that asked for it an icon of its own in the menu bar. That
+was the wrong shape. The menu bar is yours; a plugin is something you installed
+*into utt*, and two of them meant three icons where there had been one.
 
-A plugin can now ask for a menu bar item beside utt's, drawn with its own symbol
-and its own colour. There is nothing extra to set up: its menu is built from
-what the plugin already tells utt. Whatever it reports about itself is at the
-top, its daemon's state and a **Restart** below that, then its own buttons, and
-last a way straight to its page in utt.
+A plugin now appears as a submenu inside utt's own menu, labelled with its name
+and its symbol. What is in it has not changed — whatever the plugin reports
+about itself, its daemon's state and a **Restart**, its own buttons, and a way
+straight to its page. utt stays one mark in the menu bar however many plugins
+you install.
 
-utt's own icon has not changed. It is still utt's, and it still flashes a
-plugin's colour while it is transcribing that plugin's audio.
+## It asks before something you cannot take back
 
-## Two things that were quietly wrong
+A plugin can mark a button as one that should not happen by accident, and utt
+asks first. It was only asking on the plugin's page — pressed from the menu bar,
+the same button went straight through. The menu bar is where a mis-click is
+likelier, not less likely.
 
-A plugin that named a button or a setting in the usual `openLog` style was
-having it thrown away. Keys were being held to the rule for a plugin's
-*identifier*, which has to stay lowercase because it becomes a filename — but a
-key never becomes a filename. A plugin could arrive with half its buttons
-missing and nothing to say why.
+## A dropped setting no longer disappears in silence
 
-And a plugin that utt knew about *and* you had installed was listed twice on the
-Plugins page, once under each heading. It now appears once, where it belongs.
+utt refuses anything in a plugin's description it cannot show you honestly, and
+drops it rather than guessing. That is still right, but the person who wrote the
+plugin had no way to see it happen: they shipped three buttons, one appeared,
+and nothing said why. utt now names what it refused in its log, once, so that is
+a minute's work to find instead of an afternoon's.
 
 ## Updating
 
-Nothing you have set up needs redoing.
+Nothing you have set up needs redoing. A plugin that asked for the menu bar
+needs no change to move into utt's menu — it is the same flag.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v1.1.0/utt-1.1.0.zip" length="11489019" type="application/octet-stream" sparkle:edSignature="PZgGI9FHTHhN+FIscnHYZiKAfCLdnptE9nQYYihP7SSMKqRgWtlQJa4b7G13sr2EOcqwKnX3Gh4XLNUlgTZyCQ=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v1.1.1/utt-1.1.1.zip" length="11489831" type="application/octet-stream" sparkle:edSignature="YsEb6sNbCJO3DKfwa1KTLLrtdXElaHE9/yw7JUKXgr5egYocj/pvul9h8m1qxm3aUjJ0jGLZ6B4JAe2G0oiXBw=="/>
         </item>
     </channel>
 </rss>
