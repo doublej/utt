@@ -81,7 +81,7 @@ private let pluginGuideTemplate = #"""
         - At most 24 settings. Long labels are trimmed; newlines are flattened.
         - `showsInMenuBar` is a top-level flag, and it is **all your actions or
           none** — there is no per-action opt-in. Every button you declare is one
-          mis-click away, which is the bar for declaring one at all.
+          mis-click away in utt's menu, which is the bar for declaring one at all.
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
           that is why — and utt names the refused key in its log, once per manifest:
@@ -109,26 +109,28 @@ private let pluginGuideTemplate = #"""
         can write, so one that could name a command to execute would turn "drop a
         file in a folder" into "run this as the user".
 
-        ## A menu bar item of your own: `showsInMenuBar`
+        ## A place in utt's menu: `showsInMenuBar`
 
-        Set it and you get an item in the menu bar beside utt's own, drawn with your
-        `systemImage` and your `tint`. There is nothing else to declare — its menu is
-        built from what you have already said:
+        Set it and you get a submenu inside utt's own menu bar menu, labelled with
+        your `name` and your `systemImage`. Not an item of your own: the menu bar
+        belongs to the person using the Mac, and utt stays one mark there however
+        many plugins are installed.
+
+        There is nothing else to declare — the submenu is built from what you have
+        already said:
 
         - your `<id>.status.json` lines, at the top
         - your daemon's live state and a **Restart**, if you declared `daemon.label`
         - your `actions`, which behave exactly as they do on your page
         - **<Your name> settings…**, which opens utt on your page
 
-        A tinted icon is drawn in your colour; without a `tint` it is a template
-        image, which is what lets the menu bar invert it on a light or dark
-        background. The menu is rebuilt every time it is opened, so a status line you
-        rewrote a second ago is the one shown. An action that `confirms` is asked
-        about here too, and writes the same `<id>.action.json` with the same
-        `sequence` — you cannot tell a menu press from a page press, deliberately.
+        An action that `confirms` is asked about here too, and writes the same
+        `<id>.action.json` with the same `sequence` — you cannot tell a menu press
+        from a page press, deliberately. A status line you rewrote a second ago is
+        the one shown.
 
-        This is your item, not a second copy of utt's. utt's own mark stays what it
-        is, and still flashes your `tint` while transcribing your clip.
+        `tint` is not drawn here; a submenu has no icon to colour. It is still what
+        utt lights its own mark with while it is transcribing your clip.
 
         ## Daemons: `daemon.label`
 
