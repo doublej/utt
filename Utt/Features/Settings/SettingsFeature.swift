@@ -44,6 +44,7 @@ struct SettingsFeature {
     private enum CancelID { case deviceWatch, pluginWatch }
 
     @Dependency(\.audioDevices) var audioDevices
+    @Dependency(\.menuTracking) var menuTracking
     @Dependency(\.plugins) var plugins
     @Dependency(\.pluginDaemon) var pluginDaemon
     @Dependency(\.continuousClock) var clock
@@ -132,10 +133,18 @@ private extension SettingsFeature {
                 for plugin in installed {
                     PluginStore.reconcile(plugin, api: apiAccess)
                 }
-                await send(.pluginsLoaded(installed))
-                for plugin in installed {
-                    guard let label = plugin.manifest.daemon?.label else { continue }
-                    await send(.pluginDaemonStateLoaded(plugin.id, pluginDaemon.state(label)))
+                // A plugin that is working rewrites its status file as it goes, and
+                // utt's menu is built from that. SwiftUI rebuilds a `MenuBarExtra`
+                // whenever the state behind it changes, and a rebuild under an open
+                // menu closes the menu — so a poll that lands while one is open is
+                // dropped and the next one three seconds later carries it. Files are
+                // still reconciled: that is a write nobody is reading.
+                if !menuTracking.isOpen() {
+                    await send(.pluginsLoaded(installed))
+                    for plugin in installed {
+                        guard let label = plugin.manifest.daemon?.label else { continue }
+                        await send(.pluginDaemonStateLoaded(plugin.id, pluginDaemon.state(label)))
+                    }
                 }
                 try await clock.sleep(for: .seconds(3))
             }

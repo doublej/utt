@@ -27,6 +27,10 @@ final class DotMatrixDriver {
     }
 
     private func advance() {
+        // The menu bar wears this mark as a `MenuBarExtra` label, and changing a
+        // label under an open menu closes the menu. Every mark holds its frame
+        // while one is open; nobody is watching the window behind it anyway.
+        guard !MenuTracking.shared.isOpen else { return }
         phase += DotMatrix.tick / DotMatrix.cycleInterval(for: level)
         guard phase >= 1 else { return }
         phase = 0
