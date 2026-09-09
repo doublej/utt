@@ -15,16 +15,20 @@ import Testing
 struct DeviceSourceTests {
     @Test("the codes a real Mac reports land on the right source")
     func classifiesMeasuredCodes() {
-        #expect(DeviceSource.from(transport: "ccwd") == .continuity)
+        #expect(DeviceSource.from(transport: "ccwd") == .continuityWired)
         #expect(DeviceSource.from(transport: "bltn", dataSource: "imic") == .builtIn)
         #expect(DeviceSource.from(transport: "virt") == .virtual)
     }
 
-    /// Wired and wireless Continuity are the same thing to a person: the phone.
-    @Test("both Continuity transports are the phone")
+    /// The phone either way, but not the same situation: a wireless link is the one
+    /// that drops, and "plug it in" is only advice worth giving if the label says
+    /// which of the two you are looking at.
+    @Test("wired and wireless Continuity are told apart")
     func bothContinuityTransports() {
-        #expect(DeviceSource.from(transport: "ccwd") == .continuity)
-        #expect(DeviceSource.from(transport: "ccwl") == .continuity)
+        #expect(DeviceSource.from(transport: "ccwd") == .continuityWired)
+        #expect(DeviceSource.from(transport: "ccwl") == .continuityWireless)
+        #expect(DeviceSource.continuityWired.label == "Continuity · USB")
+        #expect(DeviceSource.continuityWireless.label == "Continuity · Wi-Fi")
     }
 
     /// The one case where the transport alone is not enough — the jack and the
@@ -59,7 +63,7 @@ struct DeviceSourceTests {
     @Test("only Continuity offers a reconnect")
     func onlyContinuityReconnects() {
         let reconnectable = DeviceSource.allCases.filter(\.canReconnect)
-        #expect(reconnectable == [.continuity])
+        #expect(reconnectable == [.continuityWired, .continuityWireless])
     }
 
     @Test("every source but the unknown one has a label")

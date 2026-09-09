@@ -50,7 +50,7 @@ struct SettingsFeature {
             case let .devicesLoaded(devices, name):
                 state.inputDevices = devices
                 state.defaultInputName = name
-                return rememberNames(from: devices)
+                return remember(from: devices)
             case let .pluginsLoaded(installed):
                 state.plugins = installed
                 return .none
@@ -167,23 +167,39 @@ private extension SettingsFeature {
         }
     }
 
-    /// A device can only be named while it is attached, which is never the moment
-    /// the name is needed — so it is captured from every poll instead. This is also
-    /// what gives names to UIDs that arrived without one: a list seeded from the
-    /// legacy `selectedMicrophoneID`, or a device added from Raycast.
+    /// A device can only be named — or asked how it is attached — while it is
+    /// plugged in, which is never the moment either answer is needed. So both are
+    /// captured from every poll instead. This is also what gives names to UIDs that
+    /// arrived without one: a list seeded from the legacy `selectedMicrophoneID`,
+    /// or a device added from Raycast.
     ///
-    /// Names for UIDs no longer in the list go with them, so the map cannot grow
+    /// Entries for UIDs no longer in the list go with them, so neither map can grow
     /// into a log of every microphone the machine has ever seen.
-    func rememberNames(from devices: [AudioDevice]) -> Effect<Action> {
-        let named = Dictionary(
+    func remember(from devices: [AudioDevice]) -> Effect<Action> {
+        let named = remembered(devices, \.name, settings.microphoneNames)
+        let sourced = remembered(devices, \.source.rawValue, settings.microphoneSources)
+        guard named != settings.microphoneNames || sourced != settings.microphoneSources
+        else { return .none }
+        $settings.withLock {
+            $0.microphoneNames = named
+            $0.microphoneSources = sourced
+        }
+        return .none
+    }
+
+    /// One fact per listed UID: what the attached device says, or what was last
+    /// recorded about it, or nothing.
+    func remembered(
+        _ devices: [AudioDevice],
+        _ fact: KeyPath<AudioDevice, String>,
+        _ previous: [String: String]
+    ) -> [String: String] {
+        Dictionary(
             settings.microphonePriority.map { uid in
-                (uid, devices.first { $0.id == uid }?.name ?? settings.microphoneNames[uid])
-            }.compactMap { uid, name in name.map { (uid, $0) } },
+                (uid, devices.first { $0.id == uid }?[keyPath: fact] ?? previous[uid])
+            }.compactMap { uid, value in value.map { (uid, $0) } },
             uniquingKeysWith: { first, _ in first }
         )
-        guard named != settings.microphoneNames else { return .none }
-        $settings.withLock { $0.microphoneNames = named }
-        return .none
     }
 
     /// "Only start on double-tap" without the lock would mean "start on double-tap,

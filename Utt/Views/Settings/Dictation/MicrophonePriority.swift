@@ -51,9 +51,7 @@ struct MicrophonePriority: View {
                 // A device in the list but not on the machine is the whole point of
                 // having fallbacks — say so instead of showing a dead row.
                 .foregroundStyle(isPresent(uid) ? Palette.textPrimary : Palette.textTertiary)
-            // Only for a device that is here: a remembered name carries no transport,
-            // and guessing one from an old entry would label it wrong.
-            if let label = devices.first(where: { $0.id == uid })?.source.label {
+            if let label = source(of: uid)?.label {
                 Text(label)
                     .font(Typography.metadata)
                     .foregroundStyle(Palette.textTertiary)
@@ -68,7 +66,9 @@ struct MicrophonePriority: View {
                 .disabled(index == 0)
             Button { move(index, by: 1) } label: { Image(systemName: "chevron.down") }
                 .disabled(index == priority.count - 1)
-            if devices.first(where: { $0.id == uid })?.source.canReconnect == true {
+            // Only for a device that is actually here — reopening one that is not
+            // attached has nothing to open.
+            if isPresent(uid), source(of: uid)?.canReconnect == true {
                 Button { store.send(.settings(.reconnectMicrophoneTapped(uid))) } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -97,6 +97,15 @@ struct MicrophonePriority: View {
     }
 
     private func isPresent(_ uid: String) -> Bool { devices.contains { $0.id == uid } }
+
+    /// How the device is attached, or was the last time it was seen. A device that
+    /// has been unplugged keeps its label the way it keeps its name — "USB, and not
+    /// here" is a more useful row than a bare name, and it is how you tell two
+    /// absent microphones apart.
+    private func source(of uid: String) -> DeviceSource? {
+        devices.first { $0.id == uid }?.source
+            ?? settings.microphoneSources[uid].flatMap(DeviceSource.init(rawValue:))
+    }
 
     /// A device that has been unplugged since it was added still has to be nameable.
     /// The remembered name carries it; a bare UID is the last resort, for a device
