@@ -150,7 +150,22 @@ public enum PluginGuide {
            `clip-1.wav.part` — then **rename** it to `clip-1.wav`. utt only picks up
            the audio extensions below, so a half-written file is invisible until the
            rename makes it whole. Skip this and utt will read your file mid-write.
-        2. utt transcribes it and writes `clip-1.json` beside it:
+        2. Optionally write `clip-1.hints.json` **before** the rename — a flat list
+           of words you already know are likely to appear:
+
+           ```json
+           ["deckhand", "launchd", "onenv", "xcodegen", "DotMatrix"]
+           ```
+
+           A recogniser hears sound and guesses words; you often know the vocabulary
+           before you send the clip — the repo, the session, your own product's name.
+           Those are exactly the terms that come back wrong. utt corrects near
+           misses against your list ("cockwheel" to "cogwheel", "Tu Y" to "TUI",
+           "deck hand" to "deckhand") and leaves everything else alone: a term only
+           displaces text that is already nearly it and starts with the same letter,
+           because a wrong correction reads perfectly and says something else.
+           It cannot fix an ordinary word misheard as another ordinary word.
+        3. utt transcribes it and writes `clip-1.json` beside it:
 
            ```json
            {"text": "the words that were spoken", "finishedAt": "2026-09-09T17:04:11Z"}
@@ -163,8 +178,8 @@ public enum PluginGuide {
            ```
 
            Exactly one of `text` and `error` is present, and the write is atomic.
-        3. The audio is deleted either way. The answer file is yours — read it and
-           delete it; utt never touches it again.
+        4. The audio is deleted either way, and so is the hints file. The answer
+           file is yours — read it and delete it; utt never touches it again.
 
         Extensions utt will open: `wav`, `m4a`, `mp3`, `aiff`, `flac`, `caf`. The
         extension is how AVFoundation picks its reader, so it must match the bytes —

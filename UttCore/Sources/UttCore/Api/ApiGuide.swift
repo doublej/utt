@@ -37,6 +37,13 @@ public enum ApiGuide {
           Only `/docs` accepts query-token auth. Treat that URL as a secret (including
           browser history); use the header for `/health` and `/transcribe`.
 
+        ## Hints
+
+        Send `X-Utt-Hints: cogwheel, TUI, deckhand` with a clip when you already know
+        the vocabulary — the project, the screen, the terms in play. utt corrects
+        near misses against that list and leaves everything else alone. These are
+        exactly the words a recogniser gets wrong, and the ones carrying the meaning.
+
         ## Endpoints
 
         ### `GET /health`
