@@ -144,6 +144,10 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// microphone should be findable.
     public var showDockIcon: Bool = true
 
+    /// The local transcription API — off, and loopback-only when switched on.
+    /// See `ApiSettings`; nested so the whole feature is one object in the file.
+    public var api = ApiSettings()
+
     /// The first-run walkthrough has been seen through, or deliberately skipped.
     /// The *only* thing that decides whether it opens again, which is what makes
     /// setting it back to `false` — by hand in this file, or with the button in
@@ -228,6 +232,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case soundEffectsVolume
         case openOnLogin
         case showDockIcon
+        case api
         case hasCompletedOnboarding
     }
 
@@ -270,6 +275,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         soundEffectsVolume = try container.decodeIfPresent(Double.self, forKey: .soundEffectsVolume) ?? soundEffectsVolume
         openOnLogin = try container.decodeIfPresent(Bool.self, forKey: .openOnLogin) ?? openOnLogin
         showDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? showDockIcon
+        api = try container.decodeIfPresent(ApiSettings.self, forKey: .api) ?? api
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? hasCompletedOnboarding
     }
 

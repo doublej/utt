@@ -19,6 +19,7 @@ project.yml          # XcodeGen source of truth for the project
 Utt/
   App/               # @main, AppDelegate, lifecycle
   Clients/           # @DependencyClient wrappers around the system
+    Api/             # http listener, routes, the settings it acts on
     Input/           # event tap, pasteboard
     Recording/       # capture, devices, idle suspension
     System/          # permissions, sleep, sounds, presence, updates
@@ -93,6 +94,29 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   exists because a CoreAudio UID — the only stable way to name an input — cannot be
   obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
   devices every 3 s.
+- **The API's reach is enforced twice.** `ApiAccess` decides both what the
+  listener binds to and which peers are accepted; "This Mac only" binds loopback
+  so the port never appears on an interface, and the peer filter still runs.
+  "Local network" means a subnet `getifaddrs` says this Mac is on, not a private
+  address range — a VPN peer is private and elsewhere, and a phone on the same
+  Wi-Fi is very often globally addressed over IPv6. Peer addresses parse through
+  `inet_pton` or not at all: a split-on-the-separator reader lets `127.0.0.1.extra`
+  through as loopback, which is the access filter failing *open*.
+- **A failed listener takes its configuration with it.** `NWListener` reports a
+  failed bind asynchronously and documents it as terminal. Leaving
+  `configuration` set means the next apply matches, does nothing, and the port
+  stays dead while the settings still read "on" — so `.failed` tears down and
+  `AppFeature.apiState` puts the reason in the card.
+  Everything, `/health` included, needs the bearer token, and an enabled API with
+  an empty token yields no `ApiConfiguration` and therefore no listener. `/docs`
+  is the one endpoint that also takes the token from the query string — a browser
+  address bar cannot set a header — and it is the reason the `Host` header is
+  sanitised before `ApiDocs` interpolates it into a `<script>`.
+- **The API card binds through the store, not `@Shared`.** Every other settings
+  control writes the shared file directly, which reaches no reducer — fine for a
+  value something reads later, useless for one that has to start a listener now.
+  `SettingsFeature.apiChanged` is the only write path, and it is what mints the
+  token on first switch-on.
 - **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel` reach
   `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt never
   activates itself there, but a plain `open` activates it for the caller — and the
@@ -122,6 +146,11 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
   to be a file in Application Support first (`raycast/src/utt.ts` is the only place
   that touches disk); anything it needs the app to *do* is a `utt://` verb.
+- **Add an API endpoint** → one `case` in `ApiRoutes.respond`, one path in
+  `ApiDocs.paths`, one section in `docs/api.md`. Anything parsed before the token
+  is checked belongs in `UttCore/Api/` with tests — that is the part a stranger
+  can reach. The OpenAPI document is a hand-escaped string, so it is parsed in a
+  test: a bad escape renders a blank reference rather than failing to build.
 - **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
   the `CFBundleURLTypes` comment in `Info.plist`.
 - **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
@@ -225,6 +254,7 @@ something a script should be inventing.
 ## Related context
 
 - [agent.md](agent.md) — verify loop, auto-fix commands, boundaries
+- [docs/api.md](docs/api.md) — the HTTP API: reach, auth, endpoints
 - [docs/hotkey-semantics.md](docs/hotkey-semantics.md) — the press/hold/double-tap
   spec the `HotKeyProcessor` tests are written against
 - [docs/phase0-results.md](docs/phase0-results.md) — what the spike actually

@@ -26,6 +26,7 @@ struct SettingsFeature {
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
         case modelChanged(String)
+        case apiChanged(ApiSettings)
         case resetToDefaultsTapped
     }
 
@@ -54,6 +55,7 @@ struct SettingsFeature {
                 return .none
             case let .engineChanged(engine): return change(to: engine)
             case let .modelChanged(model): return change(toModel: model)
+            case let .apiChanged(api): return change(toApi: api)
             case .resetToDefaultsTapped:
                 $settings.withLock { $0 = UttSettings() }
                 return .none
@@ -139,6 +141,19 @@ private extension SettingsFeature {
     func change(toModel model: String) -> Effect<Action> {
         guard model != settings.selectedModel else { return .none }
         $settings.withLock { $0.selectedModel = model }
+        return .none
+    }
+
+    /// The one write path for the API settings — the card cannot use a plain
+    /// `@Shared` binding, because starting a listener is not something a file write
+    /// reaches. The token is minted here on the first switch-on and then left alone:
+    /// regenerating it behind the user's back would silently lock out every caller
+    /// they had already set up.
+    func change(toApi api: ApiSettings) -> Effect<Action> {
+        var api = api
+        if api.enabled, api.token.isEmpty { api.token = ApiToken.generate() }
+        guard api != settings.api else { return .none }
+        $settings.withLock { $0.api = api }
         return .none
     }
 }
