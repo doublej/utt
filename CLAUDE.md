@@ -27,6 +27,10 @@ Utt/
   Design/            # palette, typography, spacing, surfaces
   Features/          # TCA reducers: App, Transcription, Settings, History
   Views/             # SwiftUI, one directory per surface
+    App/             # root view, AppSection (the rail's sections), route
+    Chrome/          # AppRail, OnboardingRail, PageHeader, the pill
+    Settings/        # SettingRow + SettingsGroup, one page per section in
+                     #   Dictation/, Output/, Application/
   Resources/         # Info.plist, entitlements
 UttCore/             # SPM package: pure logic + all the tests
 raycast/             # Raycast extension — talks to the app through its JSON files
@@ -138,10 +142,14 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   `liveValue` forwarding to an actor (except the tap, which a C callback must be
   able to call synchronously).
 - **Add UI** → a `View` in `Utt/Views/<surface>/`, reading `@Shared(.uttSettings)`
-  directly rather than threading bindings through the store.
+  directly rather than threading bindings through the store. A new surface opens
+  with `PageHeader`; a new place to go is a case in `AppSection`, which is the
+  whole rail.
 - **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
-  `UttSettings`, then a control in `Utt/Views/Settings/`. Every key decodes
-  independently so an old file never fails to load.
+  `UttSettings`, then a `SettingToggle` or `SettingRow` inside a `SettingsGroup`
+  on the page it belongs to (`$settings.binding(\.key)` is the binding). The
+  explanation goes in `detail:`, on the page, not in a `.help` tooltip. Every key
+  decodes independently so an old file never fails to load.
 - **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
   `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
   to be a file in Application Support first (`raycast/src/utt.ts` is the only place
@@ -164,6 +172,9 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   purpose: macOS 26 composites a legacy `.icns` onto its own light plate and
   shrinks it to fit, which reads as a grey border around the icon; a `.icon`
   supplies the background itself.
+- **Dark ground** → `Palette.lcdGround` plus `.environment(\.colorScheme, .dark)`,
+  which is how the rails get white text and a light `.secondary` without a
+  second palette. Anything drawn with `.primary` inverts for free.
 - **Child → parent in TCA** → pattern-match the child action in `AppFeature`
   (`case .transcription(.pasteFinished(let pasted)):`). No delegate-action
   ceremony.
