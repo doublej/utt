@@ -32,3 +32,6 @@ release/
 
 # Agent scratch: a manager session's dispatch notes, not project history.
 CLAUDE-MANAGER.md
+
+# Scratch from the /go and orchestrate skills — never part of the repo.
+.orchestrate/
