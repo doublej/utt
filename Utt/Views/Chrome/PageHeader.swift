@@ -1,28 +1,44 @@
 import SwiftUI
 
-/// The top of every page: the category's tile, its name, and one line on what
-/// the page changes. The tile is the same mark as the sidebar's, larger, so the
-/// eye lands on the page it just chose.
-struct SettingsPageHeader: View {
-    let tab: SettingsPanel.Tab
+/// The top of a page: a category tile, its name, one line on what the page is
+/// for, and room on the right for the page's own controls. Settings pages, the
+/// history list and the permission guide all open this way, so moving between
+/// them never changes what a title looks like.
+struct PageHeader<Trailing: View>: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String
+    @ViewBuilder let trailing: () -> Trailing
+
+    init(
+        _ systemImage: String, title: String, subtitle: String,
+        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
+    ) {
+        self.systemImage = systemImage
+        self.title = title
+        self.subtitle = subtitle
+        self.trailing = trailing
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.small) {
-            CategoryIcon(tab.systemImage, size: 36, prominent: true)
+            CategoryIcon(systemImage, size: 36, prominent: true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(tab.title)
+                Text(title)
                     .font(Typography.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
-                Text(tab.blurb)
+                Text(subtitle)
                     .font(Typography.subtitle)
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: Spacing.small)
+            trailing()
         }
         .padding(.horizontal, Spacing.medium)
         .padding(.top, Spacing.xxs)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

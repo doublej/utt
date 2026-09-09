@@ -64,18 +64,20 @@ struct HistoryList: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: Spacing.small) {
+        PageHeader("clock.arrow.circlepath", title: "History", subtitle: subtitle) {
             searchField
-            Spacer()
-            Text("\(history.history.count)")
-                .font(Typography.monoSmall)
-                .foregroundStyle(Palette.textTertiary)
-                .monospacedDigit()
             actionButton("trash", help: "Clear history") { store.send(.history(.clearTapped)) }
                 .disabled(history.history.isEmpty)
         }
-        .padding(.trailing, Spacing.medium)
-        .padding(.vertical, Spacing.extraSmall)
+        .padding(.bottom, Spacing.extraSmall)
+    }
+
+    private var subtitle: String {
+        switch history.history.count {
+        case 0: "Nothing kept yet."
+        case 1: "One transcript, text only."
+        case let n: "\(n) transcripts, newest first. Text only."
+        }
     }
 
     private var searchField: some View {
@@ -90,7 +92,7 @@ struct HistoryList: View {
         .padding(.horizontal, Spacing.medium)
         .padding(.vertical, 5)
         .background(Capsule().fill(Palette.surfaceSecondary))
-        .frame(maxWidth: 260)
+        .frame(maxWidth: 220)
     }
 
     private var list: some View {

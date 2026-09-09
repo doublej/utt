@@ -18,7 +18,7 @@ struct AppRootView: View {
     /// geometry is a reducer that cannot be tested without a screen.
     private var size: CGSize {
         if collapsed { return CGSize(width: 360, height: 48) }
-        if showingSettings { return CGSize(width: 800, height: 820) }
+        if showingSettings { return CGSize(width: 820, height: 760) }
         return CGSize(width: 720, height: 540)
     }
 
@@ -59,7 +59,6 @@ struct AppRootView: View {
             if let banner {
                 BannerRow(text: banner, action: bannerAction)
             }
-            RecorderModule(store: store)
             if showingSettings {
                 SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
             } else {

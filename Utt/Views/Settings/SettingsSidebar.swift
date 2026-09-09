@@ -25,8 +25,6 @@ struct SettingsSidebar: View {
         }
         .padding(.top, Spacing.xxs)
         .padding(.trailing, Spacing.small)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Settings categories")
     }
 }
 

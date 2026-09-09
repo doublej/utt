@@ -59,12 +59,13 @@ struct OnboardingFlow: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Spacing.small) {
-            UttMark(size: 20)
+            UttMark(size: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(step.title).font(Typography.sectionTitle)
+                Text(step.title).font(Typography.pageTitle)
                 Text(step.subtitle)
-                    .font(Typography.hint)
+                    .font(Typography.subtitle)
                     .foregroundStyle(Palette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: Spacing.small)
             // Not on the last screen: Done *is* the leave there, so a second exit

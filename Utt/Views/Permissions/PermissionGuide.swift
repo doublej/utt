@@ -50,15 +50,12 @@ struct PermissionGuide: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Let macOS hear you out")
-                .font(Typography.sectionTitle)
-            Text("Three switches, once. Nothing you say leaves this Mac.")
-                .font(Typography.hint)
-                .foregroundStyle(Palette.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.medium)
+        PageHeader(
+            "lock.shield",
+            title: "Let macOS hear you out",
+            subtitle: "Three switches, once. Nothing you say leaves this Mac."
+        )
+        .padding(.vertical, Spacing.small)
     }
 
     private var footer: some View {

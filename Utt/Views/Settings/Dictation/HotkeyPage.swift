@@ -33,6 +33,7 @@ struct HotkeyPage: View {
                 HStack(spacing: Spacing.extraSmall) {
                     Slider(value: $settings.binding(\.minimumKeyTime), in: 0.05...1.0, step: 0.05)
                         .frame(width: 140)
+                        .tint(Palette.accent)
                     Text(String(format: "%.2fs", settings.minimumKeyTime))
                         .font(Typography.monoSmall)
                         .foregroundStyle(Palette.textSecondary)

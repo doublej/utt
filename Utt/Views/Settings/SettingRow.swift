@@ -9,11 +9,17 @@ import UttCore
 struct SettingRow<Control: View>: View {
     let title: String
     var detail: String?
+    /// Tertiary unless the detail is a warning the reader must not skim past.
+    var detailTint: Color = Palette.textTertiary
     @ViewBuilder let control: () -> Control
 
-    init(_ title: String, detail: String? = nil, @ViewBuilder control: @escaping () -> Control) {
+    init(
+        _ title: String, detail: String? = nil, detailTint: Color = Palette.textTertiary,
+        @ViewBuilder control: @escaping () -> Control
+    ) {
         self.title = title
         self.detail = detail
+        self.detailTint = detailTint
         self.control = control
     }
 
@@ -24,7 +30,7 @@ struct SettingRow<Control: View>: View {
                 if let detail {
                     Text(detail)
                         .font(Typography.hint)
-                        .foregroundStyle(Palette.textTertiary)
+                        .foregroundStyle(detailTint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -54,6 +60,7 @@ struct SettingToggle: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .tint(Palette.accent)
         }
     }
 }

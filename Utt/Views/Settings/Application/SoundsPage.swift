@@ -19,6 +19,7 @@ struct SoundsPage: View {
                         .foregroundStyle(Palette.textTertiary)
                     Slider(value: $settings.binding(\.soundEffectsVolume), in: 0...1)
                         .frame(width: 140)
+                        .tint(Palette.accent)
                 }
             }
             .disabled(!settings.soundEffectsEnabled)
