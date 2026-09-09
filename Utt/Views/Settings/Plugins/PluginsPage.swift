@@ -16,7 +16,7 @@ struct PluginsPage: View {
 
     var body: some View {
         Card {
-            Text("A plugin is another program on this Mac that wants a settings page in this window. It declares what it is in a file; utt draws the page and writes your choices back where the plugin can read them. Nothing is downloaded and nothing runs inside utt — a plugin is a program you installed yourself.")
+            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. Instead of a settings window of its own it gets a page in this one: you change its settings here, utt saves them to a file the program reads, and if it needs the API, utt hands it the token. Nothing is downloaded, and nothing runs inside utt.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -38,7 +38,7 @@ struct PluginsPage: View {
 
         SettingsGroup("Installed") {
             if installed.isEmpty {
-                SettingRow("Nothing yet", detail: "An installed plugin appears here and in the rail on the left.") {
+                SettingRow("Nothing yet", detail: "Install one and it shows up here, and as its own row in the rail under Plugins.") {
                     EmptyView()
                 }
             } else {
@@ -54,7 +54,7 @@ struct PluginsPage: View {
         SettingsGroup("Write one") {
             SettingRow(
                 "Guide for an LLM",
-                detail: "The whole format — the manifest, the values file utt writes back, and the rules that decide whether a plugin is accepted. Paste it into a model along with your project."
+                detail: "Everything a plugin has to write: the manifest, the values file utt writes back, and what gets a manifest refused. Paste it into an LLM together with your project."
             ) {
                 Button(copied ? "Copied" : "Copy guide") { copyGuide() }
                     .font(Typography.metadata)
@@ -81,7 +81,7 @@ struct PluginsPage: View {
         Known(
             id: "deckhand",
             name: "Deckhand",
-            blurb: "Relays what you dictate into a terminal session, from your phone or this Mac.",
+            blurb: "Dictate into a Claude Code session from your phone. The clip comes to this Mac, utt turns it into text, and the words land in the session.",
             url: URL(string: "https://github.com/jurrejan/deckhand")!
         )
     ]

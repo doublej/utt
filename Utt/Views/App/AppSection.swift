@@ -91,8 +91,8 @@ enum AppSection: Hashable, Identifiable {
         case .general: "How utt sits in the system."
         case .about: "Version, updates and who made the models."
         case .api: "Let another app or device send audio to this Mac and get text back."
-        case .plugins: "Other programs on this Mac that put their own settings in this window."
-        case let .plugin(manifest): manifest.blurb ?? "Settings for \(manifest.name), which connects itself to utt."
+        case .plugins: "Programs that work with utt. Each one keeps its settings here, next to utt's own."
+        case let .plugin(manifest): manifest.blurb ?? "Settings for \(manifest.name). Changed here, read by \(manifest.name)."
         }
     }
 }
