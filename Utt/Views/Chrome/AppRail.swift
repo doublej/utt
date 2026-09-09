@@ -30,9 +30,19 @@ struct AppRail: View {
                 RecorderStatePill(state: recorderState)
             }
             .padding(.bottom, Spacing.large)
-            ForEach(AppSection.groups(plugins: store.settings.plugins.map(\.manifest)), id: \.title) { group in
-                RailGroup(title: group.title, sections: group.sections, selection: $selection)
+            // The window is a fixed 720pt, so past a couple of plugins the sections
+            // stop fitting and the overflow pushed the window's own light
+            // background out from under the rail. Scroll the sections; the mark and
+            // the wordmark stay where they are.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(AppSection.groups(plugins: store.settings.plugins.map(\.manifest)), id: \.title) { group in
+                        RailGroup(title: group.title, sections: group.sections, selection: $selection)
+                    }
+                }
             }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
             Spacer(minLength: Spacing.medium)
             HStack {
                 UttWordmark(size: 13, recording: recording)
