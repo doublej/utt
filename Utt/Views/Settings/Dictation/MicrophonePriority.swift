@@ -29,7 +29,6 @@ struct MicrophonePriority: View {
             HStack {
                 addMenu
                 Spacer()
-                reconnectButton
                 if !priority.isEmpty {
                     Button("Use system default") { write { $0.removeAll() } }
                         .font(Typography.metadata)
@@ -69,6 +68,12 @@ struct MicrophonePriority: View {
                 .disabled(index == 0)
             Button { move(index, by: 1) } label: { Image(systemName: "chevron.down") }
                 .disabled(index == priority.count - 1)
+            if devices.first(where: { $0.id == uid })?.source.canReconnect == true {
+                Button { store.send(.settings(.reconnectMicrophoneTapped(uid))) } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .help("Reopens this device. A Continuity microphone can stay listed while it has quietly stopped sending audio.")
+            }
             Button { write { $0.removeAll { $0 == uid } } } label: { Image(systemName: "minus") }
         }
         .buttonStyle(.borderless)
@@ -85,18 +90,6 @@ struct MicrophonePriority: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(unlisted.isEmpty)
-    }
-
-    /// Shown only while a device that can be reopened is actually attached, and
-    /// worded for the whole input rather than one row: reopening rebuilds whichever
-    /// device the priority list currently resolves to, not the row it sits next to.
-    @ViewBuilder
-    private var reconnectButton: some View {
-        if devices.contains(where: { $0.source.canReconnect }) {
-            Button("Reconnect") { store.send(.settings(.reconnectMicrophoneTapped)) }
-                .font(Typography.metadata)
-                .help("Closes and reopens the microphone. A Continuity device can stay listed while it has quietly stopped sending audio.")
-        }
     }
 
     private func label(for device: AudioDevice) -> String {

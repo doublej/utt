@@ -12,7 +12,7 @@ extension RecordingClient {
         stop: { nil },
         cancel: {},
         meterLevel: { 0 },
-        reconnect: {}
+        reconnect: { _ in }
     )
 }
 

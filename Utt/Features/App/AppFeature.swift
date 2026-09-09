@@ -135,10 +135,10 @@ struct AppFeature {
 
             // The armed engine is holding a device that has quietly stopped
             // delivering audio; only a full reopen gets it back.
-            case .settings(.reconnectMicrophoneTapped):
+            case let .settings(.reconnectMicrophoneTapped(uid)):
                 return .run { _ in
-                    await recording.reconnect()
-                    log.notice("input reopened on request")
+                    await recording.reconnect(uid)
+                    log.notice("reopened \(uid, privacy: .public) on request")
                 }
 
             case .settings(.hotkeyRecordingToggled):

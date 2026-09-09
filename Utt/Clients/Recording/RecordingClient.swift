@@ -27,10 +27,14 @@ struct RecordingClient: Sendable {
     var cancel: @Sendable () async -> Void
     /// Instantaneous input level, 0...1, for the VU meter and indicator.
     var meterLevel: @Sendable () async -> Float = { 0 }
-    /// Closes the input and opens it again. A Continuity microphone can stop
-    /// delivering audio without leaving the device list — the phone is still there,
-    /// still selected, and silent — and rebuilding the chain is what revives it.
-    var reconnect: @Sendable () async -> Void
+    /// Reopens one named device. A Continuity microphone can stop delivering audio
+    /// without leaving the device list — the phone is still there, still selected,
+    /// and silent — and opening a stream on it is what revives it.
+    ///
+    /// The UID matters: the device that needs reviving is often not the one the
+    /// priority list resolves to, and reopening the resolved input would leave the
+    /// broken one exactly as it was.
+    var reconnect: @Sendable (_ microphoneUID: String) async -> Void
 }
 
 struct RecordingResult: Equatable, Sendable {
@@ -61,7 +65,7 @@ extension RecordingClient: DependencyKey {
             stop: { await recorder.stop() },
             cancel: { await recorder.cancel() },
             meterLevel: { await recorder.meterLevel() },
-            reconnect: { await recorder.reconnect() }
+            reconnect: { uid in await recorder.reconnect(uid) }
         )
     }()
 }
@@ -135,12 +139,23 @@ private actor Recorder {
         openArmed()
     }
 
-    /// Rebuilds the input from scratch, on request. Nothing here can detect a device
+    /// Opens a stream on one named device, then puts the input back where it was.
+    ///
+    /// Opening the device *by itself* is the point: `arm` takes a priority list and
+    /// resolves it, so arming the usual list would open whichever device is first —
+    /// not the silent one the user is asking about. Nothing here can detect a device
     /// that has gone quiet while still claiming to be present, so this is the user's
     /// call; mid-recording it does nothing rather than truncate the clip.
-    func reconnect() {
+    func reconnect(_ uid: String) {
         guard currentURL == nil else { return }
         capture.stop()
+        do {
+            try capture.arm(microphoneUIDs: [uid])
+        } catch {
+            log.error("could not reopen \(uid, privacy: .public): \(error.localizedDescription)")
+        }
+        capture.stop()
+        // Back to what the settings say, which is rarely the device just kicked.
         if armed { openArmed() }
     }
 
