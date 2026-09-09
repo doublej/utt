@@ -9,6 +9,7 @@ import UttCore
 /// `ScrollView`, and a `List` nested in one gets its own scroller and a fixed
 /// height it will not give up.
 struct MicrophonePriority: View {
+    let store: StoreOf<AppFeature>
     let devices: [AudioDevice]
     @Shared(.uttSettings) private var settings
 
@@ -28,6 +29,7 @@ struct MicrophonePriority: View {
             HStack {
                 addMenu
                 Spacer()
+                reconnectButton
                 if !priority.isEmpty {
                     Button("Use system default") { write { $0.removeAll() } }
                         .font(Typography.metadata)
@@ -50,6 +52,13 @@ struct MicrophonePriority: View {
                 // A device in the list but not on the machine is the whole point of
                 // having fallbacks — say so instead of showing a dead row.
                 .foregroundStyle(isPresent(uid) ? Palette.textPrimary : Palette.textTertiary)
+            // Only for a device that is here: a remembered name carries no transport,
+            // and guessing one from an old entry would label it wrong.
+            if let label = devices.first(where: { $0.id == uid })?.source.label {
+                Text(label)
+                    .font(Typography.metadata)
+                    .foregroundStyle(Palette.textTertiary)
+            }
             if !isPresent(uid) {
                 Text("not connected")
                     .font(Typography.metadata)
@@ -70,12 +79,28 @@ struct MicrophonePriority: View {
         let unlisted = devices.filter { !priority.contains($0.id) }
         Menu("Add microphone") {
             ForEach(unlisted) { device in
-                Button(device.name) { write { $0.append(device.id) } }
+                Button(label(for: device)) { write { $0.append(device.id) } }
             }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(unlisted.isEmpty)
+    }
+
+    /// Shown only while a device that can be reopened is actually attached, and
+    /// worded for the whole input rather than one row: reopening rebuilds whichever
+    /// device the priority list currently resolves to, not the row it sits next to.
+    @ViewBuilder
+    private var reconnectButton: some View {
+        if devices.contains(where: { $0.source.canReconnect }) {
+            Button("Reconnect") { store.send(.settings(.reconnectMicrophoneTapped)) }
+                .font(Typography.metadata)
+                .help("Closes and reopens the microphone. A Continuity device can stay listed while it has quietly stopped sending audio.")
+        }
+    }
+
+    private func label(for device: AudioDevice) -> String {
+        device.source.label.map { "\(device.name) · \($0)" } ?? device.name
     }
 
     private func isPresent(_ uid: String) -> Bool { devices.contains { $0.id == uid } }

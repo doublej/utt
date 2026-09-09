@@ -1,26 +1,39 @@
 import SwiftUI
+import UttCore
 
 /// Everything the rail can show: the history, then the settings pages. One enum
 /// because it is one rail — a person moves from their transcripts to a setting
 /// and back the same way they move between two settings.
-enum AppSection: String, CaseIterable, Identifiable {
+///
+/// A plugin's page is a case like any other and carries its own manifest: the
+/// rail cannot look up a title for a section that was declared by another process
+/// after this enum was compiled.
+enum AppSection: Hashable, Identifiable {
     case history
     case hotkey, microphone, model
     case delivery, text, retention
     case sounds, permissions, general, about
     case api
+    case plugins
+    case plugin(PluginManifest)
 
-    var id: String { rawValue }
+    var id: String {
+        if case let .plugin(manifest) = self { return "plugin:\(manifest.id)" }
+        return title
+    }
 
     /// The rail, in reading order: the transcripts, then what starts a recording,
-    /// what comes out of it, the app around both, and how to reach it.
-    static let groups: [(title: String, sections: [AppSection])] = [
-        ("", [.history]),
-        ("Dictate", [.hotkey, .microphone, .model]),
-        ("Output", [.delivery, .text, .retention]),
-        ("App", [.sounds, .permissions, .general, .about]),
-        ("Connect", [.api])
-    ]
+    /// what comes out of it, the app around both, and how to reach it — and last
+    /// whatever has connected itself to utt.
+    static func groups(plugins: [PluginManifest]) -> [(title: String, sections: [AppSection])] {
+        [
+            ("", [.history]),
+            ("Dictate", [.hotkey, .microphone, .model]),
+            ("Output", [.delivery, .text, .retention]),
+            ("App", [.sounds, .permissions, .general, .about]),
+            ("Connect", [.api, .plugins] + plugins.map(AppSection.plugin))
+        ]
+    }
 
     var isSettings: Bool { self != .history }
 
@@ -38,6 +51,8 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .general: "General"
         case .about: "About"
         case .api: "API"
+        case .plugins: "Plugins"
+        case let .plugin(manifest): manifest.name
         }
     }
 
@@ -55,6 +70,8 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .about: "info.circle"
         case .api: "network"
+        case .plugins: "puzzlepiece.extension"
+        case let .plugin(manifest): manifest.systemImage ?? "puzzlepiece.extension"
         }
     }
 
@@ -74,6 +91,8 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .general: "How utt sits in the system."
         case .about: "Version, updates and who made the models."
         case .api: "Let another app or device send audio to this Mac and get text back."
+        case .plugins: "Other programs on this Mac that put their own settings in this window."
+        case let .plugin(manifest): manifest.blurb ?? "Settings for \(manifest.name), which connects itself to utt."
         }
     }
 }

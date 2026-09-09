@@ -13,6 +13,7 @@ struct SettingsFeature {
     @ObservableState
     struct State: Equatable {
         var inputDevices: [AudioDevice] = []
+        var plugins: [InstalledPlugin] = []
         var defaultInputName: String?
         /// Set while the hotkey recorder is capturing the next chord.
         var isRecordingHotkey = false
@@ -22,17 +23,21 @@ struct SettingsFeature {
         case binding(BindingAction<State>)
         case task
         case devicesLoaded([AudioDevice], defaultName: String?)
+        case pluginsLoaded([InstalledPlugin])
+        case pluginValueChanged(String, key: String, value: PluginValue)
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
         case modelChanged(String)
         case apiChanged(ApiSettings)
+        case reconnectMicrophoneTapped
         case resetToDefaultsTapped
     }
 
-    private enum CancelID { case deviceWatch }
+    private enum CancelID { case deviceWatch, pluginWatch }
 
     @Dependency(\.audioDevices) var audioDevices
+    @Dependency(\.plugins) var plugins
     @Dependency(\.continuousClock) var clock
     @Shared(.uttSettings) var settings
 
@@ -41,11 +46,16 @@ struct SettingsFeature {
         Reduce { state, action in
             switch action {
             case .binding: return normalize()
-            case .task: return watchDevices()
+            case .task: return .merge(watchDevices(), watchPlugins())
             case let .devicesLoaded(devices, name):
                 state.inputDevices = devices
                 state.defaultInputName = name
                 return rememberNames(from: devices)
+            case let .pluginsLoaded(installed):
+                state.plugins = installed
+                return .none
+            case let .pluginValueChanged(id, key, value):
+                return change(plugin: id, key: key, to: value, in: &state)
             case let .hotkeyCaptured(hotkey):
                 state.isRecordingHotkey = false
                 $settings.withLock { $0.hotkey = hotkey }
@@ -56,6 +66,9 @@ struct SettingsFeature {
             case let .engineChanged(engine): return change(to: engine)
             case let .modelChanged(model): return change(toModel: model)
             case let .apiChanged(api): return change(toApi: api)
+            // Handled in `AppFeature` — reopening the input is the recorder's, and
+            // nothing about it belongs in settings state.
+            case .reconnectMicrophoneTapped: return .none
             case .resetToDefaultsTapped:
                 $settings.withLock { $0 = UttSettings() }
                 return .none
@@ -82,6 +95,64 @@ private extension SettingsFeature {
             }
         }
         .cancellable(id: CancelID.deviceWatch, cancelInFlight: true)
+    }
+
+    /// Plugins are files another process writes, so they appear and change without
+    /// telling utt. The same 3 s cadence as the devices — a plugin installed while
+    /// the window is open shows up within one poll, and nothing needs FSEvents for
+    /// a directory this small.
+    ///
+    /// Each poll also reconciles every values file: a plugin that has just been
+    /// installed gets one written from its own defaults, and one that declared
+    /// `needsApi` picks up a token that was minted after it was installed.
+    func watchPlugins() -> Effect<Action> {
+        .run { send in
+            while !Task.isCancelled {
+                let installed = plugins.installed()
+                for plugin in installed {
+                    PluginStore.reconcile(plugin, api: apiAccess)
+                }
+                await send(.pluginsLoaded(installed))
+                try await clock.sleep(for: .seconds(3))
+            }
+        }
+        .cancellable(id: CancelID.pluginWatch, cancelInFlight: true)
+    }
+
+    /// What a plugin that asked for API access is given — nil while the API is off
+    /// or has no token, so a plugin never holds a credential for a listener that
+    /// is not running.
+    var apiAccess: PluginApiAccess? {
+        guard settings.api.enabled, !settings.api.token.isEmpty else { return nil }
+        return PluginApiAccess(token: settings.api.token, port: settings.api.port)
+    }
+
+    /// Writes the plugin's values file immediately rather than at the next poll:
+    /// something is watching that file, and a three-second lag between flicking a
+    /// switch and the plugin obeying it reads as a broken switch.
+    func change(
+        plugin id: String, key: String, to value: PluginValue, in state: inout State
+    ) -> Effect<Action> {
+        guard let index = state.plugins.firstIndex(where: { $0.id == id }),
+              let setting = state.plugins[index].settings.first(where: { $0.key == key }),
+              setting.accepts(value),
+              // SwiftUI calls a binding's setter as the view settles, not only when
+              // a person moves the control. Writing on those would advance the
+              // revision every time the page is looked at, and a plugin watching
+              // that number would act on a change nobody made.
+              setting.value != value
+        else { return .none }
+
+        var values = state.plugins[index].settings
+            .reduce(into: [String: PluginValue]()) { $0[$1.key] = $1.value }
+        values[key] = value
+        state.plugins[index] = InstalledPlugin(
+            manifest: state.plugins[index].manifest,
+            values: values,
+            status: state.plugins[index].status
+        )
+        let api = state.plugins[index].manifest.needsApi ? apiAccess : nil
+        return .run { [values] _ in plugins.write(id, values, api) }
     }
 
     /// Publishes the device list where processes that are not CoreAudio clients can

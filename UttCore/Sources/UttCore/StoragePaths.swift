@@ -35,6 +35,18 @@ public extension URL {
         get throws { try uttApplicationSupport.appending(component: "devices.json") }
     }
 
+    /// Where plugins declare themselves. Created eagerly rather than on demand:
+    /// a plugin cannot drop a manifest into a directory that does not exist yet,
+    /// and it has no way to know whether utt has ever run.
+    static var uttPluginsDirectory: URL {
+        get throws {
+            let directory = try uttApplicationSupport
+                .appendingPathComponent("plugins", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        }
+    }
+
     /// Downloaded transcription model bundles.
     static var uttModelsDirectory: URL {
         get throws {

@@ -30,7 +30,7 @@ struct AppRail: View {
                 RecorderStatePill(state: recorderState)
             }
             .padding(.bottom, Spacing.large)
-            ForEach(AppSection.groups, id: \.title) { group in
+            ForEach(AppSection.groups(plugins: store.settings.plugins.map(\.manifest)), id: \.title) { group in
                 RailGroup(title: group.title, sections: group.sections, selection: $selection)
             }
             Spacer(minLength: Spacing.medium)

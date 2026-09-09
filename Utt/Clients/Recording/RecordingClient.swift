@@ -27,6 +27,10 @@ struct RecordingClient: Sendable {
     var cancel: @Sendable () async -> Void
     /// Instantaneous input level, 0...1, for the VU meter and indicator.
     var meterLevel: @Sendable () async -> Float = { 0 }
+    /// Closes the input and opens it again. A Continuity microphone can stop
+    /// delivering audio without leaving the device list — the phone is still there,
+    /// still selected, and silent — and rebuilding the chain is what revives it.
+    var reconnect: @Sendable () async -> Void
 }
 
 struct RecordingResult: Equatable, Sendable {
@@ -56,7 +60,8 @@ extension RecordingClient: DependencyKey {
             start: { uids in try await recorder.start(microphoneUIDs: uids) },
             stop: { await recorder.stop() },
             cancel: { await recorder.cancel() },
-            meterLevel: { await recorder.meterLevel() }
+            meterLevel: { await recorder.meterLevel() },
+            reconnect: { await recorder.reconnect() }
         )
     }()
 }
@@ -128,6 +133,15 @@ private actor Recorder {
     func resume() {
         guard armed, currentURL == nil else { return }
         openArmed()
+    }
+
+    /// Rebuilds the input from scratch, on request. Nothing here can detect a device
+    /// that has gone quiet while still claiming to be present, so this is the user's
+    /// call; mid-recording it does nothing rather than truncate the clip.
+    func reconnect() {
+        guard currentURL == nil else { return }
+        capture.stop()
+        if armed { openArmed() }
     }
 
     private func openArmed() {
