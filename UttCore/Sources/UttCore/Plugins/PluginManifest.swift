@@ -32,12 +32,18 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// in it while transcribing that plugin's audio, so a clip arriving from
     /// somewhere else is visibly not utt's own dictation.
     public var tint: String?
+    /// Buttons on the plugin's page. Pressing one writes a request the plugin picks
+    /// up — utt never runs anything itself.
+    public var actions: [PluginAction] = []
+    /// A launchd job utt may report on. Its state is read live, so a daemon that
+    /// died still reads as stopped however cheerful its own status file is.
+    public var daemon: PluginDaemon?
 
     public init(
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        tint: String? = nil
+        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil
     ) {
         self.id = id
         self.name = name
@@ -48,11 +54,13 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.wantsTranscripts = wantsTranscripts
         self.sendsAudio = sendsAudio
         self.tint = tint
+        self.actions = actions
+        self.daemon = daemon
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, tint
+        case needsApi, wantsTranscripts, sendsAudio, tint, actions, daemon
     }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
@@ -70,16 +78,26 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
         tint = try? container.decodeIfPresent(String.self, forKey: .tint)
+        actions = (try? container.decodeIfPresent([PluginAction].self, forKey: .actions)) as? [PluginAction] ?? []
+        daemon = try? container.decodeIfPresent(PluginDaemon.self, forKey: .daemon)
     }
 
     /// At most this many rows on a plugin's page. A plugin asking for more has a
     /// configuration file of its own to write, not a settings page.
     public static let maximumSettings = 24
+    /// A page is not a control panel. A plugin wanting more buttons than this has a
+    /// window of its own to build.
+    public static let maximumActions = 8
 
     /// The manifest utt will actually render, or nil when it cannot be trusted.
     public func sanitized() -> PluginManifest? {
         guard Self.isSafeIdentifier(id), let name = Self.text(name) else { return nil }
         var seen = Set<String>()
+        var seenActions = Set<String>()
+        let actionsSeen = actions
+            .compactMap { $0.sanitized() }
+            .filter { seenActions.insert($0.key).inserted }
+            .prefix(Self.maximumActions)
         let settings = settings
             .compactMap { $0.sanitized() }
             // A duplicate key would give two rows one value: the second row would
@@ -98,7 +116,9 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             // Dropped rather than corrected: a colour utt cannot read is one the
             // plugin did not mean, and guessing at it would light the menu bar in
             // something nobody chose.
-            tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 }
+            tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 },
+            actions: Array(actionsSeen),
+            daemon: daemon.flatMap { $0.isUsable ? $0 : nil }
         )
     }
 

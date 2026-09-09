@@ -14,6 +14,10 @@ struct SettingsFeature {
     struct State: Equatable {
         var inputDevices: [AudioDevice] = []
         var plugins: [InstalledPlugin] = []
+        /// What launchd says about each plugin's daemon, keyed by plugin id. Read
+        /// live rather than taken from the plugin's own status file — a daemon that
+        /// crashed leaves its last cheerful status behind.
+        var daemonStates: [String: PluginDaemonState] = [:]
         var defaultInputName: String?
         /// Set while the hotkey recorder is capturing the next chord.
         var isRecordingHotkey = false
@@ -25,6 +29,9 @@ struct SettingsFeature {
         case devicesLoaded([AudioDevice], defaultName: String?)
         case pluginsLoaded([InstalledPlugin])
         case pluginValueChanged(String, key: String, value: PluginValue)
+        case pluginActionTapped(String, key: String)
+        case pluginDaemonRestartTapped(String)
+        case pluginDaemonStateLoaded(String, PluginDaemonState)
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
@@ -38,6 +45,7 @@ struct SettingsFeature {
 
     @Dependency(\.audioDevices) var audioDevices
     @Dependency(\.plugins) var plugins
+    @Dependency(\.pluginDaemon) var pluginDaemon
     @Dependency(\.continuousClock) var clock
     @Shared(.uttSettings) var settings
 
@@ -56,6 +64,18 @@ struct SettingsFeature {
                 return .none
             case let .pluginValueChanged(id, key, value):
                 return change(plugin: id, key: key, to: value, in: &state)
+            case let .pluginActionTapped(id, key):
+                return .run { _ in plugins.request(id, key) }
+            case let .pluginDaemonRestartTapped(id):
+                guard let label = state.plugins.first(where: { $0.id == id })?.manifest.daemon?.label
+                else { return .none }
+                return .run { send in
+                    await pluginDaemon.restart(label)
+                    await send(.pluginDaemonStateLoaded(id, pluginDaemon.state(label)))
+                }
+            case let .pluginDaemonStateLoaded(id, daemonState):
+                state.daemonStates[id] = daemonState
+                return .none
             case let .hotkeyCaptured(hotkey):
                 state.isRecordingHotkey = false
                 $settings.withLock { $0.hotkey = hotkey }
@@ -113,6 +133,10 @@ private extension SettingsFeature {
                     PluginStore.reconcile(plugin, api: apiAccess)
                 }
                 await send(.pluginsLoaded(installed))
+                for plugin in installed {
+                    guard let label = plugin.manifest.daemon?.label else { continue }
+                    await send(.pluginDaemonStateLoaded(plugin.id, pluginDaemon.state(label)))
+                }
                 try await clock.sleep(for: .seconds(3))
             }
         }

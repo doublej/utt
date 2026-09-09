@@ -35,6 +35,11 @@ public enum PluginGuide {
           "wantsTranscripts": false,
           "sendsAudio": false,
           "tint": "#3EAFB4",
+          "daemon": {"label": "com.example.mydaemon"},
+          "actions": [
+            {"key": "stop", "label": "Stop", "detail": "What it does.", "confirms": true},
+            {"key": "openLog", "label": "Open log"}
+          ],
           "settings": [
             {"key": "route", "kind": "choice", "label": "Route",
              "options": ["auto", "keyboard"], "value": "auto",
@@ -63,6 +68,41 @@ public enum PluginGuide {
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
           that is why.
+
+        ## Buttons: `actions`, and `<id>.action.json`
+
+        Each entry in `actions` is a button on your page. Pressing one writes:
+
+        ```json
+        {"sequence": 3, "key": "openLog", "requestedAt": "2026-09-09T17:31:02Z"}
+        ```
+
+        Poll `sequence` exactly as you poll `revision` — acting on `key` alone means
+        pressing the same button twice looks like nothing happened. Set
+        `"confirms": true` on anything a mis-click should not do; utt asks first and
+        shows your `detail` as the question. At most 8 actions.
+
+        **utt never runs anything for you.** It writes the key you named and your
+        program decides what it means. A manifest is a file any process on this Mac
+        can write, so one that could name a command to execute would turn "drop a
+        file in a folder" into "run this as the user".
+
+        ## Daemons: `daemon.label`
+
+        Give the label of your launchd job and utt shows its **live state** — running
+        with a pid, loaded but not running, or not loaded at all — read from launchd
+        rather than from your own status file. This is the one state your status file
+        cannot report: a daemon that crashed leaves its last cheerful file behind.
+
+        utt offers one button, **Restart** (`launchctl kickstart -k`), which starts a
+        stopped job and restarts a running one. It will not bootstrap or unload a
+        job, and it takes a label only — never a path to a plist. Loading a plist
+        named by a manifest would be running whatever that plist points at. If you
+        want Stop, declare it as an action and stop yourself; your job's `KeepAlive`
+        is between you and launchd.
+
+        Labels beginning `com.apple.` are refused: a plugin may report on its own
+        daemon, not reach into the system's.
 
         ## What utt writes: `<id>.values.json`
 

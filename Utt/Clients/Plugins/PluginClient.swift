@@ -33,13 +33,16 @@ struct PluginClient: Sendable {
     var write: @Sendable (_ pluginID: String, _ values: [String: PluginValue], _ api: PluginApiAccess?) -> Void
     /// Hands a finished transcript to every plugin that asked for them.
     var deliver: @Sendable (_ text: String, _ duration: Double, _ app: String?) -> Void
+    /// Records that the user pressed one of the plugin's own buttons.
+    var request: @Sendable (_ pluginID: String, _ actionKey: String) -> Void
 }
 
 extension PluginClient: DependencyKey {
     static let liveValue = PluginClient(
         installed: { PluginStore.installed() },
         write: { id, values, api in PluginStore.write(id, values: values, api: api) },
-        deliver: { text, duration, app in PluginStore.deliver(text, duration: duration, app: app) }
+        deliver: { text, duration, app in PluginStore.deliver(text, duration: duration, app: app) },
+        request: { id, key in PluginStore.request(id, action: key) }
     )
 }
 
@@ -105,6 +108,28 @@ enum PluginStore {
             try encoder.encode(next).write(to: url, options: .atomic)
         } catch {
             log.error("could not write values for \(id, privacy: .public): \(error.localizedDescription)")
+        }
+    }
+
+    /// Asks a plugin to do one of the things it said it could do.
+    ///
+    /// A request and nothing more: utt writes the key the user pressed and the
+    /// plugin decides what that means. Nothing here starts a process.
+    static func request(_ id: String, action key: String) {
+        guard PluginManifest.isSafeIdentifier(id), PluginManifest.isSafeIdentifier(key),
+              let url = try? URL.uttPluginsDirectory.appendingPathComponent("\(id).action.json")
+        else { return }
+        let previous = (try? Data(contentsOf: url))
+            .flatMap { try? JSONDecoder().decode(PluginActionRequest.self, from: $0) }
+        let next = PluginActionRequest(
+            sequence: (previous?.sequence ?? 0) &+ 1,
+            key: key,
+            requestedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        do {
+            try JSONEncoder().encode(next).write(to: url, options: .atomic)
+        } catch {
+            log.error("could not request \(key, privacy: .public): \(error.localizedDescription)")
         }
     }
 
