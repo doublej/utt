@@ -13,6 +13,7 @@ struct PluginPage: View {
     let store: StoreOf<AppFeature>
     let plugin: InstalledPlugin
     @Shared(.uttSettings) private var settings
+    @State private var confirming: PluginAction?
 
     var body: some View {
         if !plugin.status.isEmpty {
@@ -25,6 +26,32 @@ struct PluginPage: View {
                         Text(plugin.status[key] ?? "")
                             .font(Typography.metadata)
                             .foregroundStyle(Palette.textSecondary)
+                    }
+                }
+            }
+        }
+
+        if let daemon = plugin.manifest.daemon {
+            SettingsGroup("Daemon") {
+                SettingRow(
+                    daemon.label,
+                    detail: daemonDetail,
+                    detailTint: daemonState == .stopped ? Palette.warning : Palette.textTertiary
+                ) {
+                    Button("Restart") {
+                        store.send(.settings(.pluginDaemonRestartTapped(plugin.id)))
+                    }
+                    .font(Typography.metadata)
+                }
+            }
+        }
+
+        if !plugin.manifest.actions.isEmpty {
+            SettingsGroup("Actions") {
+                ForEach(plugin.manifest.actions) { action in
+                    SettingRow(action.label, detail: action.detail) {
+                        Button(action.label) { press(action) }
+                            .font(Typography.metadata)
                     }
                 }
             }
@@ -43,6 +70,8 @@ struct PluginPage: View {
                 }
             }
         }
+
+        confirmation
 
         if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi || plugin.manifest.sendsAudio {
             SettingsGroup("Access") {
@@ -74,6 +103,45 @@ struct PluginPage: View {
                 }
             }
         }
+    }
+
+    /// Attached to the page rather than to a row: the alert has to survive the
+    /// list redrawing under it, which it does every three seconds.
+    private var confirmation: some View {
+        EmptyView().alert(
+            confirming?.label ?? "",
+            isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } })
+        ) {
+            Button("Cancel", role: .cancel) { confirming = nil }
+            Button(confirming?.label ?? "Continue") {
+                if let action = confirming {
+                    store.send(.settings(.pluginActionTapped(plugin.id, key: action.key)))
+                }
+                confirming = nil
+            }
+        } message: {
+            Text(confirming?.detail ?? "")
+        }
+    }
+
+    private var daemonState: PluginDaemonState {
+        store.settings.daemonStates[plugin.id] ?? .unknown
+    }
+
+    /// What launchd says, not what the plugin says about itself. A crashed daemon
+    /// leaves a status file claiming it is up, and that is the one state the
+    /// plugin's own file cannot report.
+    private var daemonDetail: String {
+        switch daemonState {
+        case .running: daemonState.summary
+        case .stopped: "\(daemonState.summary). launchd knows this job but nothing is running."
+        case .unknown: "\(daemonState.summary). launchd has not been given this job on this Mac."
+        }
+    }
+
+    private func press(_ action: PluginAction) {
+        guard !action.confirms else { return confirming = action }
+        store.send(.settings(.pluginActionTapped(plugin.id, key: action.key)))
     }
 
     /// The token is a credential, and handing one to a plugin is a thing the user
