@@ -16,7 +16,7 @@ struct PluginsPage: View {
 
     var body: some View {
         Card {
-            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. Instead of a settings window of its own it gets a page in this one: you change its settings here, utt saves them to a file the program reads, and if it needs the API, utt hands it the token. Nothing is downloaded, and nothing runs inside utt.")
+            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. Instead of a settings window of its own it gets a page in this one: you change its settings here, utt saves them to a file the program reads, and hands it what it asked for — the API token, and your transcripts as they finish. Each plugin's page lists what it receives. Nothing is downloaded, and nothing runs inside utt.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

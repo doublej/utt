@@ -32,6 +32,7 @@ public enum PluginGuide {
           "blurb": "One line under the page title.",
           "systemImage": "sailboat",
           "needsApi": false,
+          "wantsTranscripts": false,
           "settings": [
             {"key": "route", "kind": "choice", "label": "Route",
              "options": ["auto", "keyboard"], "value": "auto",
@@ -79,6 +80,34 @@ public enum PluginGuide {
         - `api` appears only if your manifest set `"needsApi": true` **and** the user
           has utt's API switched on. Its absence means "not available right now" —
           do not fall back to reading utt's own settings file.
+
+        ## What utt writes if you asked for transcripts: `<id>.transcript.json`
+
+        Set `"wantsTranscripts": true` and every transcript utt produces is written
+        here as it finishes:
+
+        ```json
+        {
+          "sequence": 12,
+          "text": "the words that were spoken",
+          "finishedAt": "2026-09-09T16:58:03Z",
+          "duration": 3.4,
+          "app": "Ghostty"
+        }
+        ```
+
+        - The **newest one only**. This is not a log — utt already keeps the history,
+          and a file that grew forever would be a second copy of everything ever
+          said. Keep your own log if you need one.
+        - `sequence` increments per transcript. Poll it exactly as you poll
+          `revision`; it survives a restart because it is read from the file.
+        - `app` is where the text was pasted, and is absent when nothing received it
+          — a failed paste, or a transcript that came in through the API.
+        - Written whether or not the user keeps history: retention governs what utt
+          stores, not what it hands to a plugin they installed.
+        - This hands you everything dictated on that Mac. The user is told so on your
+          plugin's page. Do not ask for it unless you use it, and do not send it
+          anywhere they have not asked you to.
 
         ## What you may also write: `<id>.status.json`
 

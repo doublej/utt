@@ -55,3 +55,31 @@ public struct PluginApiAccess: Codable, Equatable, Sendable {
         self.port = port
     }
 }
+
+/// A transcript handed to a plugin that asked for them, written to
+/// `<id>.transcript.json` as each one finishes.
+///
+/// The newest one only, not a log: utt already keeps the history, and a file that
+/// grew forever would be a second copy of everything ever said, in a directory
+/// nothing prunes. A plugin that wants a log keeps its own.
+public struct PluginTranscript: Codable, Equatable, Sendable {
+    /// Increments on every transcript. The same bargain as `PluginValuesFile`'s
+    /// revision — poll this, not the modification time.
+    public var sequence: Int
+    public var text: String
+    /// When it finished, ISO 8601.
+    public var finishedAt: String
+    /// Seconds of audio behind it.
+    public var duration: Double
+    /// Where the text was pasted, when it was pasted anywhere. Absent means the
+    /// paste failed or the transcript came from the API, so no app received it.
+    public var app: String?
+
+    public init(sequence: Int, text: String, finishedAt: String, duration: Double, app: String? = nil) {
+        self.sequence = sequence
+        self.text = text
+        self.finishedAt = finishedAt
+        self.duration = duration
+        self.app = app
+    }
+}

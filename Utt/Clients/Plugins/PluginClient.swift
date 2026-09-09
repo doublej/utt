@@ -31,12 +31,15 @@ struct PluginClient: Sendable {
     var installed: @Sendable () -> [InstalledPlugin] = { [] }
     /// Writes `<id>.values.json`. Atomic, and the revision advances by one.
     var write: @Sendable (_ pluginID: String, _ values: [String: PluginValue], _ api: PluginApiAccess?) -> Void
+    /// Hands a finished transcript to every plugin that asked for them.
+    var deliver: @Sendable (_ text: String, _ duration: Double, _ app: String?) -> Void
 }
 
 extension PluginClient: DependencyKey {
     static let liveValue = PluginClient(
         installed: { PluginStore.installed() },
-        write: { id, values, api in PluginStore.write(id, values: values, api: api) }
+        write: { id, values, api in PluginStore.write(id, values: values, api: api) },
+        deliver: { text, duration, app in PluginStore.deliver(text, duration: duration, app: app) }
     )
 }
 
@@ -91,6 +94,46 @@ enum PluginStore {
         } catch {
             log.error("could not write values for \(id, privacy: .public): \(error.localizedDescription)")
         }
+    }
+
+    /// Writes the transcript to every plugin that declared `wantsTranscripts`.
+    ///
+    /// Fire-and-forget and best-effort: a plugin that cannot be written to must not
+    /// affect the transcript the person is waiting for. Delivery does not depend on
+    /// the history setting — that governs what utt keeps, not what it hands on.
+    static func deliver(_ text: String, duration: Double, app: String?) {
+        let wanting = installed().filter(\.manifest.wantsTranscripts)
+        guard !wanting.isEmpty else { return }
+        let finishedAt = ISO8601DateFormatter().string(from: Date())
+        for plugin in wanting {
+            guard let url = try? URL.uttPluginsDirectory
+                .appendingPathComponent("\(plugin.id).transcript.json")
+            else { continue }
+            let next = PluginTranscript(
+                sequence: transcriptFile(plugin.id).sequence &+ 1,
+                text: text,
+                finishedAt: finishedAt,
+                duration: duration,
+                app: app
+            )
+            do {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(next).write(to: url, options: .atomic)
+            } catch {
+                log.error("could not deliver to \(plugin.id, privacy: .public): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// The sequence is read off disk rather than held in memory, so it survives a
+    /// relaunch without a watcher seeing the number go backwards.
+    private static func transcriptFile(_ id: String) -> PluginTranscript {
+        guard let url = try? URL.uttPluginsDirectory.appendingPathComponent("\(id).transcript.json"),
+              let data = try? Data(contentsOf: url),
+              let file = try? JSONDecoder().decode(PluginTranscript.self, from: data)
+        else { return PluginTranscript(sequence: 0, text: "", finishedAt: "", duration: 0) }
+        return file
     }
 
     private static func load(_ url: URL) -> InstalledPlugin? {

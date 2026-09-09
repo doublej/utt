@@ -20,10 +20,15 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// handed to it rather than read out of utt's settings file behind its back.
     /// Honoured only while the API is actually enabled — see `PluginValuesFile`.
     public var needsApi = false
+    /// The plugin wants every transcript utt produces, written to
+    /// `<id>.transcript.json` as each one finishes. This hands a local program
+    /// everything dictated on this Mac, so the plugin's page says so plainly.
+    public var wantsTranscripts = false
 
     public init(
         id: String, name: String, blurb: String? = nil,
-        systemImage: String? = nil, settings: [PluginSetting] = [], needsApi: Bool = false
+        systemImage: String? = nil, settings: [PluginSetting] = [],
+        needsApi: Bool = false, wantsTranscripts: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -31,9 +36,12 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.systemImage = systemImage
         self.settings = settings
         self.needsApi = needsApi
+        self.wantsTranscripts = wantsTranscripts
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, blurb, systemImage, settings, needsApi }
+    enum CodingKeys: String, CodingKey {
+        case id, name, blurb, systemImage, settings, needsApi, wantsTranscripts
+    }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
     /// must not have its whole manifest rejected. Swift's synthesized decoder
@@ -47,6 +55,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         systemImage = try? container.decodeIfPresent(String.self, forKey: .systemImage)
         settings = (try? container.decodeIfPresent([PluginSetting].self, forKey: .settings)) as? [PluginSetting] ?? []
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
+        wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
     }
 
     /// At most this many rows on a plugin's page. A plugin asking for more has a
@@ -69,7 +78,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             blurb: blurb.flatMap { Self.text($0, limit: 120) },
             systemImage: systemImage.flatMap { Self.isSafeSymbol($0) ? $0 : nil },
             settings: Array(settings),
-            needsApi: needsApi
+            needsApi: needsApi,
+            wantsTranscripts: wantsTranscripts
         )
     }
 
