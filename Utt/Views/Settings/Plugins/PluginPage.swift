@@ -59,7 +59,7 @@ struct PluginPage: View {
 
         if plugin.settings.isEmpty {
             Card {
-                Text("\(plugin.manifest.name) has not asked for any settings.")
+                Text("\(plugin.manifest.name) has no settings to change here.")
                     .font(Typography.hint)
                     .foregroundStyle(Palette.textTertiary)
             }
@@ -78,7 +78,7 @@ struct PluginPage: View {
                 if plugin.manifest.sendsAudio {
                     SettingRow(
                         "Sends audio to be transcribed",
-                        detail: "Hands clips straight to utt through a folder of its own. Transcribed on this Mac, with your engine and your text rules. Nothing goes over the network."
+                        detail: "Drops clips in a folder of its own and gets the text back. Transcribed on this Mac, with your engine and your text rules. Nothing goes over the network."
                     ) {
                         Image(systemName: "waveform").foregroundStyle(Palette.textTertiary)
                     }
@@ -86,7 +86,7 @@ struct PluginPage: View {
                 if plugin.manifest.wantsTranscripts {
                     SettingRow(
                         "Receives your transcripts",
-                        detail: "Every transcript is written to this plugin's own file as it finishes, whether or not utt keeps it in History.",
+                        detail: "Everything you dictate on this Mac is written to this plugin's own file as it finishes, whether or not utt keeps it in History.",
                         detailTint: Palette.textTertiary
                     ) {
                         Image(systemName: "text.quote").foregroundStyle(Palette.textTertiary)
@@ -94,7 +94,7 @@ struct PluginPage: View {
                 }
                 if plugin.manifest.needsApi {
                     SettingRow(
-                        "Can reach utt's API",
+                        "Holds the API token",
                         detail: apiNote,
                         detailTint: settings.api.enabled ? Palette.textTertiary : Palette.warning
                     ) {
@@ -134,8 +134,8 @@ struct PluginPage: View {
     private var daemonDetail: String {
         switch daemonState {
         case .running: daemonState.summary
-        case .stopped: "\(daemonState.summary). launchd knows this job but nothing is running."
-        case .unknown: "\(daemonState.summary). launchd has not been given this job on this Mac."
+        case .stopped: "\(daemonState.summary). launchd has the job but nothing is running. Restart starts it."
+        case .unknown: "\(daemonState.summary). launchd has no job by this name on this Mac, so Restart cannot help until the plugin installs it."
         }
     }
 
@@ -149,8 +149,8 @@ struct PluginPage: View {
     /// than leaving it to whoever reads the values file.
     private var apiNote: String {
         settings.api.enabled
-            ? "The access token is in this plugin's own settings file, readable only by your account."
-            : "utt's API is off. Turn it on under Connect › API, or this plugin cannot send audio here."
+            ? "utt put the token in this plugin's own settings file. Only your account can read it."
+            : "utt's API is off, so this plugin has no token. Turn it on under Connect › API if the plugin needs one."
     }
 
     @ViewBuilder

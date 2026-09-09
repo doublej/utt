@@ -17,7 +17,7 @@ struct MicrophonePage: View {
                 ForEach(unlistedContinuity) { device in
                     SettingRow(
                         device.name,
-                        detail: "Not in your priority list. utt uses it when it is the system input."
+                        detail: "Not in your priority list, so utt uses it while it is the system input. Reconnect if it has gone quiet."
                     ) {
                         Button("Reconnect") {
                             store.send(.settings(.reconnectMicrophoneTapped(device.id)))

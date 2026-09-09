@@ -17,11 +17,19 @@ public enum PluginGuide {
         **utt** is a macOS app that transcribes speech on-device. A plugin is any
         program of yours that wants a settings page inside utt's own window — a
         daemon, a menu bar app, a script. utt renders the page; your program keeps
-        running on its own and reads what the user chose.
+        running on its own and reads what the user chose. A plugin can also send
+        utt audio to transcribe, receive every transcript as it finishes, show its
+        daemon's live state, and offer buttons.
 
         There is no API to call and nothing to register. Everything happens through
         files in `{{dir}}`, which utt creates at launch. Both programs may start and
         restart in any order.
+
+        Write every label, blurb and detail for the person using the page, not for
+        yourself: say what happens when they change it, in plain words, and never
+        name a key, a file or a process in it. utt's own rows read "Mute other audio
+        while recording · Whatever is playing pauses, so it does not end up in the
+        transcript." Match that.
 
         ## What you write: `<id>.json`
 
@@ -29,7 +37,7 @@ public enum PluginGuide {
         {
           "id": "deckhand",
           "name": "Deckhand",
-          "blurb": "One line under the page title.",
+          "blurb": "One sentence under your name: what the plugin does for the person.",
           "systemImage": "sailboat",
           "needsApi": false,
           "wantsTranscripts": false,
@@ -56,14 +64,16 @@ public enum PluginGuide {
           filename is ignored, as is one with a path separator in it.
         - `kind` is `bool`, `string`, `number` or `choice`. `value` is the default and
           must match the kind; `choice` needs `options` and a default among them.
-        - `systemImage` is an SF Symbol — that is the icon, and there is no dot-glyph
-          or mark field. An unknown symbol is dropped, not drawn.
+        - `systemImage` is an SF Symbol and is the only icon field. An unknown
+          symbol is dropped, not drawn.
         - `tint` is your colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark in
           it while it is transcribing *your* clip, so the user can see that work
           arriving from your plugin is not dictation at their Mac. One that cannot be
           parsed is dropped rather than guessed at.
         - Only `id` and `name` are required. Omitted keys take their defaults —
           write the keys you care about.
+        - `detail` on a setting is the sentence under its label. It is where the
+          explanation goes; utt has no tooltips.
         - At most 24 settings. Long labels are trimmed; newlines are flattened.
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
@@ -78,9 +88,11 @@ public enum PluginGuide {
         ```
 
         Poll `sequence` exactly as you poll `revision` — acting on `key` alone means
-        pressing the same button twice looks like nothing happened. Set
-        `"confirms": true` on anything a mis-click should not do; utt asks first and
-        shows your `detail` as the question. At most 8 actions.
+        pressing the same button twice looks like nothing happened. `detail` is the
+        sentence under the button. Set `"confirms": true` on anything a mis-click
+        should not do; utt asks first, with your `label` as the title and your
+        `detail` as the question, so write the detail as the question's answer:
+        "Stops the daemon. Sessions stay open; nothing is lost." At most 8 actions.
 
         **utt never runs anything for you.** It writes the key you named and your
         program decides what it means. A manifest is a file any process on this Mac
@@ -216,7 +228,7 @@ public enum PluginGuide {
            open a socket to a program it can already write a file to.
         4. If you do need the API, take the token from the values file. Never read
            utt's `settings.json`.
-        4. Nothing in the values file is a command. It is the user's configuration,
+        5. Nothing in the values file is a command. It is the user's configuration,
            and it is the only thing utt promises to put there.
 
         Do not put secrets of your own in the manifest: it is a plain file, and its

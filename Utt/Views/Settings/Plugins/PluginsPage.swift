@@ -16,13 +16,13 @@ struct PluginsPage: View {
 
     var body: some View {
         Card {
-            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. Instead of a settings window of its own it gets a page in this one: you change its settings here, utt saves them to a file the program reads, and hands it what it asked for — the API token, and your transcripts as they finish. Each plugin's page lists what it receives. Nothing is downloaded, and nothing runs inside utt.")
+            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. It gets a page in this window instead of a settings window of its own. What you change here is saved to a file the program reads. A plugin can also ask for more: audio to transcribe, your transcripts as they finish, or the API token. Its page lists exactly what it gets. Nothing is downloaded, and nothing runs inside utt.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        SettingsGroup("Available") {
+        SettingsGroup("Known plugins") {
             ForEach(Self.known) { entry in
                 SettingRow(entry.name, detail: entry.blurb) {
                     if let plugin = installed.first(where: { $0.id == entry.id }) {
@@ -54,7 +54,7 @@ struct PluginsPage: View {
         SettingsGroup("Write one") {
             SettingRow(
                 "Guide for an LLM",
-                detail: "Everything a plugin has to write: the manifest, the values file utt writes back, and what gets a manifest refused. Paste it into an LLM together with your project."
+                detail: "The whole contract: the manifest, the files utt writes back, the audio lane, and what gets a manifest refused. Paste it into an LLM together with your project and ask for a plugin."
             ) {
                 Button(copied ? "Copied" : "Copy guide") { copyGuide() }
                     .font(Typography.metadata)
