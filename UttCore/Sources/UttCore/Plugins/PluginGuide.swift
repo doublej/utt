@@ -34,6 +34,7 @@ public enum PluginGuide {
           "needsApi": false,
           "wantsTranscripts": false,
           "sendsAudio": false,
+          "tint": "#3EAFB4",
           "settings": [
             {"key": "route", "kind": "choice", "label": "Route",
              "options": ["auto", "keyboard"], "value": "auto",
@@ -50,7 +51,12 @@ public enum PluginGuide {
           filename is ignored, as is one with a path separator in it.
         - `kind` is `bool`, `string`, `number` or `choice`. `value` is the default and
           must match the kind; `choice` needs `options` and a default among them.
-        - `systemImage` is an SF Symbol. An unknown one is dropped, not drawn.
+        - `systemImage` is an SF Symbol — that is the icon, and there is no dot-glyph
+          or mark field. An unknown symbol is dropped, not drawn.
+        - `tint` is your colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark in
+          it while it is transcribing *your* clip, so the user can see that work
+          arriving from your plugin is not dictation at their Mac. One that cannot be
+          parsed is dropped rather than guessed at.
         - Only `id` and `name` are required. Omitted keys take their defaults —
           write the keys you care about.
         - At most 24 settings. Long labels are trimmed; newlines are flattened.

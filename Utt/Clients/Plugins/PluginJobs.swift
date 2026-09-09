@@ -18,12 +18,27 @@ struct PluginJobsClient: Sendable {
     /// Starts watching, or restarts with a new transcriber when the engine or
     /// model changes. Idempotent, like `ApiServerClient.apply`.
     var apply: @Sendable (_ transcribe: @escaping PluginJobs.Transcriber) async -> Void
+    /// Which plugin's clip is being transcribed right now, and nil between them.
+    /// The menu bar lights in that plugin's own colour, so a clip arriving from a
+    /// phone is visibly not something typed at this Mac.
+    var activity: @Sendable () -> AsyncStream<PluginActivity?> = { .finished }
+}
+
+/// A plugin's clip, in flight.
+struct PluginActivity: Equatable, Sendable {
+    let pluginID: String
+    let name: String
+    /// The plugin's declared colour, already parsed. Nil falls back to utt's own.
+    let rgb: PluginRGB?
 }
 
 extension PluginJobsClient: DependencyKey {
     static let liveValue: PluginJobsClient = {
         let runner = PluginJobs()
-        return PluginJobsClient(apply: { transcribe in await runner.apply(transcribe) })
+        return PluginJobsClient(
+            apply: { transcribe in await runner.apply(transcribe) },
+            activity: { runner.activity() }
+        )
     }()
 }
 
@@ -46,6 +61,25 @@ actor PluginJobs {
     private static let maximumBytes = ApiConfiguration.maximumBodyBytes
 
     private var task: Task<Void, Never>?
+    private var listeners: [UUID: AsyncStream<PluginActivity?>.Continuation] = [:]
+
+    nonisolated func activity() -> AsyncStream<PluginActivity?> {
+        AsyncStream { continuation in
+            let id = UUID()
+            Task { await self.add(continuation, id: id) }
+            continuation.onTermination = { _ in Task { await self.remove(id) } }
+        }
+    }
+
+    private func add(_ continuation: AsyncStream<PluginActivity?>.Continuation, id: UUID) {
+        listeners[id] = continuation
+    }
+
+    private func remove(_ id: UUID) { listeners[id] = nil }
+
+    private func announce(_ activity: PluginActivity?) {
+        for listener in listeners.values { listener.yield(activity) }
+    }
 
     func apply(_ transcribe: @escaping Transcriber) {
         task?.cancel()
@@ -54,8 +88,14 @@ actor PluginJobs {
 
     private func watch(_ transcribe: @escaping Transcriber) async {
         while !Task.isCancelled {
-            for job in Self.pending() {
+            for (plugin, job) in Self.pending() {
+                announce(PluginActivity(
+                    pluginID: plugin.id,
+                    name: plugin.manifest.name,
+                    rgb: plugin.manifest.rgb
+                ))
                 await run(job, transcribe)
+                announce(nil)
             }
             try? await Task.sleep(for: Self.interval)
         }
@@ -89,11 +129,11 @@ actor PluginJobs {
 
     /// Every audio file waiting in a jobs directory, oldest first so a plugin that
     /// sent two clips gets them back in the order it spoke them.
-    private static func pending() -> [URL] {
+    private static func pending() -> [(InstalledPlugin, URL)] {
         PluginStore.installed()
             .filter(\.manifest.sendsAudio)
-            .flatMap { plugin in files(in: PluginStore.jobsDirectory(plugin.id)) }
-            .sorted { created($0) < created($1) }
+            .flatMap { plugin in files(in: PluginStore.jobsDirectory(plugin.id)).map { (plugin, $0) } }
+            .sorted { created($0.1) < created($1.1) }
     }
 
     private static func files(in directory: URL?) -> [URL] {

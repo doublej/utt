@@ -33,6 +33,10 @@ struct AppFeature {
         /// What the API listener is doing, which is not what the settings ask for:
         /// a port already in use leaves the switch on and nothing listening.
         var apiState: ApiServerState = .off
+        /// Set while a plugin's clip is being transcribed — the menu bar mark runs
+        /// in that plugin's colour so work arriving from elsewhere is not mistaken
+        /// for dictation at this Mac.
+        var pluginActivity: PluginActivity?
     }
 
     enum Action {
@@ -42,6 +46,7 @@ struct AppFeature {
         case modelPreparation(ModelPreparation)
         case modelPrepared(Result<Bool, Never>)
         case apiStateChanged(ApiServerState)
+        case pluginActivityChanged(PluginActivity?)
         case prepareModelTapped
         case grantTapped(Permission)
         case relaunchTapped
@@ -55,7 +60,7 @@ struct AppFeature {
         case history(HistoryFeature.Action)
     }
 
-    enum CancelID { case keyEvents, permissionPoll, modelPrepare, apiStates }
+    enum CancelID { case keyEvents, permissionPoll, modelPrepare, apiStates, pluginActivity }
 
     @Dependency(\.keyEventMonitor) var keyEventMonitor
     @Dependency(\.recording) var recording
@@ -92,6 +97,9 @@ struct AppFeature {
                 return .none
             case let .apiStateChanged(update):
                 state.apiState = update
+                return .none
+            case let .pluginActivityChanged(activity):
+                state.pluginActivity = activity
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
             case let .grantTapped(permission): return grant(permission)
@@ -183,6 +191,13 @@ private extension AppFeature {
                 }
             }
             .cancellable(id: CancelID.apiStates),
+
+            .run { send in
+                for await update in pluginJobs.activity() {
+                    await send(.pluginActivityChanged(update))
+                }
+            }
+            .cancellable(id: CancelID.pluginActivity),
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),

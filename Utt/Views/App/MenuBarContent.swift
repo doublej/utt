@@ -16,7 +16,13 @@ struct MenuBarIcon: View {
     private static let size: CGFloat = 16
 
     private var driver: DotMatrixDriver { .shared }
-    private var level: Double { Double(store.transcription.meterLevel) }
+
+    /// What the mark's speed is driven by. A plugin's clip has no meter to read —
+    /// the audio was recorded somewhere else and arrives already finished — so it
+    /// gets a steady rate that reads as working rather than as a level.
+    private var level: Double {
+        store.pluginActivity == nil ? Double(store.transcription.meterLevel) : 0.6
+    }
 
     var body: some View {
         Image(nsImage: image(for: driver.pattern))
@@ -25,7 +31,7 @@ struct MenuBarIcon: View {
     }
 
     private func image(for pattern: Set<Int>) -> NSImage {
-        let lit = NSColor(store.transcription.isRecording ? Palette.recording : Palette.accent)
+        let lit = NSColor(litColor)
         let unlit = NSColor.labelColor.withAlphaComponent(0.35)
         let side = Self.size
         return NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
@@ -36,6 +42,17 @@ struct MenuBarIcon: View {
             }
             return true
         }
+    }
+
+    /// The plugin's own colour while its clip is being transcribed, so a clip sent
+    /// from a phone is visibly not something being said at this Mac. A plugin that
+    /// declared no colour, or one utt could not read, falls back to utt's own.
+    private var litColor: Color {
+        if let rgb = store.pluginActivity?.rgb {
+            return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+        }
+        if store.pluginActivity != nil { return Palette.accent }
+        return store.transcription.isRecording ? Palette.recording : Palette.accent
     }
 }
 

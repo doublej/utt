@@ -175,3 +175,44 @@ struct PluginManifestDecodingTests {
         #expect(decoded == values)
     }
 }
+
+/// The plugin's declared colour, which utt lights the menu bar with while that
+/// plugin's clip is being transcribed. Another plugin-supplied string, so the same
+/// rule applies: parsed strictly, refused rather than repaired — a colour utt
+/// cannot read is one the plugin did not mean.
+struct PluginTintTests {
+    @Test("both hex forms parse, with or without the hash")
+    func parsesHex() throws {
+        let teal = try #require(PluginManifest.rgb(from: "#3EAFB4"))
+        #expect(abs(teal.red - 62.0 / 255) < 0.001)
+        #expect(abs(teal.green - 175.0 / 255) < 0.001)
+        #expect(abs(teal.blue - 180.0 / 255) < 0.001)
+        #expect(PluginManifest.rgb(from: "3EAFB4") == teal)
+    }
+
+    /// `#RGB` is shorthand for `#RRGGBB`: "f0a" is "ff00aa", not "0f0a00".
+    @Test("three digits expand the way CSS does")
+    func expandsShorthand() {
+        #expect(PluginManifest.rgb(from: "#f0a") == PluginManifest.rgb(from: "#ff00aa"))
+        #expect(PluginManifest.rgb(from: "#000") == PluginRGB(red: 0, green: 0, blue: 0))
+        #expect(PluginManifest.rgb(from: "#fff") == PluginRGB(red: 1, green: 1, blue: 1))
+    }
+
+    @Test("anything that is not a colour is refused")
+    func refusesNonColours() {
+        for bad in ["", "#", "#12", "#12345", "#1234567", "teal", "#gggggg", "#3EAFB4 "] {
+            #expect(PluginManifest.rgb(from: bad) == nil, "\(bad) should not parse")
+        }
+    }
+
+    /// Dropped on the manifest rather than kept as a dead string, so nothing
+    /// downstream has to ask whether the tint it is holding is real.
+    @Test("an unreadable tint does not survive sanitizing")
+    func dropsUnreadableTint() throws {
+        let bad = PluginManifest(id: "p", name: "P", tint: "not a colour")
+        #expect(try #require(bad.sanitized()).tint == nil)
+        let good = PluginManifest(id: "p", name: "P", tint: "#3EAFB4")
+        #expect(try #require(good.sanitized()).tint == "#3EAFB4")
+        #expect(try #require(good.sanitized()).rgb != nil)
+    }
+}
