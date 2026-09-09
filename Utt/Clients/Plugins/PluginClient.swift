@@ -187,11 +187,23 @@ enum PluginStore {
             log.notice("ignoring manifest \(url.lastPathComponent, privacy: .public) — unusable or misnamed")
             return nil
         }
+        // A key utt refuses is dropped rather than repaired, and from the plugin's
+        // side that is silent: it ships a button and no button appears. Naming it
+        // here is the only way its author finds out.
+        refused(manifest.actions.map(\.key), kept: clean.actions.map(\.key), of: clean.id, kind: "action")
+        refused(manifest.settings.map(\.key), kept: clean.settings.map(\.key), of: clean.id, kind: "setting")
         return InstalledPlugin(
             manifest: clean,
             values: valuesFile(clean.id).values,
             status: status(clean.id)
         )
+    }
+
+    private static func refused(_ declared: [String], kept: [String], of id: String, kind: String) {
+        let missing = declared.filter { !kept.contains($0) }
+        guard !missing.isEmpty else { return }
+        let keys = missing.joined(separator: ", ")
+        log.notice("\(id, privacy: .public): \(kind, privacy: .public) refused — \(keys, privacy: .public)")
     }
 
     private static func valuesFile(_ id: String) -> PluginValuesFile {

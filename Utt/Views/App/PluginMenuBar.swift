@@ -122,6 +122,17 @@ private final class MenuSource: NSObject, NSMenuDelegate {
         case restart, plugin, settings
     }
 
+    /// The page asks before a `confirms` action, and a menu bar item is where a
+    /// mis-click is likelier — so it asks on the same terms rather than firing.
+    private func confirmed(_ declared: PluginAction) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = declared.label
+        alert.informativeText = declared.detail ?? ""
+        alert.addButton(withTitle: declared.label)
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func action(title: String, tag: Tag) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: #selector(menuItemChosen(_:)), keyEquivalent: "")
         item.target = self
@@ -135,7 +146,10 @@ private final class MenuSource: NSObject, NSMenuDelegate {
         case .restart:
             store.send(.settings(.pluginDaemonRestartTapped(plugin.id)))
         case .plugin:
-            guard let key = sender.representedObject as? String else { return }
+            guard let key = sender.representedObject as? String,
+                  let declared = plugin.manifest.actions.first(where: { $0.key == key }),
+                  !declared.confirms || confirmed(declared)
+            else { return }
             store.send(.settings(.pluginActionTapped(plugin.id, key: key)))
         case .settings:
             SettingsRoute.shared.open(.plugin(plugin.manifest))
