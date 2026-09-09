@@ -27,6 +27,7 @@ struct SettingsFeature {
         case engineChanged(TranscriptionEngine)
         case modelChanged(String)
         case apiChanged(ApiSettings)
+        case reconnectMicrophoneTapped
         case resetToDefaultsTapped
     }
 
@@ -56,6 +57,9 @@ struct SettingsFeature {
             case let .engineChanged(engine): return change(to: engine)
             case let .modelChanged(model): return change(toModel: model)
             case let .apiChanged(api): return change(toApi: api)
+            // Handled in `AppFeature` — reopening the input is the recorder's, and
+            // nothing about it belongs in settings state.
+            case .reconnectMicrophoneTapped: return .none
             case .resetToDefaultsTapped:
                 $settings.withLock { $0 = UttSettings() }
                 return .none

@@ -7,7 +7,7 @@ struct MicrophonePage: View {
     @Shared(.uttSettings) private var settings
 
     var body: some View {
-        MicrophonePriority(devices: store.settings.inputDevices)
+        MicrophonePriority(store: store, devices: store.settings.inputDevices)
 
         SettingsGroup("Capture") {
             SettingToggle(

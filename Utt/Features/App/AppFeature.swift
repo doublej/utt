@@ -133,6 +133,14 @@ struct AppFeature {
             case .settings(.resetToDefaultsTapped):
                 return .merge(syncProcessor(state), applySystemPreferences(), prepareModel(&state))
 
+            // The armed engine is holding a device that has quietly stopped
+            // delivering audio; only a full reopen gets it back.
+            case .settings(.reconnectMicrophoneTapped):
+                return .run { _ in
+                    await recording.reconnect()
+                    log.notice("input reopened on request")
+                }
+
             case .settings(.hotkeyRecordingToggled):
                 return resetRecorder()
 

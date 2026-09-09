@@ -23,6 +23,8 @@ const DEVICES_FILE = join(SUPPORT_DIR, "devices.json");
 export interface AudioDevice {
   id: string;
   name: string;
+  /** Absent in files written by an app older than the device-source schema. */
+  source?: string;
 }
 
 export interface Transcript {

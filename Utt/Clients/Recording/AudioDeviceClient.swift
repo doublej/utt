@@ -3,6 +3,7 @@ import CoreAudio
 import Dependencies
 import DependenciesMacros
 import Foundation
+import UttCore
 import os
 
 private let log = Logger(subsystem: "dev.jurrejan.utt", category: "devices")
@@ -12,9 +13,13 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "devices")
 /// `AudioDeviceID` is a per-boot handle — saving one in settings means the user's
 /// chosen microphone silently becomes a different device after a reboot. The UID
 /// is stable, which is why `UttSettings.microphonePriority` holds them.
+///
+/// `source` is what the name alone cannot say: which of these is the phone on the
+/// desk, and which is a loopback driver that will never hear a voice.
 struct AudioDevice: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String
+    let source: DeviceSource
 }
 
 @DependencyClient
@@ -82,7 +87,15 @@ enum CoreAudioDevices {
     static func describe(_ deviceID: AudioDeviceID) -> AudioDevice? {
         guard let uid = stringProperty(deviceID, kAudioDevicePropertyDeviceUID) else { return nil }
         let name = stringProperty(deviceID, kAudioObjectPropertyName) ?? uid
-        return AudioDevice(id: uid, name: name)
+        // Transport is a whole-device fact and lives in the global scope; the data
+        // source that tells the internal microphone from the headphone jack is
+        // per-scope, and only the input side of it is ours.
+        let source = DeviceSource.from(
+            transport: codeProperty(deviceID, kAudioDevicePropertyTransportType) ?? "",
+            dataSource: codeProperty(
+                deviceID, kAudioDevicePropertyDataSource, scope: kAudioObjectPropertyScopeInput)
+        )
+        return AudioDevice(id: uid, name: name, source: source)
     }
 
     private static func allDeviceIDs() -> [AudioDeviceID] {
@@ -125,6 +138,28 @@ enum CoreAudioDevices {
         let list = UnsafeMutableAudioBufferListPointer(
             buffer.assumingMemoryBound(to: AudioBufferList.self))
         return list.contains { $0.mNumberChannels > 0 }
+    }
+
+    /// A four-character-code property. Transport type and data source both come back
+    /// as a packed `UInt32` — `'bltn'`, `'ccwd'` — rather than as a string.
+    private static func codeProperty(
+        _ deviceID: AudioDeviceID,
+        _ selector: AudioObjectPropertySelector,
+        scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal
+    ) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: scope,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value) == noErr
+        else { return nil }
+        // ASCII by definition; a byte outside it is not a code worth guessing at,
+        // and `nil` classifies the device as unknown rather than mislabelling it.
+        let bytes = [24, 16, 8, 0].map { UInt8(truncatingIfNeeded: value >> $0) }
+        return String(bytes: bytes, encoding: .ascii)
     }
 
     private static func stringProperty(
