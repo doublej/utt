@@ -23,6 +23,10 @@ struct TranscriptionFeatureTests {
             $0.sleepManagement = .quiet
             $0.mediaControl = .quiet
             $0.soundEffects = SoundEffectClient(play: { _, _ in })
+            // The rewrite lane sits between the transcript and the paste, so every
+            // transcript in here goes through it. Pass-through: what a plugin does
+            // to the text belongs to the filter's own tests.
+            $0.pluginFilters = PluginFiltersClient(apply: { $0 })
             $0.continuousClock = ImmediateClock()
             $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
@@ -66,7 +70,9 @@ struct TranscriptionFeatureTests {
         await store.send(.recordingFinished(
             RecordingResult(url: URL(filePath: "/tmp/utt-test.wav"), duration: 1, peak: 0.01)
         )) { $0.quietWarning = true }
-        await store.send(.transcriptReady(.success("   "))) {
+        // Trimming happens in the effect, with the text rules and the plugin
+        // filters; what reaches the reducer is what would have been pasted.
+        await store.send(.transcriptReady(.success(""))) {
             $0.status = .failed("Nothing heard — your input level looks very low")
         }
         await store.finish()

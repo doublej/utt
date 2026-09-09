@@ -8,7 +8,9 @@ import Foundation
 /// along with the rules that decide whether a manifest is accepted at all.
 public enum PluginGuide {
     public static func markdown(directory: String) -> String {
-        pluginGuideTemplate.replacingOccurrences(of: "{{dir}}", with: directory)
+        pluginGuideTemplate
+            .replacingOccurrences(of: "{{filters}}", with: pluginFilterGuide)
+            .replacingOccurrences(of: "{{dir}}", with: directory)
     }
 }
 
@@ -254,6 +256,8 @@ private let pluginGuideTemplate = #"""
           plugin's page. Do not ask for it unless you use it, and do not send it
           anywhere they have not asked you to.
 
+        {{filters}}
+
         ## What you may also write: `<id>.status.json`
 
         ```json
@@ -279,7 +283,9 @@ private let pluginGuideTemplate = #"""
            open a socket to a program it can already write a file to.
         4. If you do need the API, take the token from the values file. Never read
            utt's `settings.json`.
-        5. Nothing in the values file is a command. It is the user's configuration,
+        5. To change transcripts before they land, set `filtersTranscripts` and
+           answer every question in the filter directory within two seconds.
+        6. Nothing in the values file is a command. It is the user's configuration,
            and it is the only thing utt promises to put there.
 
         Do not put secrets of your own in the manifest: it is a plain file, and its

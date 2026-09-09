@@ -28,6 +28,12 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// directory. utt writes the text back beside it. This is the direct lane: no
     /// listener, no token, and nothing on the network.
     public var sendsAudio = false
+    /// The plugin sees every transcript before it lands and may hand back other
+    /// text — a rewrite, a translation, a template filled in. utt writes the
+    /// question into `<id>.filter/` and waits briefly for the answer beside it.
+    /// This puts the plugin on the path between the key coming up and the text
+    /// appearing, so a slow or stopped plugin costs a pause and then nothing.
+    public var filtersTranscripts = false
     /// The plugin's own colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark
     /// in it while transcribing that plugin's audio, so a clip arriving from
     /// somewhere else is visibly not utt's own dictation.
@@ -47,7 +53,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
+        filtersTranscripts: Bool = false, tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
         showsInMenuBar: Bool = false
     ) {
         self.id = id
@@ -58,6 +64,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.needsApi = needsApi
         self.wantsTranscripts = wantsTranscripts
         self.sendsAudio = sendsAudio
+        self.filtersTranscripts = filtersTranscripts
         self.tint = tint
         self.actions = actions
         self.daemon = daemon
@@ -66,7 +73,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, tint, actions, daemon, showsInMenuBar
+        case needsApi, wantsTranscripts, sendsAudio, filtersTranscripts, tint, actions, daemon
+        case showsInMenuBar
     }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
@@ -83,6 +91,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
+        filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
         tint = try? container.decodeIfPresent(String.self, forKey: .tint)
         actions = (try? container.decodeIfPresent([PluginAction].self, forKey: .actions)) as? [PluginAction] ?? []
         daemon = try? container.decodeIfPresent(PluginDaemon.self, forKey: .daemon)
@@ -120,6 +129,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             needsApi: needsApi,
             wantsTranscripts: wantsTranscripts,
             sendsAudio: sendsAudio,
+            filtersTranscripts: filtersTranscripts,
             // Dropped rather than corrected: a colour utt cannot read is one the
             // plugin did not mean, and guessing at it would light the menu bar in
             // something nobody chose.

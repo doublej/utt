@@ -108,3 +108,38 @@ public struct PluginJobResult: Codable, Equatable, Sendable {
     /// so it is the plugin's declaration of the format, and the only one.
     public static let audioExtensions: Set<String> = ["wav", "m4a", "mp3", "aiff", "flac", "caf"]
 }
+
+/// One transcript put to a plugin that declared `filtersTranscripts`, written to
+/// `<id>.filter/<name>.in.json`. The plugin answers with `<name>.out.json`.
+public struct PluginFilterRequest: Codable, Equatable, Sendable {
+    public var text: String
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
+/// What the plugin hands back: the text utt should use instead.
+///
+/// Read the way a manifest is read — another process wrote it. A reply utt
+/// cannot read is not an empty transcript, it is no reply, and the text passes
+/// through as it was. An empty string *is* a reply: the plugin chose to drop it.
+public struct PluginFilterReply: Codable, Equatable, Sendable {
+    public var text: String
+
+    public init(text: String) {
+        self.text = text
+    }
+
+    /// A reply longer than this is not a rewrite of a dictated sentence; it is a
+    /// plugin gone wrong, and pasting it would hang whatever it landed in.
+    public static let maximumBytes = 1 << 20
+
+    /// The replacement text, or nil when the file is not a usable reply.
+    public static func text(in data: Data) -> String? {
+        guard data.count <= maximumBytes,
+              let reply = try? JSONDecoder().decode(PluginFilterReply.self, from: data)
+        else { return nil }
+        return reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

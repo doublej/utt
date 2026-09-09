@@ -71,6 +71,7 @@ struct AppFeature {
     @Dependency(\.apiServer) var apiServer
     @Dependency(\.plugins) var plugins
     @Dependency(\.pluginJobs) var pluginJobs
+    @Dependency(\.pluginFilters) var pluginFilters
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -279,7 +280,7 @@ private extension AppFeature {
             let transcribe: @Sendable (URL) async throws -> String = { url in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
                 let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
-                return settings.applyTextTransforms(to: text)
+                return await pluginFilters.apply(settings.applyTextTransforms(to: text))
             }
             await apiServer.apply(settings.api.configuration, transcribe)
             await pluginJobs.apply(transcribe)

@@ -88,6 +88,7 @@ enum PluginStore {
 
     static func reconcile(_ plugin: InstalledPlugin, api: PluginApiAccess?) {
         if plugin.manifest.sendsAudio { _ = jobsDirectory(plugin.id) }
+        if plugin.manifest.filtersTranscripts { _ = PluginFilters.directory(plugin.id) }
         let desired = plugin.settings.reduce(into: [String: PluginValue]()) { $0[$1.key] = $1.value }
         let wanted = plugin.manifest.needsApi ? api : nil
         let current = valuesFile(plugin.id)

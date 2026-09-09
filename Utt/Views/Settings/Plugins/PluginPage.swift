@@ -73,8 +73,18 @@ struct PluginPage: View {
 
         confirmation
 
-        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi || plugin.manifest.sendsAudio {
+        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi || plugin.manifest.sendsAudio
+            || plugin.manifest.filtersTranscripts {
             SettingsGroup("Access") {
+                if plugin.manifest.filtersTranscripts {
+                    SettingRow(
+                        "Rewrites your transcripts",
+                        detail: "Sees each transcript before it is pasted and can hand back different text. If it does not answer within two seconds, the text goes through as you said it.",
+                        detailTint: Palette.textTertiary
+                    ) {
+                        Image(systemName: "wand.and.sparkles").foregroundStyle(Palette.textTertiary)
+                    }
+                }
                 if plugin.manifest.sendsAudio {
                     SettingRow(
                         "Sends audio to be transcribed",

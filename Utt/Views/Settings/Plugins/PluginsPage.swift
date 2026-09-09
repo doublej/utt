@@ -22,7 +22,7 @@ struct PluginsPage: View {
 
     var body: some View {
         Card {
-            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. It gets a page in this window instead of a settings window of its own. What you change here is saved to a file the program reads. A plugin can also ask for more: audio to transcribe, your transcripts as they finish, or the API token. Its page lists exactly what it gets. Nothing is downloaded, and nothing runs inside utt.")
+            Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. It gets a page in this window instead of a settings window of its own. What you change here is saved to a file the program reads. A plugin can also ask for more: audio to transcribe, your transcripts as they finish, a chance to rewrite each one before it is pasted, or the API token. Its page lists exactly what it gets. Nothing is downloaded, and nothing runs inside utt.")
                 .font(Typography.hint)
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

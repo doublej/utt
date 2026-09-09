@@ -15,8 +15,7 @@ extension TranscriptionFeature {
     func transcribed(_ state: inout State, _ result: Result<String, Error>) -> Effect<Action> {
         state.recordingStartedAt = nil
         switch result {
-        case let .success(raw):
-            let text = settings.applyTextTransforms(to: raw)
+        case let .success(text):
             guard !text.isEmpty else {
                 // Empty is what a too-quiet mic produces — Parakeet returns "" rather
                 // than erroring — so say that instead of silently doing nothing.
