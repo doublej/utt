@@ -84,8 +84,10 @@ private let pluginGuideTemplate = #"""
           mis-click away, which is the bar for declaring one at all.
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
-          that is why — and utt names the refused key in its log, which you can read
-          with `log show --predicate 'subsystem == "dev.jurrejan.utt"' --last 5m`.
+          that is why — and utt names the refused key in its log, once per manifest:
+          `log stream --predicate 'subsystem == "dev.jurrejan.utt"' --level debug`.
+          Use `stream`, not `show`: `log show` cannot open the local store from an
+          ordinary shell and answers with nothing rather than an error.
 
         ## Buttons: `actions`, and `<id>.action.json`
 
