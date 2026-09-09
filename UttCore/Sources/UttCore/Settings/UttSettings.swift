@@ -49,6 +49,13 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// worse label, never a worse device choice.
     public var microphoneNames: [String: String] = [:]
 
+    /// How each remembered microphone was last attached — USB, Continuity over
+    /// Wi-Fi, the headphone jack. Same bargain as the names above: only the machine
+    /// the device is plugged into can say, and that is never the moment you want to
+    /// know. A `DeviceSource` raw value, or absent for a device seen before this
+    /// was recorded.
+    public var microphoneSources: [String: String] = [:]
+
     /// Mute system output while recording so podcast audio doesn't bleed into
     /// the mic. Off: muting other people's audio is a big thing to do quietly.
     public var muteWhileRecording: Bool = false
@@ -204,36 +211,18 @@ public struct UttSettings: Codable, Equatable, Sendable {
 
     /// The on-disk key names. Spelled out rather than synthesised so renaming a
     /// property does not silently orphan everyone's saved value.
+    /// Grouped by the sections above, so a new key is added next to the ones it
+    /// belongs with rather than at the end of a list forty long.
     private enum CodingKeys: String, CodingKey {
-        case hotkey
-        case minimumKeyTime
-        case doubleTapLockEnabled
-        case useDoubleTapOnly
-        case preRollEnabled
-        case microphonePriority
-        case microphoneNames
-        case muteWhileRecording
-        case preventSystemSleep
-        case keepMicrophoneWarm
-        case showRecordingOverlay
-        case transcriptionEngine
-        case selectedModel
-        case useClipboardPaste
-        case copyToClipboard
-        case deliveryMode
-        case showTranscriptHUD
-        case hudDismissAfter
-        case wordRemappings
-        case lowercaseTranscripts
-        case removePunctuation
-        case saveTranscriptionHistory
-        case maxHistoryEntries
-        case soundEffectsEnabled
-        case soundEffectsVolume
-        case openOnLogin
-        case showDockIcon
-        case api
-        case hasCompletedOnboarding
+        case hotkey, minimumKeyTime, doubleTapLockEnabled, useDoubleTapOnly, preRollEnabled
+        case microphonePriority, microphoneNames, microphoneSources
+        case muteWhileRecording, preventSystemSleep, keepMicrophoneWarm, showRecordingOverlay
+        case transcriptionEngine, selectedModel
+        case useClipboardPaste, copyToClipboard, deliveryMode, showTranscriptHUD, hudDismissAfter
+        case wordRemappings, lowercaseTranscripts, removePunctuation
+        case saveTranscriptionHistory, maxHistoryEntries
+        case soundEffectsEnabled, soundEffectsVolume
+        case openOnLogin, showDockIcon, api, hasCompletedOnboarding
     }
 
     // Decoding is split by section only to keep each function body short.
@@ -246,6 +235,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         preRollEnabled = try container.decodeIfPresent(Bool.self, forKey: .preRollEnabled) ?? preRollEnabled
         microphonePriority = try container.decodeIfPresent([String].self, forKey: .microphonePriority) ?? microphonePriority
         microphoneNames = try container.decodeIfPresent([String: String].self, forKey: .microphoneNames) ?? microphoneNames
+        microphoneSources = try container.decodeIfPresent([String: String].self, forKey: .microphoneSources) ?? microphoneSources
         muteWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .muteWhileRecording) ?? muteWhileRecording
         preventSystemSleep = try container.decodeIfPresent(Bool.self, forKey: .preventSystemSleep) ?? preventSystemSleep
         keepMicrophoneWarm = try container.decodeIfPresent(Bool.self, forKey: .keepMicrophoneWarm) ?? keepMicrophoneWarm

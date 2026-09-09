@@ -13,8 +13,11 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
     case headphoneJack
     case usb
     case bluetooth
-    /// An iPhone or iPad acting as a microphone over Continuity, wired or wireless.
-    case continuity
+    /// An iPhone or iPad acting as a microphone over Continuity, on the cable.
+    case continuityWired
+    /// The same, over Wi-Fi. Worth telling apart from the wired case: it is the one
+    /// that drops, and the one where moving the phone or plugging it in is the fix.
+    case continuityWireless
     /// Loopback and capture drivers — BlackHole, Virtual Desktop, Loopback.
     case virtual
     case aggregate
@@ -30,7 +33,8 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
         case .headphoneJack: "Headphone jack"
         case .usb: "USB"
         case .bluetooth: "Bluetooth"
-        case .continuity: "Continuity"
+        case .continuityWired: "Continuity · USB"
+        case .continuityWireless: "Continuity · Wi-Fi"
         case .virtual: "Virtual"
         case .aggregate: "Aggregate"
         case .display: "Display"
@@ -45,7 +49,7 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
     /// listed and selected and simply delivers nothing — and rebuilding the capture
     /// chain is what brings it back. A USB microphone that has stopped has been
     /// unplugged, and no amount of reopening will help.
-    public var canReconnect: Bool { self == .continuity }
+    public var canReconnect: Bool { self == .continuityWired || self == .continuityWireless }
 
     /// From the HAL's four-character codes, as `kAudioDevicePropertyTransportType`
     /// and `kAudioDevicePropertyDataSource` report them.
@@ -59,7 +63,8 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
         case "bltn": dataSource?.trimmingCharacters(in: .whitespaces) == "emic" ? .headphoneJack : .builtIn
         case "usb": .usb
         case "blue", "blea": .bluetooth
-        case "ccwd", "ccwl": .continuity
+        case "ccwd": .continuityWired
+        case "ccwl": .continuityWireless
         case "virt": .virtual
         case "grup": .aggregate
         case "hdmi", "dprt": .display
