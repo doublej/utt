@@ -117,7 +117,9 @@ private let pluginGuideTemplate = #"""
         A tinted icon is drawn in your colour; without a `tint` it is a template
         image, which is what lets the menu bar invert it on a light or dark
         background. The menu is rebuilt every time it is opened, so a status line you
-        rewrote a second ago is the one shown.
+        rewrote a second ago is the one shown. An action that `confirms` is asked
+        about here too, and writes the same `<id>.action.json` with the same
+        `sequence` — you cannot tell a menu press from a page press, deliberately.
 
         This is your item, not a second copy of utt's. utt's own mark stays what it
         is, and still flashes your `tint` while transcribing your clip.
@@ -157,6 +159,9 @@ private let pluginGuideTemplate = #"""
         - `revision` increases by one on every write utt makes. Compare it against
           the last one you saw; do not use the modification time, which has
           one-second granularity on some filesystems.
+        - A text setting arrives **per keystroke**, not per commit — every keystroke
+          is a real change, so a typed sentence is forty revisions. Act on the value
+          you care about, and debounce anything expensive.
         - The write is atomic (write to a temporary file, then rename), so a poll can
           never read a half-written file. Polling once a second is fine.
         - `api` appears only if your manifest set `"needsApi": true` **and** the user
