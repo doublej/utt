@@ -65,7 +65,7 @@ public struct PluginSetting: Codable, Hashable, Sendable, Identifiable {
     /// Nil when the row could not be rendered honestly — an unusable key or label,
     /// a default that disagrees with the kind, or a choice with nothing to choose.
     public func sanitized() -> PluginSetting? {
-        guard PluginManifest.isSafeIdentifier(key), let label = PluginManifest.text(label)
+        guard PluginManifest.isSafeKey(key), let label = PluginManifest.text(label)
         else { return nil }
         let options = options
             .compactMap { PluginManifest.text($0, limit: 40) }

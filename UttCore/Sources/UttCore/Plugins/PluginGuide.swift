@@ -8,10 +8,13 @@ import Foundation
 /// along with the rules that decide whether a manifest is accepted at all.
 public enum PluginGuide {
     public static func markdown(directory: String) -> String {
-        template.replacingOccurrences(of: "{{dir}}", with: directory)
+        pluginGuideTemplate.replacingOccurrences(of: "{{dir}}", with: directory)
     }
+}
 
-    private static let template = #"""
+// The guide lives outside the enum because it is one long document, and a type
+// whose body is a page of prose trips every size rule there is.
+private let pluginGuideTemplate = #"""
         # Write a plugin for utt
 
         **utt** is a macOS app that transcribes speech on-device. A plugin is any
@@ -43,6 +46,7 @@ public enum PluginGuide {
           "wantsTranscripts": false,
           "sendsAudio": false,
           "tint": "#3EAFB4",
+          "showsInMenuBar": true,
           "daemon": {"label": "com.example.mydaemon"},
           "actions": [
             {"key": "stop", "label": "Stop", "detail": "What it does.", "confirms": true},
@@ -98,6 +102,25 @@ public enum PluginGuide {
         program decides what it means. A manifest is a file any process on this Mac
         can write, so one that could name a command to execute would turn "drop a
         file in a folder" into "run this as the user".
+
+        ## A menu bar item of your own: `showsInMenuBar`
+
+        Set it and you get an item in the menu bar beside utt's own, drawn with your
+        `systemImage` and your `tint`. There is nothing else to declare — its menu is
+        built from what you have already said:
+
+        - your `<id>.status.json` lines, at the top
+        - your daemon's live state and a **Restart**, if you declared `daemon.label`
+        - your `actions`, which behave exactly as they do on your page
+        - **<Your name> settings…**, which opens utt on your page
+
+        A tinted icon is drawn in your colour; without a `tint` it is a template
+        image, which is what lets the menu bar invert it on a light or dark
+        background. The menu is rebuilt every time it is opened, so a status line you
+        rewrote a second ago is the one shown.
+
+        This is your item, not a second copy of utt's. utt's own mark stays what it
+        is, and still flashes your `tint` while transcribing your clip.
 
         ## Daemons: `daemon.label`
 
@@ -249,4 +272,3 @@ public enum PluginGuide {
         Do not put secrets of your own in the manifest: it is a plain file, and its
         contents are shown in utt's window.
         """#
-}

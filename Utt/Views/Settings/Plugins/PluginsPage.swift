@@ -14,6 +14,12 @@ struct PluginsPage: View {
 
     private var installed: [InstalledPlugin] { store.settings.plugins }
 
+    /// The hand-kept list, minus anything already installed — those have a real
+    /// page of their own and belong under Installed.
+    private var available: [Known] {
+        Self.known.filter { entry in !installed.contains { $0.id == entry.id } }
+    }
+
     var body: some View {
         Card {
             Text("A plugin is a separate program you install yourself, like Deckhand, that works with utt. It gets a page in this window instead of a settings window of its own. What you change here is saved to a file the program reads. A plugin can also ask for more: audio to transcribe, your transcripts as they finish, or the API token. Its page lists exactly what it gets. Nothing is downloaded, and nothing runs inside utt.")
@@ -22,13 +28,13 @@ struct PluginsPage: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        SettingsGroup("Known plugins") {
-            ForEach(Self.known) { entry in
-                SettingRow(entry.name, detail: entry.blurb) {
-                    if let plugin = installed.first(where: { $0.id == entry.id }) {
-                        Button("Open") { SettingsRoute.shared.section = .plugin(plugin.manifest) }
-                            .font(Typography.metadata)
-                    } else {
+        // Only the ones you could still add. A plugin that is installed belongs
+        // under Installed and nowhere else — listing it twice made utt look like it
+        // had two Deckhands.
+        if !available.isEmpty {
+            SettingsGroup("Known plugins") {
+                ForEach(available) { entry in
+                    SettingRow(entry.name, detail: entry.blurb) {
                         Link("Get", destination: entry.url)
                             .font(Typography.metadata)
                     }

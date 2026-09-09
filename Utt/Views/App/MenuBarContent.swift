@@ -28,6 +28,12 @@ struct MenuBarIcon: View {
         Image(nsImage: image(for: driver.pattern))
             .onChange(of: level) { _, newLevel in driver.level = newLevel }
             .onAppear { driver.level = level }
+            // This label is alive for as long as the app is, window or no window,
+            // which makes it the one place a plugin's own item can be kept in step.
+            .onAppear { PluginMenuBar.shared.sync(store.settings.plugins, store: store) }
+            .onChange(of: store.settings.plugins) { _, plugins in
+                PluginMenuBar.shared.sync(plugins, store: store)
+            }
     }
 
     private func image(for pattern: Set<Int>) -> NSImage {

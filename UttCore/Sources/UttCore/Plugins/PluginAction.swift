@@ -33,7 +33,7 @@ public struct PluginAction: Codable, Hashable, Sendable, Identifiable {
     }
 
     public func sanitized() -> PluginAction? {
-        guard PluginManifest.isSafeIdentifier(key), let label = PluginManifest.text(label, limit: 40)
+        guard PluginManifest.isSafeKey(key), let label = PluginManifest.text(label, limit: 40)
         else { return nil }
         return PluginAction(
             key: key,

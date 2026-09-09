@@ -216,3 +216,82 @@ struct PluginTintTests {
         #expect(try #require(good.sanitized()).rgb != nil)
     }
 }
+
+/// The capabilities a plugin declares, which are what its page and its menu bar
+/// item are built from. Each one is a plain flag, and each one has to survive
+/// sanitizing — a capability silently dropped is a plugin that looks broken.
+struct PluginCapabilityTests {
+    private let json = Data("""
+    {
+      "id": "deckhand", "name": "Deckhand",
+      "needsApi": true, "wantsTranscripts": true, "sendsAudio": true,
+      "showsInMenuBar": true, "tint": "#3EAFB4",
+      "daemon": {"label": "com.jurrejan.deckhand"},
+      "actions": [{"key": "openLog", "label": "Open log"}]
+    }
+    """.utf8)
+
+    @Test("every declared capability survives decoding and sanitizing")
+    func keepsCapabilities() throws {
+        let manifest = try #require(JSONDecoder().decode(PluginManifest.self, from: json).sanitized())
+        #expect(manifest.needsApi)
+        #expect(manifest.wantsTranscripts)
+        #expect(manifest.sendsAudio)
+        #expect(manifest.showsInMenuBar)
+        #expect(manifest.daemon?.label == "com.jurrejan.deckhand")
+        #expect(manifest.actions.map(\.key) == ["openLog"])
+    }
+
+    /// A manifest that asks for nothing gets nothing — the flags are opt-in, so an
+    /// older plugin cannot acquire a menu bar item or your transcripts by omission.
+    @Test("a manifest that declares nothing is given nothing")
+    func defaultsToNothing() throws {
+        let bare = Data(#"{"id": "p", "name": "P"}"#.utf8)
+        let manifest = try #require(JSONDecoder().decode(PluginManifest.self, from: bare).sanitized())
+        #expect(!manifest.needsApi)
+        #expect(!manifest.wantsTranscripts)
+        #expect(!manifest.sendsAudio)
+        #expect(!manifest.showsInMenuBar)
+        #expect(manifest.daemon == nil)
+        #expect(manifest.actions.isEmpty)
+    }
+
+    /// A plugin may report on its own daemon, not reach into the system's.
+    @Test("an Apple daemon label is refused")
+    func refusesSystemDaemons() throws {
+        let sneaky = PluginManifest(
+            id: "p", name: "P", daemon: PluginDaemon(label: "com.apple.WindowServer"))
+        #expect(try #require(sneaky.sanitized()).daemon == nil)
+        #expect(!PluginDaemon(label: "com.apple.WindowServer").isUsable)
+        #expect(!PluginDaemon(label: "../../etc/passwd").isUsable)
+        #expect(PluginDaemon(label: "com.jurrejan.deckhand").isUsable)
+    }
+}
+
+/// Keys are not ids. The id becomes a filename and stays lowercase; a key is just
+/// a name the plugin chose, and plugins write camelCase.
+struct PluginKeyTests {
+    @Test("a camelCase key is kept, on both settings and actions")
+    func keepsCamelCaseKeys() throws {
+        let setting = PluginSetting(key: "lastRelay", kind: .bool, label: "Relay", value: .bool(true))
+        #expect(try #require(setting.sanitized()).key == "lastRelay")
+        let action = PluginAction(key: "openLog", label: "Open log")
+        #expect(try #require(action.sanitized()).key == "openLog")
+    }
+
+    /// The id keeps the stricter rule, because it names a file and the filesystem
+    /// is case-insensitive.
+    @Test("an id is still lowercase only")
+    func idsStayLowercase() {
+        #expect(!PluginManifest.isSafeIdentifier("Deckhand"))
+        #expect(PluginManifest.isSafeIdentifier("deckhand"))
+        #expect(PluginManifest.isSafeKey("Deckhand"))
+    }
+
+    @Test("a key that could escape a path is still refused")
+    func refusesUnsafeKeys() {
+        for bad in ["", "a/b", "../x", "a b", String(repeating: "k", count: 65)] {
+            #expect(!PluginManifest.isSafeKey(bad), "\(bad) should be refused")
+        }
+    }
+}
