@@ -106,16 +106,16 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   Wi-Fi is very often globally addressed over IPv6. Peer addresses parse through
   `inet_pton` or not at all: a split-on-the-separator reader lets `127.0.0.1.extra`
   through as loopback, which is the access filter failing *open*.
-- **A failed listener takes its configuration with it.** `NWListener` reports a
-  failed bind asynchronously and documents it as terminal. Leaving
-  `configuration` set means the next apply matches, does nothing, and the port
-  stays dead while the settings still read "on" — so `.failed` tears down and
-  `AppFeature.apiState` puts the reason in the card.
   Everything, `/health` included, needs the bearer token, and an enabled API with
   an empty token yields no `ApiConfiguration` and therefore no listener. `/docs`
   is the one endpoint that also takes the token from the query string — a browser
   address bar cannot set a header — and it is the reason the `Host` header is
   sanitised before `ApiDocs` interpolates it into a `<script>`.
+- **A failed listener takes its configuration with it.** `NWListener` reports a
+  failed bind asynchronously and documents it as terminal. Leaving
+  `configuration` set means the next apply matches, does nothing, and the port
+  stays dead while the settings still read "on" — so `.failed` tears down and
+  `AppFeature.apiState` puts the reason in the card.
 - **The API card binds through the store, not `@Shared`.** Every other settings
   control writes the shared file directly, which reaches no reducer — fine for a
   value something reads later, useless for one that has to start a listener now.
