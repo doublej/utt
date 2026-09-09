@@ -64,6 +64,7 @@ struct AppFeature {
     @Dependency(\.permissions) var permissions
     @Dependency(\.transcription) var transcription
     @Dependency(\.apiServer) var apiServer
+    @Dependency(\.plugins) var plugins
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -237,6 +238,10 @@ private extension AppFeature {
             // one received it would be a lie in the history list.
             let app = pasted ? await pasteboard.frontmostApp() : nil
             await send(.history(.record(text: text, duration: duration, app: app)))
+            // The same moment, to any plugin that asked for transcripts. Not routed
+            // through the history reducer: retention governs what utt keeps, not
+            // what a plugin the user installed is handed.
+            plugins.deliver(text, duration, app?.name ?? nil)
         }
     }
 

@@ -44,12 +44,26 @@ struct PluginPage: View {
             }
         }
 
-        if plugin.manifest.needsApi {
-            Card {
-                Text(apiNote)
-                    .font(Typography.hint)
-                    .foregroundStyle(settings.api.enabled ? Palette.textTertiary : Palette.warning)
-                    .fixedSize(horizontal: false, vertical: true)
+        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi {
+            SettingsGroup("Access") {
+                if plugin.manifest.wantsTranscripts {
+                    SettingRow(
+                        "Receives your transcripts",
+                        detail: "Every transcript is written to this plugin's own file as it finishes, whether or not utt keeps it in History.",
+                        detailTint: Palette.textTertiary
+                    ) {
+                        Image(systemName: "text.quote").foregroundStyle(Palette.textTertiary)
+                    }
+                }
+                if plugin.manifest.needsApi {
+                    SettingRow(
+                        "Can reach utt's API",
+                        detail: apiNote,
+                        detailTint: settings.api.enabled ? Palette.textTertiary : Palette.warning
+                    ) {
+                        Image(systemName: "network").foregroundStyle(Palette.textTertiary)
+                    }
+                }
             }
         }
     }
@@ -59,8 +73,8 @@ struct PluginPage: View {
     /// than leaving it to whoever reads the values file.
     private var apiNote: String {
         settings.api.enabled
-            ? "\(plugin.manifest.name) can reach utt's API. Its access token is in the plugin's own settings file, readable only by your account."
-            : "\(plugin.manifest.name) uses utt's API, which is off. Turn it on under Connect › API, or this plugin cannot send audio here."
+            ? "The access token is in this plugin's own settings file, readable only by your account."
+            : "utt's API is off. Turn it on under Connect › API, or this plugin cannot send audio here."
     }
 
     @ViewBuilder
