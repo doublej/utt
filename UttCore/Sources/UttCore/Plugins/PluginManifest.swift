@@ -24,11 +24,15 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// `<id>.transcript.json` as each one finishes. This hands a local program
     /// everything dictated on this Mac, so the plugin's page says so plainly.
     public var wantsTranscripts = false
+    /// The plugin sends audio to be transcribed, by dropping a file in its own jobs
+    /// directory. utt writes the text back beside it. This is the direct lane: no
+    /// listener, no token, and nothing on the network.
+    public var sendsAudio = false
 
     public init(
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
-        needsApi: Bool = false, wantsTranscripts: Bool = false
+        needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -37,10 +41,11 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.settings = settings
         self.needsApi = needsApi
         self.wantsTranscripts = wantsTranscripts
+        self.sendsAudio = sendsAudio
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, blurb, systemImage, settings, needsApi, wantsTranscripts
+        case id, name, blurb, systemImage, settings, needsApi, wantsTranscripts, sendsAudio
     }
 
     /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
@@ -56,6 +61,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         settings = (try? container.decodeIfPresent([PluginSetting].self, forKey: .settings)) as? [PluginSetting] ?? []
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
+        sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
     }
 
     /// At most this many rows on a plugin's page. A plugin asking for more has a
@@ -79,7 +85,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             systemImage: systemImage.flatMap { Self.isSafeSymbol($0) ? $0 : nil },
             settings: Array(settings),
             needsApi: needsApi,
-            wantsTranscripts: wantsTranscripts
+            wantsTranscripts: wantsTranscripts,
+            sendsAudio: sendsAudio
         )
     }
 
