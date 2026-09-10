@@ -26,6 +26,12 @@ extension TranscriptionClient {
     )
 }
 
+extension TranscriptCleanupClient {
+    /// The setting is off by default, so nothing here is reached — the stub exists
+    /// because the reducer captures the client whether or not it will call it.
+    static let quiet = TranscriptCleanupClient(prewarm: {}, clean: { _ in .skipped(.unavailable) })
+}
+
 extension PasteboardClient {
     static let quiet = PasteboardClient(
         paste: { _, _ in true },

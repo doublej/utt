@@ -13,6 +13,20 @@ struct TextPage: View {
     var body: some View {
         RuleBench(sample: $sample)
 
+        SettingsGroup("Cleanup") {
+            SettingToggle(
+                "Clean up with Apple Intelligence",
+                detail: """
+                    Takes out filler words, false starts and mid-sentence corrections, \
+                    and puts sentence punctuation back. It runs on this Mac and costs \
+                    about a second a paragraph. When the model is unavailable, declines \
+                    the text or changes more than a clean-up may, the stage is skipped \
+                    and your words are pasted exactly as they were — the panel says why.
+                    """,
+                isOn: $settings.binding(\.cleanupTranscripts)
+            )
+        }
+
         SettingsGroup("Formatting") {
             SettingToggle(
                 "Lowercase everything",

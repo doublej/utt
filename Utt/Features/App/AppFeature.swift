@@ -72,6 +72,7 @@ struct AppFeature {
     @Dependency(\.extensions) var extensions
     @Dependency(\.extensionJobs) var extensionJobs
     @Dependency(\.extensionFilters) var extensionFilters
+    @Dependency(\.transcriptCleanup) var transcriptCleanup
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -268,7 +269,9 @@ private extension AppFeature {
     /// have to reach the recorder — a ring filled from the old microphone would
     /// prepend half a second of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
-        .run { [settings, transcription] _ in
+        .run { [settings, transcription, transcriptCleanup] _ in
+            // No panel on this road, so a skipped reason is only logged by the client.
+            let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
             await recording.arm(settings.preRollEnabled, settings.microphonePriority, settings.keepMicrophoneWarm)
             await appPresence.setOpensAtLogin(settings.openOnLogin)
             await appPresence.setShowsDockIcon(settings.showDockIcon)
@@ -280,7 +283,8 @@ private extension AppFeature {
             let transcribe: @Sendable (URL, Set<TextStage>) async throws -> String = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
                 let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
-                return await extensionFilters.apply(settings.applyTextTransforms(to: text, skipping: skipping))
+                let piped = await settings.applyTextTransforms(to: text, skipping: skipping, cleanup: cleanup)
+                return await extensionFilters.apply(piped)
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare
             // one in, and the endpoint's promise is the text the hotkey would paste.

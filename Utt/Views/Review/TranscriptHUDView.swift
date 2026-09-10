@@ -105,6 +105,7 @@ struct TranscriptHUDView: View {
     private func delivered(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             transcript(text)
+            cleanupNote
             HStack(spacing: Spacing.small) {
                 target
                 Spacer()
@@ -117,6 +118,18 @@ struct TranscriptHUDView: View {
     }
 
     // MARK: - Pieces
+
+    /// Cleanup was on and did not happen. Here and nowhere else: interrupting at
+    /// paste time, or putting anything in the text stream, breaks the one promise
+    /// the app makes about what reaches the cursor.
+    @ViewBuilder
+    private var cleanupNote: some View {
+        if let reason = store.transcription.cleanupSkipped {
+            Text(reason.sentence)
+                .font(Typography.metadata)
+                .foregroundStyle(Palette.textTertiary)
+        }
+    }
 
     /// Three lines and no more. A minute of dictation must not produce a panel that
     /// covers the document it was dictated into; the whole text is on hover.

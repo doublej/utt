@@ -19,6 +19,7 @@ struct TranscriptionFeatureTests {
         } withDependencies: {
             $0.recording = recording
             $0.transcription = .quiet
+            $0.transcriptCleanup = .quiet
             $0.pasteboard = .quiet
             $0.sleepManagement = .quiet
             $0.mediaControl = .quiet
