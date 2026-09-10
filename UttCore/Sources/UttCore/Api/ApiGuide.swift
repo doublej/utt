@@ -84,9 +84,19 @@ public enum ApiGuide {
         what the recogniser heard before any stage touched it — including your own
         hints — and `stages` names the stages that changed it: `replacements`,
         `cleanup`, `formatting`, `filter` (an extension the user installed) and
-        `hints` (your own header). An empty `stages` means the two are the same. A
-        `cleanupSkipped` field appears only when the user has cleanup on and it did
-        not run on this clip.
+        `hints` (your own header). A stage that ran and left the words alone is not
+        listed, and an empty `stages` means the two are the same. `text`, `raw` and
+        `stages` are on every success.
+
+        `cleanupSkipped` is **absent** unless the user has cleanup switched on and
+        it did not run on this clip. The transcript came back regardless — utt
+        answers with the words whole rather than half-cleaned — and the reason is
+        one of `unavailable` (no usable on-device model), `guardrail` (the model's
+        content check fired), `timeout` (still generating at the deadline),
+        `tooLong` (past the model's context window), `tooShort` (came back empty or
+        dropped too much) or `failedVerification` (the result was not a
+        deletion-only edit). None of them is your clip's fault and none is worth a
+        retry; treat a name you do not know the same way.
 
         Failure is a status plus one sentence:
 

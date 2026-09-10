@@ -9,6 +9,7 @@ import Foundation
 public enum ExtensionGuide {
     public static func markdown(directory: String) -> String {
         extensionGuideTemplate
+            .replacingOccurrences(of: "{{transcripts}}", with: extensionTranscriptsGuide)
             .replacingOccurrences(of: "{{filters}}", with: extensionFilterGuide)
             .replacingOccurrences(of: "{{implementing}}", with: extensionImplementingGuide)
             .replacingOccurrences(of: "{{stages}}", with: extensionTextStagesGuide)
@@ -235,51 +236,15 @@ private let extensionGuideTemplate = #"""
         a wav named `.m4a` fails to open however correct it is. Clips are picked up
         oldest first, so two sent in order come back in order. Maximum 25 MB.
 
-        You get the same text the hotkey would have pasted: the engine and model the
-        user chose, then their own replacement and formatting rules. Transcription is
-        on their Mac; nothing is sent anywhere.
+        You get the same text the hotkey would have pasted: the engine and model
+        the user chose, then their own replacement rules, transcript cleanup and
+        formatting — minus any stage you named in `skipsTextStages`, and after any
+        filtering extension has had its turn. Only `text` comes back here: the
+        stages an answer file does not carry are in `<id>.transcript.json` and in
+        the filter lane, both below. Transcription is on their Mac; nothing is sent
+        anywhere.
 
-        ## What utt writes if you asked for transcripts: `<id>.transcript.json`
-
-        Set `"wantsTranscripts": true` and every transcript utt produces is written
-        here as it finishes:
-
-        ```json
-        {
-          "sequence": 12,
-          "text": "the words that were spoken",
-          "raw": "the words what were spoken",
-          "stages": ["cleanup"],
-          "finishedAt": "2026-09-09T16:58:03Z",
-          "duration": 3.4,
-          "app": "Ghostty"
-        }
-        ```
-
-        - The **newest one only**. This is not a log — utt already keeps the history,
-          and a file that grew forever would be a second copy of everything ever
-          said. Keep your own log if you need one.
-        - `text` is what was typed and `raw` is what the recogniser heard. They
-          differ when a stage changed the words on the way, and `stages` says which:
-          `replacements` (the user's word rules), `cleanup` (the on-device model
-          taking out fillers and false starts), `formatting` (lowercasing and
-          punctuation stripping) and `filter` (an extension rewriting the
-          transcript, possibly yours). An empty `stages` means the two are the same.
-        - `cleanupSkipped` appears only when the user has cleanup on and it did not
-          run on this transcript: `unavailable`, `guardrail`, `timeout`, `tooLong`,
-          `tooShort` or `failedVerification`. The transcript landed regardless.
-        - Use `text` unless you have a reason not to. `raw` is there so a mishearing
-          can be told apart from something a stage removed — it is not a better
-          transcript, and the user did not choose it.
-        - `sequence` increments per transcript. Poll it exactly as you poll
-          `revision`; it survives a restart because it is read from the file.
-        - `app` is where the text was pasted, and is absent when nothing received it
-          — a failed paste, or a transcript that came in through the API.
-        - Written whether or not the user keeps history: retention governs what utt
-          stores, not what it hands to an extension they installed.
-        - This hands you everything dictated on that Mac. The user is told so on your
-          extension's page. Do not ask for it unless you use it, and do not send it
-          anywhere they have not asked you to.
+        {{transcripts}}
 
         {{filters}}
 
