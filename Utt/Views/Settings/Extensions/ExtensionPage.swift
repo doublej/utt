@@ -72,6 +72,7 @@ struct ExtensionPage: View {
             }
         }
 
+        about
         confirmation
 
         if installed.manifest.wantsTranscripts || installed.manifest.needsApi || installed.manifest.sendsAudio
@@ -211,6 +212,30 @@ struct ExtensionPage: View {
             + "Only the audio it sends itself — what you dictate is untouched."
     }
 
+    /// The manifest's own words about itself and where it lives, only when it gave
+    /// any. Links are `https` or they were dropped at the trust boundary.
+    @ViewBuilder
+    private var about: some View {
+        let manifest = installed.manifest
+        if manifest.description != nil || manifest.websiteURL != nil || manifest.repositoryURL != nil {
+            SettingsGroup("About") {
+                if let description = manifest.description {
+                    SettingRow(manifest.name, detail: description) { EmptyView() }
+                }
+                if let url = manifest.websiteURL {
+                    SettingRow("Website", detail: url.host() ?? "") {
+                        Link("Open", destination: url).font(Typography.metadata)
+                    }
+                }
+                if let url = manifest.repositoryURL {
+                    SettingRow("Source code", detail: url.host() ?? "") {
+                        Link("Open", destination: url).font(Typography.metadata)
+                    }
+                }
+            }
+        }
+    }
+
     /// The token is a credential, and handing one to an extension is a thing the user
     /// should be able to see having happened — so the page says it plainly rather
     /// than leaving it to whoever reads the values file.
@@ -218,81 +243,5 @@ struct ExtensionPage: View {
         settings.api.enabled
             ? "utt put the token in this extension's own settings file. Only your account can read it."
             : "utt's API is off, so this extension has no token. Turn it on under Connect › API if the extension needs one."
-    }
-
-    @ViewBuilder
-    private func row(_ setting: ExtensionSetting) -> some View {
-        SettingRow(setting.label, detail: setting.detail) {
-            switch setting.kind {
-            case .bool:
-                Toggle(setting.label, isOn: binding(setting, default: false))
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .tint(Palette.accent)
-            case .string:
-                TextField(setting.label, text: binding(setting, default: ""))
-                    .labelsHidden()
-                    .textFieldStyle(.roundedBorder)
-            case .number:
-                TextField(setting.label, value: binding(setting, default: 0.0), format: .number)
-                    .labelsHidden()
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
-            case .choice:
-                Picker(setting.label, selection: binding(setting, default: "")) {
-                    ForEach(setting.options, id: \.self) { Text($0).tag($0) }
-                }
-                .labelsHidden()
-            }
-        }
-    }
-
-    /// Writes go through the store, not `@Shared`: an extension is watching its values
-    /// file and has to see the change now, which a settings-file write would not
-    /// reach. Same reason the API card binds this way.
-    private func binding<Value>(_ setting: ExtensionSetting, default fallback: Value) -> Binding<Value> {
-        Binding(
-            get: { setting.value.unwrapped as? Value ?? fallback },
-            set: { newValue in
-                guard let value = ExtensionValue(newValue) else { return }
-                store.send(.settings(.extensionValueChanged(installed.id, key: setting.key, value: value)))
-            }
-        )
-    }
-}
-
-private extension ExtensionValue {
-    /// The scalar behind the case, for a SwiftUI control that wants a `Bool`,
-    /// a `String` or a `Double`.
-    var unwrapped: Any {
-        switch self {
-        case let .bool(flag): flag
-        case let .string(text): text
-        case let .number(number): number
-        }
-    }
-
-    init?(_ value: Any) {
-        switch value {
-        case let flag as Bool: self = .bool(flag)
-        case let text as String: self = .string(text)
-        case let number as Double: self = .number(number)
-        default: return nil
-        }
-    }
-}
-
-extension String {
-    /// A status key as a person reads it: `lastRelay` → "Last relay". Extensions write
-    /// camelCase keys, and rendering one verbatim puts "LastRelay" on the page.
-    /// No dictionary and no title-casing — the key's own words, in its own order.
-    var asFieldLabel: String {
-        let spaced = reduce(into: "") { result, character in
-            if character.isUppercase, !result.isEmpty { result.append(" ") }
-            result.append(character)
-        }
-        guard let first = spaced.first else { return spaced }
-        return first.uppercased() + spaced.dropFirst().lowercased()
     }
 }

@@ -12,6 +12,13 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     public let name: String
     /// One line under the page title.
     public var blurb: String?
+    /// A short paragraph for the About section of the page.
+    public var description: String?
+    /// Where the code lives. `https://` only, dropped otherwise — a link on the
+    /// page is a link the person will click.
+    public var repository: String?
+    /// The extension's own site. Same rule as `repository`.
+    public var website: String?
     /// SF Symbol. Dropped when it is not one — `Image(systemName:)` draws nothing
     /// for a name that does not exist, which reads as a broken page.
     public var systemImage: String?
@@ -63,6 +70,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
 
     public init(
         id: String, name: String, blurb: String? = nil,
+        description: String? = nil, repository: String? = nil, website: String? = nil,
         systemImage: String? = nil, settings: [ExtensionSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
         filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
@@ -72,6 +80,9 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.id = id
         self.name = name
         self.blurb = blurb
+        self.description = description
+        self.repository = repository
+        self.website = website
         self.systemImage = systemImage
         self.settings = settings
         self.needsApi = needsApi
@@ -86,7 +97,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, blurb, systemImage, settings
+        case id, name, blurb, description, repository, website, systemImage, settings
         case needsApi, wantsTranscripts, sendsAudio, filtersTranscripts, skipsTextStages
         case tint, actions, daemon
         case showsInMenuBar
@@ -101,6 +112,9 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         blurb = try? container.decodeIfPresent(String.self, forKey: .blurb)
+        description = try? container.decodeIfPresent(String.self, forKey: .description)
+        repository = try? container.decodeIfPresent(String.self, forKey: .repository)
+        website = try? container.decodeIfPresent(String.self, forKey: .website)
         systemImage = try? container.decodeIfPresent(String.self, forKey: .systemImage)
         settings = (try? container.decodeIfPresent([ExtensionSetting].self, forKey: .settings)) as? [ExtensionSetting] ?? []
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
@@ -144,6 +158,9 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             id: id,
             name: name,
             blurb: blurb.flatMap { Self.text($0, limit: 120) },
+            description: description.flatMap { Self.text($0, limit: 400) },
+            repository: repository.flatMap { Self.link($0) },
+            website: website.flatMap { Self.link($0) },
             systemImage: systemImage.flatMap { Self.isSafeSymbol($0) ? $0 : nil },
             settings: Array(settings),
             needsApi: needsApi,
@@ -231,6 +248,20 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         guard name.hasPrefix("\(id).") else { return false }
         return ownedSuffixes.contains(String(name.dropFirst(id.count + 1)))
     }
+
+    /// A link the page may show: `https://` with a host, and nothing else. `http`
+    /// is not merely weaker — a page that opens a plain link is a page that sends
+    /// the person somewhere a network can rewrite.
+    public static func link(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count <= 2048, let url = URL(string: trimmed),
+              url.scheme?.lowercased() == "https", let host = url.host(), !host.isEmpty
+        else { return nil }
+        return trimmed
+    }
+
+    public var repositoryURL: URL? { repository.flatMap { URL(string: $0) } }
+    public var websiteURL: URL? { website.flatMap { URL(string: $0) } }
 
     /// SF Symbol names are dot-separated ASCII words; anything else is not a symbol
     /// and would draw an empty square.

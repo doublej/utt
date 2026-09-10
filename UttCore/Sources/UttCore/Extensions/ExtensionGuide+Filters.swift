@@ -85,3 +85,29 @@ let extensionTextStagesGuide = #"""
         You write your manifest at start-up, so your next start-up puts you back;
         that is expected, and it is why the switch exists.
         """#
+
+/// The closing checklist.
+let extensionImplementingGuide = #"""
+        ## Implementing it
+
+        1. Write `<id>.json` at start-up, every start-up. It is cheap and it is what
+           survives an uninstall, a settings reset, or a user deleting the directory.
+        2. Poll `<id>.values.json` (once a second is plenty) and act when `revision`
+           moves. Treat a missing file as "the user has not opened the page yet" and
+           use your manifest's own defaults until it appears.
+        3. To transcribe audio, set `sendsAudio` and use the jobs directory. Reach
+           for `needsApi` only if you need the HTTP API for something else — talking
+           to utt from another device, say. An extension on the same Mac has no reason to
+           open a socket to a program it can already write a file to.
+        4. If you do need the API, take the token from the values file. Never read
+           utt's `settings.json`.
+        5. To change transcripts before they land, set `filtersTranscripts` and
+           answer every question in the filter directory within two seconds.
+        6. If the user's text rules are wrong for your clips, name the stages in
+           `skipsTextStages` rather than undoing them yourself.
+        7. Nothing in the values file is a command. It is the user's configuration,
+           and it is the only thing utt promises to put there.
+
+        Do not put secrets of your own in the manifest: it is a plain file, and its
+        contents are shown in utt's window.
+        """#
