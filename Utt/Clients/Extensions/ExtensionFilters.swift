@@ -16,8 +16,10 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.fi
 /// nothing — the text passes through as it was.
 @DependencyClient
 struct ExtensionFiltersClient: Sendable {
-    /// The text after every filtering extension has had its turn, in id order.
-    var apply: @Sendable (_ text: String) async -> String = { $0 }
+    /// The transcript after every filtering extension has had its turn, in id
+    /// order. What was heard travels with it: a filter is handed both, and one
+    /// that rewrites the text is recorded as a stage that changed it.
+    var apply: @Sendable (_ transcript: ProcessedTranscript) async -> ProcessedTranscript = { $0 }
 }
 
 extension ExtensionFiltersClient: DependencyKey {
@@ -55,17 +57,22 @@ actor ExtensionFilters {
         return directory
     }
 
-    /// Chained in id order: the second extension sees what the first made of it.
-    func apply(_ text: String) async -> String {
-        var output = text
+    /// Chained in id order: the second extension sees what the first made of it,
+    /// and every one of them sees what the recogniser originally heard.
+    func apply(_ transcript: ProcessedTranscript) async -> ProcessedTranscript {
+        var output = transcript
         for installed in ExtensionStore.installed().filter({ $0.enabled && $0.manifest.filtersTranscripts }) {
             guard let directory = Self.directory(installed.id) else { continue }
-            output = await Self.ask(installed.id, in: directory, text: output)
+            let replaced = await Self.ask(installed.id, in: directory, transcript: output)
+            output = output.applying(.filter, text: replaced)
         }
         return output
     }
 
-    private static func ask(_ id: String, in directory: URL, text: String) async -> String {
+    private static func ask(
+        _ id: String, in directory: URL, transcript: ProcessedTranscript
+    ) async -> String {
+        let text = transcript.text
         sweep(directory)
         let name = UUID().uuidString
         let question = directory.appendingPathComponent("\(name).in.json")
@@ -78,7 +85,13 @@ actor ExtensionFilters {
         }
         do {
             // Atomic, so the extension never picks up half a question.
-            try JSONEncoder().encode(ExtensionFilterRequest(text: text)).writePrivately(to: question)
+            let request = ExtensionFilterRequest(
+                text: text,
+                raw: transcript.raw,
+                stages: transcript.stageNames,
+                cleanupSkipped: transcript.cleanupSkipped?.rawValue
+            )
+            try JSONEncoder().encode(request).writePrivately(to: question)
         } catch {
             log.error("could not ask \(id, privacy: .public): \(error.localizedDescription)")
             return text

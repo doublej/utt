@@ -14,7 +14,9 @@ private let log = Logger(subsystem: UttLog.subsystem, category: "api")
 /// surface, and what is left of it is `HttpRequestParser` and `ApiAccess`, both in
 /// `UttCore` with tests.
 actor ApiServer {
-    typealias Transcriber = @Sendable (URL) async throws -> String
+    /// The whole transcript, not just its text: the response carries what was
+    /// heard and which stages changed it, and only the pipeline knows either.
+    typealias Transcriber = @Sendable (URL) async throws -> ProcessedTranscript
 
     /// Network.framework delivers on this queue; nothing else runs on it.
     private let queue = DispatchQueue(label: "\(UttLog.subsystem).api")

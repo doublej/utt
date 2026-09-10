@@ -92,7 +92,10 @@ works.
 
 ## When it does not run
 
-The transcript still lands, unchanged, and the post-delivery panel says why:
+The transcript still lands, unchanged, and the post-delivery panel says why. What
+was heard is kept beside what was typed wherever the transcript goes — the panel,
+the history entry, an extension's file and the API response — so a cleanup that
+*did* run is just as visible as one that did not:
 
 | Reason | What happened |
 |---|---|
@@ -161,6 +164,7 @@ Two numbers you *could* reasonably tune, if you had a reason:
   towards leaving text alone, which is the right direction to err in.
 - **Filler removal is partial.** "um" and "uh" go; "you know" and "like" often
   survive.
-- **The extension and API path has no panel**, so a skip there is only visible in
-  the log (`log stream --predicate 'subsystem == "dev.jurrejan.utt"'`, category
-  `cleanup`).
+- **The extension and API path has no panel.** The reason travels with the
+  transcript instead: `cleanupSkipped` in the `POST /transcribe` response and in an
+  extension's `<id>.transcript.json`. It is also in the log
+  (`log stream --predicate 'subsystem == "dev.jurrejan.utt"'`, category `cleanup`).

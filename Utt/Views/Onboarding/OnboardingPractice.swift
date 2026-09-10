@@ -62,7 +62,7 @@ struct OnboardingPractice: View {
         .onChange(of: transcription.lastDeliveredAt) { _, delivered in
             guard delivered != nil else { return }
             progress.reps += 1
-            progress.words += transcription.lastTranscript?.split(separator: " ").count ?? 0
+            progress.words += transcription.lastTranscript?.text.split(separator: " ").count ?? 0
             progress.seconds += transcription.lastDuration
         }
     }

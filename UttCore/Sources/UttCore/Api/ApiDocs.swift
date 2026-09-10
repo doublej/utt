@@ -79,7 +79,7 @@ public enum ApiDocs {
     }
 
     private static let overview = #"""
-        utt transcribes speech on the Mac serving this page. Send a clip, get the text back — the audio never leaves the machine, only the recording does.\n\nThe transcript has already been through the engine, model and text rules configured in utt, so it is exactly what the hotkey would have pasted at the cursor. Do not post-process it.\n\nEvery endpoint needs the bearer token, which utt generates when the API is switched on and shows in Settings, General, Transcription API.
+        utt transcribes speech on the Mac serving this page. Send a clip, get the text back — the audio never leaves the machine, only the recording does.\n\nThe transcript has already been through the engine, model and text rules configured in utt, so it is exactly what the hotkey would have pasted at the cursor. Do not post-process it.\n\n`text` is that transcript and never changes shape. `raw` beside it is what the recogniser heard before any stage touched it, and `stages` names the stages that changed it — so a caller can tell a mishearing from something the user's rules, the cleanup or an extension took out.\n\nEvery endpoint needs the bearer token, which utt generates when the API is switched on and shows in Settings, General, Transcription API.
         """#
 
     private static let tags = #"""
@@ -125,7 +125,7 @@ public enum ApiDocs {
                 },
                 "responses": {
                   "200": {
-                    "description": "The transcript, already through utt's own text rules.",
+                    "description": "The transcript, already through utt's own text rules, with what was heard beside it.",
                     "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Transcript" } } }
                   },
                   "400": { "$ref": "#/components/responses/BadRequest" },
@@ -175,12 +175,28 @@ public enum ApiDocs {
               },
               "Transcript": {
                 "type": "object",
-                "required": ["text"],
+                "required": ["text", "raw", "stages"],
                 "properties": {
                   "text": {
                     "type": "string",
                     "description": "The transcript. Word replacements and formatting rules have already been applied.",
                     "examples": ["Hello world, this is a test of the transcription API."]
+                  },
+                  "raw": {
+                    "type": "string",
+                    "description": "What the recogniser heard, before any of utt's own stages and before your own hints. Equal to `text` when nothing changed it.",
+                    "examples": ["hello world this is a test of the transcription api"]
+                  },
+                  "stages": {
+                    "type": "array",
+                    "description": "Which stages actually changed the words between `raw` and `text`, sorted. Empty means the transcript is exactly what was heard. `hints` is your own `X-Utt-Hints` header; the rest belong to the user's settings and to any extension they installed.",
+                    "items": { "type": "string", "enum": ["replacements", "cleanup", "formatting", "filter", "hints"] },
+                    "examples": [["formatting", "replacements"]]
+                  },
+                  "cleanupSkipped": {
+                    "type": "string",
+                    "description": "Present only when the user has transcript cleanup on and it did not run on this clip. The transcript landed regardless; this says why it was not cleaned.",
+                    "enum": ["unavailable", "guardrail", "timeout", "tooLong", "tooShort", "failedVerification"]
                   }
                 }
               },

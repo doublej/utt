@@ -249,17 +249,17 @@ private extension AppFeature {
     }
 
     func recordHistory(_ state: inout State, pasted: Bool) -> Effect<Action> {
-        guard let text = state.transcription.lastTranscript else { return .none }
+        guard let transcript = state.transcription.lastTranscript else { return .none }
         let duration = state.transcription.lastDuration
         return .run { send in
             // Nil when the paste failed: the text never reached an app, so claiming
             // one received it would be a lie in the history list.
             let app = pasted ? await pasteboard.frontmostApp() : nil
-            await send(.history(.record(text: text, duration: duration, app: app)))
+            await send(.history(.record(transcript: transcript, duration: duration, app: app)))
             // The same moment, to any extension that asked for transcripts. Not routed
             // through the history reducer: retention governs what utt keeps, not
             // what an extension the user installed is handed.
-            extensions.deliver(text, duration, app?.name ?? nil)
+            extensions.deliver(transcript, duration, app?.name ?? nil)
         }
     }
 
@@ -270,7 +270,8 @@ private extension AppFeature {
     /// prepend half a second of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
         .run { [settings, transcription, transcriptCleanup] _ in
-            // No panel on this road, so a skipped reason is only logged by the client.
+            // No panel on this road: a skipped reason travels in the transcript
+            // itself, which is what an API caller and an extension read it off.
             let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
             await recording.arm(settings.preRollEnabled, settings.microphonePriority, settings.keepMicrophoneWarm)
             await appPresence.setOpensAtLogin(settings.openOnLogin)
@@ -280,10 +281,10 @@ private extension AppFeature {
             // rules. An API that answered with the raw transcript would be a second
             // pipeline to keep in step with the first — and an extension dropping a file
             // is the same caller by another road, so it gets the same closure.
-            let transcribe: @Sendable (URL, Set<TextStage>) async throws -> String = { url, skipping in
+            let transcribe: @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
-                let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
-                let piped = await settings.applyTextTransforms(to: text, skipping: skipping, cleanup: cleanup)
+                let heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)
+                let piped = await settings.processTranscript(heard, skipping: skipping, cleanup: cleanup)
                 return await extensionFilters.apply(piped)
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare

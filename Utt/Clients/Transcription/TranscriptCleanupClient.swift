@@ -7,14 +7,6 @@ import os
 
 private let log = Logger(subsystem: "dev.jurrejan.utt", category: "cleanup")
 
-/// What one pass of the cleanup stage produced. `skipped` carries the reason
-/// because `TranscriptCleanup` in UttCore is a `String?` and by the time it has
-/// returned there is nothing left to ask — the panel still has to say why.
-enum CleanupOutcome: Equatable, Sendable {
-    case cleaned(String)
-    case skipped(CleanupSkipReason)
-}
-
 /// The transcript cleanup stage, on Apple's on-device language model.
 @DependencyClient
 struct TranscriptCleanupClient: Sendable {
@@ -40,22 +32,12 @@ extension TranscriptCleanupClient: DependencyKey {
 
 extension TranscriptCleanupClient {
     /// The pipeline's cleanup stage, or `nil` when the setting is off — UttCore
-    /// reads `nil` as "leave this stage out". `onSkip` is how the reason gets out:
-    /// the pipeline only ever learns that the closure returned nothing.
-    func stage(
-        enabled: Bool,
-        onSkip: @escaping @Sendable (CleanupSkipReason) -> Void = { _ in }
-    ) -> TranscriptCleanup? {
+    /// reads `nil` as "leave this stage out". The outcome goes back whole: the
+    /// pipeline records the skip reason on the transcript it builds, which is what
+    /// carries it to the panel, the history, an extension and an API caller alike.
+    func stage(enabled: Bool) -> TranscriptCleanup? {
         guard enabled else { return nil }
-        return { text in
-            switch await self.clean(text) {
-            case let .cleaned(cleaned):
-                return cleaned
-            case let .skipped(reason):
-                onSkip(reason)
-                return nil
-            }
-        }
+        return { text in await self.clean(text) }
     }
 }
 

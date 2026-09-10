@@ -53,7 +53,7 @@ actor ExtensionJobs {
     /// The clip, and the pipeline stages the extension that sent it asked to skip.
     /// Passed per job rather than baked into the closure: one transcriber serves
     /// every extension, and they do not agree about the text rules.
-    typealias Transcriber = @Sendable (URL, Set<TextStage>) async throws -> String
+    typealias Transcriber = @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript
 
     /// Short enough that dictation does not feel posted into a queue. Reading one
     /// small directory at this rate costs nothing measurable; a directory watch
@@ -124,9 +124,9 @@ actor ExtensionJobs {
                 Self.answer(result, for: audio)
                 return
             }
-            let text = try await transcribe(audio, skipping)
+            let piped = try await transcribe(audio, skipping)
             result = ExtensionJobResult(
-                text: TranscriptHints.apply(text, hints: Self.hints(for: audio)),
+                text: TranscriptHints.apply(piped.text, hints: Self.hints(for: audio)),
                 finishedAt: finishedAt
             )
         } catch {

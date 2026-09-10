@@ -15,7 +15,7 @@ struct ApiServerClient: Sendable {
     /// closes over the engine and model the settings currently name.
     var apply: @Sendable (
         _ configuration: ApiConfiguration?,
-        _ transcribe: @escaping @Sendable (URL) async throws -> String
+        _ transcribe: @escaping @Sendable (URL) async throws -> ProcessedTranscript
     ) async -> Void
 
     /// What the listener is actually doing. A stream rather than a return value

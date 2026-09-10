@@ -15,7 +15,8 @@ struct TranscriptionFeature {
     @ObservableState
     struct State: Equatable {
         var status: Status = .idle
-        var lastTranscript: String?
+        /// The last transcript that actually left, with what was heard beside it.
+        var lastTranscript: ProcessedTranscript?
         /// Set when a recording came back suspiciously quiet, so the UI can say so
         /// instead of showing an empty result and looking broken.
         var quietWarning = false
@@ -26,7 +27,7 @@ struct TranscriptionFeature {
 
         /// The transcript waiting on the user in `.review` mode. Non-nil is what
         /// arms Return and Escape — see `AppFeature.applySuppression`.
-        var pendingReview: String?
+        var pendingReview: ProcessedTranscript?
         /// What the delivery is aimed at, captured when recording stops rather than
         /// when the paste happens: by then the panel is on screen and the user may
         /// have clicked somewhere else entirely.
@@ -34,10 +35,6 @@ struct TranscriptionFeature {
         /// Set when a transcript actually reached an app. Drives the panel's
         /// post-delivery card, and its dismiss timer.
         var lastDeliveredAt: Date?
-        /// Why the cleanup stage did not run on the transcript that just landed.
-        /// One line on the delivered card and nothing at the cursor: the user's
-        /// hand has left the key and their eyes are on their document.
-        var cleanupSkipped: CleanupSkipReason?
 
         var isRecording: Bool { status == .recording }
     }
@@ -56,10 +53,7 @@ struct TranscriptionFeature {
         case stopRecording
         case cancelRecording(silent: Bool)
         case recordingFinished(RecordingResult?)
-        case transcriptReady(Result<String, Error>)
-        /// Cleanup was on and did not happen. Sent before `transcriptReady`, so the
-        /// card the reason belongs on is never on screen without it.
-        case cleanupSkipped(CleanupSkipReason)
+        case transcriptReady(Result<ProcessedTranscript, Error>)
         case pasteFinished(Bool)
         case meterTicked(Float)
         case deliveryTargetCaptured(AppIdentity?)
@@ -97,7 +91,6 @@ struct TranscriptionFeature {
             case let .cancelRecording(silent): return cancel(&state, silent: silent)
             case let .recordingFinished(result): return finished(&state, result)
             case let .transcriptReady(result): return transcribed(&state, result)
-            case let .cleanupSkipped(reason): state.cleanupSkipped = reason; return .none
             case let .pasteFinished(pasted): return didPaste(&state, pasted)
             case let .meterTicked(level): state.meterLevel = level; return .none
             case let .deliveryTargetCaptured(app): state.deliveryTarget = app; return .none
@@ -127,7 +120,6 @@ private extension TranscriptionFeature {
         state.status = .recording
         state.recordingStartedAt = now
         state.quietWarning = false
-        state.cleanupSkipped = nil
         // A transcript still waiting on the user is over the moment they start
         // dictating the next one — otherwise ⏎ would paste the old one mid-sentence.
         endReview(&state)
@@ -215,23 +207,20 @@ private extension TranscriptionFeature {
         }
         state.quietWarning = result.isSuspiciouslyQuiet
         state.lastDuration = result.duration
-        state.cleanupSkipped = nil
         let engine = settings.transcriptionEngine
         let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
-        let cleanupEnabled = settings.cleanupTranscripts
-        return .run { [settings, transcriptCleanup] send in
-            let skipped = LockIsolated<CleanupSkipReason?>(nil)
-            let cleanup = transcriptCleanup.stage(enabled: cleanupEnabled) { skipped.setValue($0) }
-            let transcript: Result<String, Error> = await Result {
+        let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
+        return .run { [settings] send in
+            let transcript: Result<ProcessedTranscript, Error> = await Result {
                 // The user's own rules first, then any extension that asked to see the
                 // text — so an extension rewrites what the person would have read, not
-                // the raw recogniser output the rules are there to clean up.
-                let raw = try await transcription.transcribe(result.url, engine, model)
+                // the raw recogniser output the rules are there to clean up. What was
+                // heard rides along the whole way; nothing downstream can recover it.
+                let heard = try await transcription.transcribe(result.url, engine, model)
                 return await extensionFilters.apply(
-                    settings.applyTextTransforms(to: raw, cleanup: cleanup)
+                    settings.processTranscript(heard, cleanup: cleanup)
                 )
             }
-            if let reason = skipped.value { await send(.cleanupSkipped(reason)) }
             await send(.transcriptReady(transcript))
             try? FileManager.default.removeItem(at: result.url)
         }

@@ -90,8 +90,15 @@ enum ApiRoutes {
             // in an envelope would cost every client a multipart encoder.
             let hints = (request.headers["x-utt-hints"] ?? "")
                 .split(separator: ",").map(String.init)
-            let text = TranscriptHints.apply(try await transcribe(url), hints: hints)
-            let body = (try? JSONSerialization.data(withJSONObject: ["text": text])) ?? Data()
+            let piped = try await transcribe(url)
+            // Hints are the caller's own stage and they run last, so they are named
+            // as a stage rather than folded into `raw`. `raw` stays what the
+            // recogniser heard — the one thing a caller cannot reconstruct, since
+            // it knows its own hints and the user's rules are none of its business.
+            let transcript = piped.applying(
+                .hints, text: TranscriptHints.apply(piped.text, hints: hints)
+            )
+            let body = (try? JSONEncoder().encode(transcript)) ?? Data()
             return HttpResponse.json(status: 200, body)
         } catch {
             log.error("transcription failed: \(error.localizedDescription, privacy: .public)")

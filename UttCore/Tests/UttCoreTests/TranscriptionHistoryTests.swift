@@ -36,6 +36,32 @@ struct TranscriptionHistoryTests {
         #expect(history.history.isEmpty)
     }
 
+    /// There is a real `history.json` on every machine that has ever run utt, and
+    /// it was written before `raw` existed. A decode that throws on it is data loss.
+    @Test("a history file written before `raw` existed still loads")
+    func decodesAFileWithoutRaw() throws {
+        let json = #"""
+        {"history":[{"id":"8B3A8D08-9F4A-4E6E-9E5E-4C0B0C7C7A11",
+        "timestamp":0,"text":"what was typed","duration":1.5,
+        "sourceAppName":"Ghostty","sourceAppBundleID":"com.mitchellh.ghostty"}]}
+        """#
+        let decoder = JSONDecoder()
+        let history = try decoder.decode(TranscriptionHistory.self, from: Data(json.utf8))
+        let entry = try #require(history.history.first)
+        #expect(entry.text == "what was typed")
+        #expect(entry.raw == nil)
+        #expect(entry.sourceAppName == "Ghostty")
+    }
+
+    @Test("what was heard survives a round trip")
+    func keepsRawThroughARoundTrip() throws {
+        var entry = entry("what was typed")
+        entry.raw = "what was heard"
+        let data = try JSONEncoder().encode(TranscriptionHistory(history: [entry]))
+        let decoded = try JSONDecoder().decode(TranscriptionHistory.self, from: data)
+        #expect(decoded.history.first?.raw == "what was heard")
+    }
+
     @Test func removeDropsOnlyTheNamedEntry() {
         var history = TranscriptionHistory()
         let target = entry("target")

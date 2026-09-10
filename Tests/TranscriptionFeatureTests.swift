@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import Testing
+import UttCore
 @testable import utt
 
 /// The effect wiring, which `UttCore` cannot see because it has no clients.
@@ -73,10 +74,26 @@ struct TranscriptionFeatureTests {
         )) { $0.quietWarning = true }
         // Trimming happens in the effect, with the text rules and the extension
         // filters; what reaches the reducer is what would have been pasted.
-        await store.send(.transcriptReady(.success(""))) {
+        await store.send(.transcriptReady(.success(ProcessedTranscript(raw: "", text: "")))) {
             $0.status = .failed("Nothing heard — your input level looks very low")
         }
         await store.finish()
+    }
+
+    /// The panel, the history entry and every extension read one object, so the
+    /// one the reducer keeps has to be the whole thing rather than its text.
+    @Test("what was heard is kept beside what was delivered")
+    func deliveredTranscriptKeepsWhatWasHeard() async {
+        let store = makeStore()
+        store.exhaustivity = .off
+        let transcript = ProcessedTranscript(
+            raw: "i use claude code", text: "I use Claude Code", stages: [.replacements]
+        )
+
+        await store.send(.transcriptReady(.success(transcript)))
+        await store.finish()
+        #expect(store.state.lastTranscript == transcript)
+        #expect(store.state.lastTranscript?.changed == true)
     }
 
     @Test("a failed paste says the text is still on the clipboard")

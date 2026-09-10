@@ -35,8 +35,9 @@ struct ExtensionClient: Sendable {
     var installed: @Sendable () -> [InstalledExtension] = { [] }
     /// Writes `<id>.values.json`. Atomic, and the revision advances by one.
     var write: @Sendable (_ extensionID: String, _ values: [String: ExtensionValue], _ api: ExtensionApiAccess?) -> Void
-    /// Hands a finished transcript to every extension that asked for them.
-    var deliver: @Sendable (_ text: String, _ duration: Double, _ app: String?) -> Void
+    /// Hands a finished transcript to every extension that asked for them, with
+    /// what was heard and which stages changed it alongside the finished text.
+    var deliver: @Sendable (_ transcript: ProcessedTranscript, _ duration: Double, _ app: String?) -> Void
     /// Records that the user pressed one of the extension's own buttons.
     var request: @Sendable (_ extensionID: String, _ actionKey: String) -> Void
     /// Switches the extension off or on without touching what it wrote.
@@ -49,7 +50,9 @@ extension ExtensionClient: DependencyKey {
     static let liveValue = ExtensionClient(
         installed: { ExtensionStore.installed() },
         write: { id, values, api in ExtensionStore.write(id, values: values, api: api) },
-        deliver: { text, duration, app in ExtensionStore.deliver(text, duration: duration, app: app) },
+        deliver: { transcript, duration, app in
+            ExtensionStore.deliver(transcript, duration: duration, app: app)
+        },
         request: { id, key in ExtensionStore.request(id, action: key) },
         setEnabled: { id, enabled in ExtensionStore.setEnabled(id, enabled) },
         remove: { id in ExtensionStore.remove(id) }
@@ -179,7 +182,7 @@ enum ExtensionStore {
     /// Fire-and-forget and best-effort: an extension that cannot be written to must not
     /// affect the transcript the person is waiting for. Delivery does not depend on
     /// the history setting — that governs what utt keeps, not what it hands on.
-    static func deliver(_ text: String, duration: Double, app: String?) {
+    static func deliver(_ transcript: ProcessedTranscript, duration: Double, app: String?) {
         let wanting = installed().filter { $0.enabled && $0.manifest.wantsTranscripts }
         guard !wanting.isEmpty else { return }
         let finishedAt = ISO8601DateFormatter().string(from: Date())
@@ -189,7 +192,13 @@ enum ExtensionStore {
             else { continue }
             let next = ExtensionTranscript(
                 sequence: transcriptFile(installed.id).sequence &+ 1,
-                text: text,
+                text: transcript.text,
+                // Both versions, always: an extension cannot tell a mishearing from
+                // something a stage took out, and it has no other copy to compare
+                // against. `stages` is what says which of the two it is.
+                raw: transcript.raw,
+                stages: transcript.stageNames,
+                cleanupSkipped: transcript.cleanupSkipped?.rawValue,
                 finishedAt: finishedAt,
                 duration: duration,
                 app: app

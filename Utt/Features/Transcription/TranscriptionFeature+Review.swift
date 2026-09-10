@@ -12,11 +12,13 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "feature.trans
 /// owns the recording lifecycle and has no room left. Internal, not `private`,
 /// because the reducer in the other file dispatches into these.
 extension TranscriptionFeature {
-    func transcribed(_ state: inout State, _ result: Result<String, Error>) -> Effect<Action> {
+    func transcribed(
+        _ state: inout State, _ result: Result<ProcessedTranscript, Error>
+    ) -> Effect<Action> {
         state.recordingStartedAt = nil
         switch result {
-        case let .success(text):
-            guard !text.isEmpty else {
+        case let .success(transcript):
+            guard !transcript.text.isEmpty else {
                 // Empty is what a too-quiet mic produces — Parakeet returns "" rather
                 // than erroring — so say that instead of silently doing nothing.
                 state.status = state.quietWarning
@@ -25,10 +27,10 @@ extension TranscriptionFeature {
                 return .none
             }
             state.status = .idle
-            guard settings.deliveryMode == .review else { return deliver(&state, text) }
+            guard settings.deliveryMode == .review else { return deliver(&state, transcript) }
             // Held, not pasted. No dismiss timer: a review card that vanishes on
             // its own is worse than no review at all.
-            state.pendingReview = text
+            state.pendingReview = transcript
             return .none
 
         case let .failure(error):
@@ -43,8 +45,9 @@ extension TranscriptionFeature {
     /// The only place a transcript is handed to another app. `lastTranscript` is
     /// set here and nowhere else, so "the last one" always means "the last one that
     /// actually left" — a discarded review never becomes the thing ⌥⇧V pastes.
-    func deliver(_ state: inout State, _ text: String) -> Effect<Action> {
-        state.lastTranscript = text
+    func deliver(_ state: inout State, _ transcript: ProcessedTranscript) -> Effect<Action> {
+        state.lastTranscript = transcript
+        let text = transcript.text
         guard settings.useClipboardPaste else {
             // Copy-only is a delivery, not a failure: the text is exactly where the
             // user asked for it to be. So it reports `true` — `pasteFinished` means
@@ -70,9 +73,9 @@ extension TranscriptionFeature {
     }
 
     func acceptReview(_ state: inout State) -> Effect<Action> {
-        guard let text = state.pendingReview else { return .none }
+        guard let transcript = state.pendingReview else { return .none }
         endReview(&state)
-        return deliver(&state, text)
+        return deliver(&state, transcript)
     }
 
     func discardReview(_ state: inout State) -> Effect<Action> {

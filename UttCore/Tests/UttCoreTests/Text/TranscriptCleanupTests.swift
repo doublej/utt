@@ -111,8 +111,8 @@ struct CleanupVerifierTests {
     }
 }
 
-/// Where cleanup sits in the pipeline, which is the whole of what the stage adds
-/// to `applyTextTransforms`.
+/// Where cleanup sits in the pipeline, and what the pipeline records about what
+/// each stage did to the words.
 struct CleanupStageTests {
     private var settings: UttSettings {
         var settings = UttSettings()
@@ -126,16 +126,17 @@ struct CleanupStageTests {
         settings.lowercaseTranscripts = true
         let text = "  I use claude code every day  "
         let sync = settings.applyTextTransforms(to: text)
-        let awaited = await settings.applyTextTransforms(to: text, cleanup: nil)
-        #expect(awaited == sync)
+        let awaited = await settings.processTranscript(text, cleanup: nil)
+        #expect(awaited.text == sync)
+        #expect(awaited.raw == text)
     }
 
     @Test("cleanup runs after the replacement rules")
     func cleanupSeesReplacedText() async {
         let seen = Received()
-        _ = await settings.applyTextTransforms(to: "I use claude code") { text in
+        _ = await settings.processTranscript("I use claude code") { text in
             await seen.record(text)
-            return text
+            return .cleaned(text)
         }
         #expect(await seen.value == "I use Claude Code")
     }
@@ -146,22 +147,25 @@ struct CleanupStageTests {
     func formattingRunsAfterCleanup() async {
         var settings = self.settings
         settings.removePunctuation = true
-        let output = await settings.applyTextTransforms(to: "I use claude code") { $0 + "." }
-        #expect(output == "I use Claude Code")
+        let output = await settings.processTranscript("I use claude code") { .cleaned($0 + ".") }
+        #expect(output.text == "I use Claude Code")
     }
 
-    @Test("a cleanup that fails leaves the transcript it was given")
+    @Test("a cleanup that fails leaves the transcript it was given, and says why")
     func failedCleanupKeepsTheTranscript() async {
-        let output = await settings.applyTextTransforms(to: "I use claude code") { _ in nil }
-        #expect(output == "I use Claude Code")
+        let output = await settings.processTranscript("I use claude code") { _ in .skipped(.guardrail) }
+        #expect(output.text == "I use Claude Code")
+        #expect(output.cleanupSkipped == .guardrail)
+        // A stage that did not run changed nothing, so it is not in the set.
+        #expect(output.stages == [.replacements])
     }
 
     @Test("an extension skipping cleanup does not get it")
     func skippingCleanup() async {
-        let output = await settings.applyTextTransforms(to: "I use claude code", skipping: [.cleanup]) { _ in
-            "cleaned"
+        let output = await settings.processTranscript("I use claude code", skipping: [.cleanup]) { _ in
+            .cleaned("cleaned")
         }
-        #expect(output == "I use Claude Code")
+        #expect(output.text == "I use Claude Code")
     }
 
     /// Several spike variants answered an empty transcript with the instruction
@@ -169,12 +173,58 @@ struct CleanupStageTests {
     @Test("empty input is never sent to cleanup")
     func emptyInputIsNeverSent() async {
         let called = Received()
-        let output = await settings.applyTextTransforms(to: "   ") { text in
+        let output = await settings.processTranscript("   ") { text in
             await called.record(text)
-            return "cleaned"
+            return .cleaned("cleaned")
         }
-        #expect(output.isEmpty)
+        #expect(output.text.isEmpty)
         #expect(await called.value == nil)
+    }
+
+    // MARK: - What the pipeline records
+
+    /// The set is what actually happened, not what ran. Every surface reads it
+    /// rather than diffing the two strings itself, so it has to be exact.
+    @Test("only the stages that changed the words are recorded")
+    func stagesAreWhatChangedTheText() async {
+        var settings = self.settings
+        settings.lowercaseTranscripts = true
+        let output = await settings.processTranscript("I use claude code") { .cleaned($0 + ".") }
+        #expect(output.raw == "I use claude code")
+        #expect(output.text == "i use claude code.")
+        #expect(output.stages == [.replacements, .cleanup, .formatting])
+        #expect(output.changed)
+        #expect(output.stageNames == ["cleanup", "formatting", "replacements"])
+    }
+
+    @Test("a transcript nothing touched records no stages")
+    func untouchedTranscriptRecordsNothing() async {
+        let output = await UttSettings().processTranscript("nothing to do here", cleanup: nil)
+        #expect(output.stages.isEmpty)
+        #expect(!output.changed)
+        #expect(output.raw == output.text)
+    }
+
+    /// Trimming happens inside the formatting call and is not a stage — reporting
+    /// "your formatting changed this" because a space came off is noise.
+    @Test("trimming alone is not a stage")
+    func trimmingIsNotAStage() async {
+        let output = await UttSettings().processTranscript("  spaced out  ", cleanup: nil)
+        #expect(output.text == "spaced out")
+        #expect(output.stages.isEmpty)
+    }
+
+    /// The filter and hints stages happen outside this package — an extension's
+    /// answer and an API caller's own vocabulary — and fold in the same way.
+    @Test("a stage applied afterwards keeps what was heard")
+    func laterStagesKeepTheRaw() async {
+        let output = await settings.processTranscript("I use claude code", cleanup: nil)
+        let filtered = output.applying(.filter, text: "something else entirely")
+        #expect(filtered.raw == "I use claude code")
+        #expect(filtered.text == "something else entirely")
+        #expect(filtered.stages == [.replacements, .filter])
+        // A stage that handed back the same text did not change it.
+        #expect(filtered.applying(.hints, text: filtered.text).stages == filtered.stages)
     }
 
     private actor Received {
