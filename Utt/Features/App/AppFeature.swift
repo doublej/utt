@@ -269,7 +269,7 @@ private extension AppFeature {
     /// have to reach the recorder — a ring filled from the old microphone would
     /// prepend half a second of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
-        .run { [settings, transcription, transcriptCleanup] _ in
+        .run { [settings, transcription, transcriptCleanup, clock] _ in
             // No panel on this road: a skipped reason travels in the transcript
             // itself, which is what an API caller and an extension read it off.
             let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
@@ -283,9 +283,12 @@ private extension AppFeature {
             // is the same caller by another road, so it gets the same closure.
             let transcribe: @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
-                let heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)
+                var heard = ""
+                let decoding = try await clock.measure {
+                    heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)
+                }
                 let piped = await settings.processTranscript(heard, skipping: skipping, cleanup: cleanup)
-                return await extensionFilters.apply(piped)
+                return await extensionFilters.apply(piped.timed(.decode, decoding))
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare
             // one in, and the endpoint's promise is the text the hotkey would paste.

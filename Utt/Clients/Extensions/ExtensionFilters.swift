@@ -60,11 +60,18 @@ actor ExtensionFilters {
     /// Chained in id order: the second extension sees what the first made of it,
     /// and every one of them sees what the recogniser originally heard.
     func apply(_ transcript: ProcessedTranscript) async -> ProcessedTranscript {
+        @Dependency(\.continuousClock) var clock
         var output = transcript
         for installed in ExtensionStore.installed().filter({ $0.enabled && $0.manifest.filtersTranscripts }) {
             guard let directory = Self.directory(installed.id) else { continue }
-            let replaced = await Self.ask(installed.id, in: directory, transcript: output)
-            output = output.applying(.filter, text: replaced)
+            var replaced = output.text
+            // Timed whether or not it rewrote anything: a filter that thought for
+            // two seconds and handed the text straight back spent them, and this is
+            // the stage most able to.
+            let elapsed = await clock.measure {
+                replaced = await Self.ask(installed.id, in: directory, transcript: output)
+            }
+            output = output.applying(.filter, text: replaced, took: elapsed)
         }
         return output
     }
@@ -89,7 +96,8 @@ actor ExtensionFilters {
                 text: text,
                 raw: transcript.raw,
                 stages: transcript.stageNames,
-                cleanupSkipped: transcript.cleanupSkipped?.rawValue
+                cleanupSkipped: transcript.cleanupSkipped?.rawValue,
+                timings: transcript.timings
             )
             try JSONEncoder().encode(request).writePrivately(to: question)
         } catch {

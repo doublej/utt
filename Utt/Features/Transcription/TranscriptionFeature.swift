@@ -80,6 +80,9 @@ struct TranscriptionFeature {
     @Dependency(\.extensionFilters) var extensionFilters
     @Dependency(\.transcriptCleanup) var transcriptCleanup
     @Dependency(\.date.now) var now
+    /// Durations, not moments: a wall clock can jump, and this one only ever
+    /// measures how long the recogniser took.
+    @Dependency(\.continuousClock) var clock
     @Shared(.uttSettings) var settings
 
     var body: some ReducerOf<Self> {
@@ -210,15 +213,18 @@ private extension TranscriptionFeature {
         let engine = settings.transcriptionEngine
         let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
         let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
-        return .run { [settings] send in
+        return .run { [settings, clock] send in
             let transcript: Result<ProcessedTranscript, Error> = await Result {
                 // The user's own rules first, then any extension that asked to see the
                 // text — so an extension rewrites what the person would have read, not
                 // the raw recogniser output the rules are there to clean up. What was
                 // heard rides along the whole way; nothing downstream can recover it.
-                let heard = try await transcription.transcribe(result.url, engine, model)
+                var heard = ""
+                let decoding = try await clock.measure {
+                    heard = try await transcription.transcribe(result.url, engine, model)
+                }
                 return await extensionFilters.apply(
-                    settings.processTranscript(heard, cleanup: cleanup)
+                    settings.processTranscript(heard, cleanup: cleanup).timed(.decode, decoding)
                 )
             }
             await send(.transcriptReady(transcript))

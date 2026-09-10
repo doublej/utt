@@ -1,3 +1,4 @@
+import DependenciesTestSupport
 import Foundation
 import Testing
 @testable import UttCore
@@ -5,6 +6,9 @@ import Testing
 /// An extension naming a stage is the one caller that gets a different transcript from
 /// everyone else, so the two things worth pinning down are that skipping actually
 /// skips and that naming nothing changes nothing.
+/// The clock the pipeline times itself on never moves here: these tests are about
+/// what it does to the words, not how long it took.
+@Suite(.dependency(\.continuousClock, .immediate))
 struct TextStageSkipTests {
     private var settings: UttSettings {
         var settings = UttSettings()

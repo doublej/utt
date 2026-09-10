@@ -76,7 +76,8 @@ public enum ApiGuide {
         {
           "text": "Hello world, this is a test of the transcription API.",
           "raw": "hello world this is a test of the transcription api",
-          "stages": ["formatting", "replacements"]
+          "stages": ["formatting", "replacements"],
+          "timings": {"decode": 1802.5, "replacements": 0.4, "formatting": 0.2}
         }
         ```
 
@@ -87,6 +88,13 @@ public enum ApiGuide {
         `hints` (your own header). A stage that ran and left the words alone is not
         listed, and an empty `stages` means the two are the same. `text`, `raw` and
         `stages` are on every success.
+
+        `timings` is what each stretch of utt's own work took, in **milliseconds**:
+        the stage names above plus `decode`, the recogniser, which is where most of
+        the wait goes. It is parallel to `stages` rather than a subset — a stage that
+        ran and left the words alone took just as long — and only stretches that
+        actually ran are in it. They do not sum to your round trip: reading the body,
+        writing the clip out and the network are outside them.
 
         `cleanupSkipped` is **absent** unless the user has cleanup switched on and
         it did not run on this clip. The transcript came back regardless — utt

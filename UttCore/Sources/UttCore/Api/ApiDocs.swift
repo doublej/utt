@@ -197,6 +197,12 @@ public enum ApiDocs {
                     "type": "string",
                     "description": "Present only when the user has transcript cleanup on and it did not run on this clip. The transcript landed regardless; this says why it was not cleaned.",
                     "enum": ["unavailable", "guardrail", "timeout", "tooLong", "tooShort", "failedVerification"]
+                  },
+                  "timings": {
+                    "type": "object",
+                    "description": "What each stretch of utt's own work took, in milliseconds: the stage names above plus `decode`, the recogniser. Parallel to `stages`, not a subset of it — a stage that ran and changed nothing is timed all the same — and only stretches that actually ran are present. They do not sum to your round trip.",
+                    "additionalProperties": { "type": "number" },
+                    "examples": [{ "decode": 1802.5, "replacements": 0.4, "formatting": 0.2 }]
                   }
                 }
               },

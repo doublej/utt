@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 import UttCore
 import os
@@ -95,9 +96,12 @@ enum ApiRoutes {
             // as a stage rather than folded into `raw`. `raw` stays what the
             // recogniser heard — the one thing a caller cannot reconstruct, since
             // it knows its own hints and the user's rules are none of its business.
-            let transcript = piped.applying(
-                .hints, text: TranscriptHints.apply(piped.text, hints: hints)
-            )
+            @Dependency(\.continuousClock) var clock
+            var corrected = piped.text
+            let hinting = clock.measure {
+                corrected = TranscriptHints.apply(piped.text, hints: hints)
+            }
+            let transcript = piped.applying(.hints, text: corrected, took: hinting)
             let body = (try? JSONEncoder().encode(transcript)) ?? Data()
             return HttpResponse.json(status: 200, body)
         } catch {

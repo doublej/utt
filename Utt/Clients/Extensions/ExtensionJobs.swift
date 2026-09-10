@@ -113,49 +113,76 @@ actor ExtensionJobs {
     private func run(
         _ audio: URL, _ skipping: Set<TextStage>, _ transcribe: @escaping Transcriber
     ) async {
+        @Dependency(\.date.now) var now
         defer { try? FileManager.default.removeItem(at: audio) }
         let result: ExtensionJobResult
         // Two stamps rather than one: an extension knows when it wrote the clip, but
         // not how much of the wait was this watcher getting to it and how much was the
         // work. One timestamp cannot answer that whichever end it is taken from.
-        let startedAt = Self.stamp()
+        let started = Self.stamp(now)
         do {
             let size = (try? audio.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             guard size <= Self.maximumBytes else {
                 let megabytes = Self.maximumBytes / 1024 / 1024
+                let finished = Self.stamp(now)
                 result = ExtensionJobResult(
                     error: "That clip is larger than \(megabytes) MB.",
-                    startedAt: startedAt, finishedAt: Self.stamp())
+                    startedAt: started.iso, finishedAt: finished.iso,
+                    startedAtMs: started.ms, finishedAtMs: finished.ms)
                 Self.answer(result, for: audio)
                 return
             }
-            let duration = Self.duration(of: audio)
             let piped = try await transcribe(audio, skipping)
-            // Hints are the sender's own stage and they run last, so they are named in
-            // `stages` rather than folded into `raw` — the answer the API road already
-            // gives. `raw` stays what the recogniser heard.
-            let corrected = piped.applying(
-                .hints, text: TranscriptHints.apply(piped.text, hints: Self.hints(for: audio))
-            )
-            result = ExtensionJobResult(
-                text: corrected.text,
-                raw: corrected.raw,
-                stages: corrected.stageNames,
-                cleanupSkipped: corrected.cleanupSkipped?.rawValue,
-                startedAt: startedAt,
-                finishedAt: Self.stamp(),
-                duration: duration
-            )
+            let final = Self.hinted(piped, for: audio)
+            // Stamped here, after the work, which is the whole point of the field.
+            result = Self.answered(
+                final, seconds: Self.duration(of: audio),
+                started: started, finished: Self.stamp(now))
         } catch {
             log.error("job \(audio.lastPathComponent, privacy: .public) failed: \(error.localizedDescription)")
+            let finished = Self.stamp(now)
             result = ExtensionJobResult(
                 error: "Could not transcribe that clip.",
-                startedAt: startedAt, finishedAt: Self.stamp())
+                startedAt: started.iso, finishedAt: finished.iso,
+                startedAtMs: started.ms, finishedAtMs: finished.ms)
         }
         Self.answer(result, for: audio)
     }
 
-    private static func stamp() -> String { ISO8601DateFormatter().string(from: Date()) }
+    /// The answer for a clip that made it through: the transcript, what each stage
+    /// of it cost, and both ends of utt's own stretch.
+    private static func answered(
+        _ final: ProcessedTranscript, seconds: Double?,
+        started: (iso: String, ms: Int), finished: (iso: String, ms: Int)
+    ) -> ExtensionJobResult {
+        ExtensionJobResult(
+            text: final.text, raw: final.raw, stages: final.stageNames,
+            cleanupSkipped: final.cleanupSkipped?.rawValue,
+            startedAt: started.iso, finishedAt: finished.iso,
+            startedAtMs: started.ms, finishedAtMs: finished.ms,
+            duration: seconds, timings: final.timings
+        )
+    }
+
+    /// The transcript with the sender's own hints applied, as their own stage:
+    /// named in `stages` rather than folded into `raw` — the answer the API road
+    /// already gives. `raw` stays what the recogniser heard.
+    private static func hinted(_ piped: ProcessedTranscript, for audio: URL) -> ProcessedTranscript {
+        @Dependency(\.continuousClock) var clock
+        var corrected = piped.text
+        let hinting = clock.measure {
+            corrected = TranscriptHints.apply(piped.text, hints: hints(for: audio))
+        }
+        return piped.applying(.hints, text: corrected, took: hinting)
+    }
+
+    /// One moment in both spellings. The ISO string is whole seconds, which is the
+    /// shape every extension already parses and cannot be sharpened without
+    /// breaking them; the epoch milliseconds are what a span is measured with.
+    private static func stamp(_ moment: Date) -> (iso: String, ms: Int) {
+        (ISO8601DateFormatter().string(from: moment),
+         Int((moment.timeIntervalSince1970 * 1000).rounded()))
+    }
 
     /// Seconds of audio, read off the clip itself. The transcriber hands back text,
     /// and the one road that wants this should not cost every other one a new return

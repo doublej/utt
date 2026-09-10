@@ -1,3 +1,4 @@
+import DependenciesTestSupport
 import Foundation
 import Testing
 @testable import UttCore
@@ -113,6 +114,9 @@ struct CleanupVerifierTests {
 
 /// Where cleanup sits in the pipeline, and what the pipeline records about what
 /// each stage did to the words.
+/// The clock the pipeline times itself on never moves here: these tests are about
+/// what it does to the words, not how long it took.
+@Suite(.dependency(\.continuousClock, .immediate))
 struct CleanupStageTests {
     private var settings: UttSettings {
         var settings = UttSettings()
@@ -225,6 +229,17 @@ struct CleanupStageTests {
         #expect(filtered.stages == [.replacements, .filter])
         // A stage that handed back the same text did not change it.
         #expect(filtered.applying(.hints, text: filtered.text).stages == filtered.stages)
+    }
+
+    /// The point of the breakdown: a stage that ran and left the words alone spent
+    /// the time all the same, and `stages` cannot say so — it only names what
+    /// changed. Hence two records rather than one.
+    @Test("a stage that ran without changing the words is still timed")
+    func timesStagesThatChangedNothing() async {
+        let output = await UttSettings().processTranscript("nothing to do here", cleanup: nil)
+        #expect(output.stages.isEmpty)
+        #expect(output.timings.keys.sorted() == ["formatting", "replacements"])
+        for (stage, milliseconds) in output.timings { #expect(milliseconds >= 0, "\(stage)") }
     }
 
     private actor Received {

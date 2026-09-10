@@ -96,7 +96,8 @@ curl -X POST http://mac.local:8756/transcribe \
 {
   "text": "Hello world, this is a test of the transcription API.",
   "raw": "hello world this is a test of the transcription api",
-  "stages": ["formatting", "replacements"]
+  "stages": ["formatting", "replacements"],
+  "timings": {"decode": 1802.5, "replacements": 0.4, "formatting": 0.2}
 }
 ```
 
@@ -114,6 +115,12 @@ the old single-field response keeps working. Beside it:
   `hints` (your own). Empty means what was heard is what you got. Hints are named
   as a stage rather than folded into `raw` because they are the caller's own
   correction: `raw` stays the one thing a caller cannot reconstruct.
+- `timings` — what each stretch of utt's own work took, in milliseconds: the stage
+  names above plus `decode`, the recogniser, which is where most of the wait goes.
+  Parallel to `stages` rather than a subset of it — a stage that ran and left the
+  words alone took just as long, and that is the number worth having — and only
+  stretches that actually ran are in it. They do not sum to your round trip:
+  reading the body, writing the clip out and the network are outside them.
 - `cleanupSkipped` — present only when the user has transcript cleanup switched on
   and it did not run on this clip: `unavailable`, `guardrail`, `timeout`,
   `tooLong`, `tooShort` or `failedVerification`. The transcript landed anyway.

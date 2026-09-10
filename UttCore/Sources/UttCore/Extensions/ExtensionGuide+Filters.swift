@@ -28,13 +28,14 @@ let extensionTranscriptsGuide = #"""
           "cleanupSkipped": "timeout",
           "finishedAt": "2026-09-09T16:58:03Z",
           "duration": 3.4,
+          "timings": {"decode": 1802.5, "replacements": 0.4, "cleanup": 511.2},
           "app": "Ghostty"
         }
         ```
 
-        `sequence`, `text`, `raw`, `stages`, `finishedAt` and `duration` are on
-        every transcript. `cleanupSkipped` and `app` are **absent** when there is
-        nothing to say — absent, not null, so decode them as optional.
+        `sequence`, `text`, `raw`, `stages`, `finishedAt`, `duration` and `timings`
+        are on every transcript. `cleanupSkipped` and `app` are **absent** when there
+        is nothing to say — absent, not null, so decode them as optional.
 
         - `sequence` increments per transcript. Poll it exactly as you poll
           `revision`; it survives a restart because utt reads it back off this file.
@@ -70,6 +71,17 @@ let extensionTranscriptsGuide = #"""
           not know as "it did not run" rather than failing to decode the file.
 
         - `finishedAt` is ISO 8601 and `duration` is the seconds of audio behind it.
+        - `timings` is what each stretch of utt's own work took, in **milliseconds**,
+          keyed by the stage names above plus `decode` — the recogniser, which is
+          where most of the time goes and the one stretch that is not a stage,
+          having produced the words rather than changed them. It is a record
+          parallel to `stages`, not a subset of it: a stage that ran and left the
+          words alone still took time, and that is exactly the number somebody
+          chasing a slow transcription is looking for. Only stretches that actually
+          ran are in it, so a stage the sender skipped is absent rather than zero,
+          and a name you do not know is a stage added since — add it up, do not
+          match on it. The stretches do not sum to the wall clock: writing files,
+          reading the clip and waiting for a turn are outside them.
         - `app` is the app the text was pasted into. Absent means nothing received
           it: the paste failed, or utt could not name what was in front.
         - The **newest one only**. This is not a log — utt already keeps the
@@ -98,7 +110,8 @@ let extensionFilterGuide = #"""
              "text": "the words that were spoken",
              "raw": "um the words what were spoken",
              "stages": ["cleanup", "replacements"],
-             "cleanupSkipped": "timeout"
+             "cleanupSkipped": "timeout",
+             "timings": {"decode": 1802.5, "replacements": 0.4, "cleanup": 511.2}
            }
            ```
 
@@ -116,9 +129,13 @@ let extensionFilterGuide = #"""
            - `cleanupSkipped` is the same optional field, with the same six values:
              cleanup was on and did not run. Worth reading if your rewrite assumed
              a tidy sentence — it may be looking at "um, so, I was, I was going".
+           - `timings` is what the stretches *before* you took, in milliseconds,
+             read exactly as above. Yours is not in it — you are the stage being
+             timed, and utt adds your number to `filter` once you answer.
 
-           `text` and `raw` are always there; `stages` is always there and may be
-           empty; `cleanupSkipped` is absent unless there is a reason. `raw` is
+           `text` and `raw` are always there; `stages` and `timings` are always
+           there and may be empty; `cleanupSkipped` is absent unless there is a
+           reason. `raw` is
            context, not a transcript to hand back — returning it undoes what the
            person configured. `<name>` is a UUID, unique per transcript, and means
            nothing.

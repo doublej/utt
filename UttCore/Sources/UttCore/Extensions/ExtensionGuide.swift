@@ -225,27 +225,37 @@ private let extensionGuideTemplate = #"""
              "cleanupSkipped": "timeout",
              "startedAt": "2026-09-09T17:04:09Z",
              "finishedAt": "2026-09-09T17:04:11Z",
-             "duration": 3.4
+             "startedAtMs": 1789052649182,
+             "finishedAtMs": 1789052651511,
+             "duration": 3.4,
+             "timings": {"decode": 1802.5, "replacements": 0.4, "cleanup": 511.2, "hints": 0.1}
            }
            ```
 
            or, when it could not:
 
            ```json
-           {"error": "Could not transcribe that clip.",
-            "startedAt": "...", "finishedAt": "..."}
+           {"error": "Could not transcribe that clip.", "startedAt": "...",
+            "finishedAt": "...", "startedAtMs": 0, "finishedAtMs": 0}
            ```
 
            Exactly one of `text` and `error` is present, and the write is atomic.
-           `raw`, `stages`, `cleanupSkipped` and `duration` mean exactly what they
-           mean in `<id>.transcript.json` below, with one more stage name: `hints`,
-           for your own list correcting a near miss. `raw` is what the recogniser
-           heard, before your hints and before the person's stages. A file written by
-           a utt older than this one has none of these keys, nor `startedAt` — decode
-           them as optional. `startedAt` is when utt picked the clip up and
-           `finishedAt` is when it was done, both ISO 8601: the gap between your own
-           rename and `startedAt` is this watcher getting to you, and the gap between
-           the two stamps is the work.
+           `raw`, `stages`, `cleanupSkipped`, `duration` and `timings` mean exactly
+           what they mean in `<id>.transcript.json` below, with one more stage name:
+           `hints`, for your own list correcting a near miss. `raw` is what the
+           recogniser heard, before your hints and before the person's stages. A file
+           written by a utt older than this one has none of these keys, nor the
+           stamps below — decode them all as optional.
+
+           `startedAt` is when utt picked the clip up and `finishedAt` is when it was
+           done: the gap between your own rename and `startedAt` is this watcher
+           getting to you, and the gap between the two stamps is the work. The ISO
+           strings are **whole seconds**, which is too coarse to attribute a
+           three-second job, so both moments come again as `startedAtMs` and
+           `finishedAtMs`, milliseconds since the epoch. They are siblings rather
+           than a sharper `finishedAt` on purpose: a default `ISO8601DateFormatter`
+           refuses a string with fractional seconds, so making that field finer would
+           break every extension already parsing it.
         4. The audio is deleted either way, and so is the hints file. The answer
            file is yours — read it and delete it; utt never touches it again.
 
@@ -258,8 +268,9 @@ private let extensionGuideTemplate = #"""
         the user chose, then their own replacement rules, transcript cleanup and
         formatting — minus any stage you named in `skipsTextStages`, and after any
         filtering extension has had its turn — and the answer says which of those
-        stages changed the words, the same way `<id>.transcript.json` and the filter
-        lane below do. Transcription is on their Mac; nothing is sent anywhere.
+        stages changed the words and what each of them cost, the same way
+        `<id>.transcript.json` and the filter lane below do. Transcription is on
+        their Mac; nothing is sent anywhere.
 
         {{transcripts}}
 

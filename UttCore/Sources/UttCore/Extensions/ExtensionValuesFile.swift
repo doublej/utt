@@ -80,6 +80,9 @@ public struct ExtensionTranscript: Codable, Equatable, Sendable {
     public var finishedAt: String
     /// Seconds of audio behind it.
     public var duration: Double
+    /// How long each stretch of utt's own work took, in milliseconds. See
+    /// `ExtensionJobResult.timings` — the same record, the same names.
+    public var timings: [String: Double]?
     /// Where the text was pasted, when it was pasted anywhere. Absent means the
     /// paste failed or the transcript came from the API, so no app received it.
     public var app: String?
@@ -92,6 +95,7 @@ public struct ExtensionTranscript: Codable, Equatable, Sendable {
         cleanupSkipped: String? = nil,
         finishedAt: String,
         duration: Double,
+        timings: [String: Double]? = nil,
         app: String? = nil
     ) {
         self.sequence = sequence
@@ -101,6 +105,7 @@ public struct ExtensionTranscript: Codable, Equatable, Sendable {
         self.cleanupSkipped = cleanupSkipped
         self.finishedAt = finishedAt
         self.duration = duration
+        self.timings = timings
         self.app = app
     }
 }
@@ -132,6 +137,18 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
     public var finishedAt: String
     /// Seconds of audio behind it.
     public var duration: Double?
+    /// The same two moments as milliseconds since the epoch, because the ISO
+    /// strings are whole seconds and a three-second job cannot be measured with a
+    /// one-second quantum on each end. They are siblings rather than a finer
+    /// `finishedAt`: `ISO8601DateFormatter` at its defaults *fails* to parse a
+    /// string carrying fractional seconds, so sharpening the existing field would
+    /// break every extension already reading it.
+    public var startedAtMs: Int?
+    public var finishedAtMs: Int?
+    /// How long each stretch of utt's own work took, in milliseconds, keyed by
+    /// stage name and by `decode` for the recogniser. Not a subset of `stages`: a
+    /// stage that ran and left the words alone is timed all the same.
+    public var timings: [String: Double]?
 
     public init(
         text: String? = nil,
@@ -141,7 +158,10 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         cleanupSkipped: String? = nil,
         startedAt: String? = nil,
         finishedAt: String,
-        duration: Double? = nil
+        startedAtMs: Int? = nil,
+        finishedAtMs: Int? = nil,
+        duration: Double? = nil,
+        timings: [String: Double]? = nil
     ) {
         self.text = text
         self.error = error
@@ -150,7 +170,10 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         self.cleanupSkipped = cleanupSkipped
         self.startedAt = startedAt
         self.finishedAt = finishedAt
+        self.startedAtMs = startedAtMs
+        self.finishedAtMs = finishedAtMs
         self.duration = duration
+        self.timings = timings
     }
 
     /// Audio an extension may hand over. The extension is how AVFoundation picks its
@@ -172,12 +195,19 @@ public struct ExtensionFilterRequest: Codable, Equatable, Sendable {
     public var stages: [String]?
     /// Why the cleanup stage did not run, when it was on and did not.
     public var cleanupSkipped: String?
+    /// What the stretches before you took, in milliseconds. Yours is not in it
+    /// yet — you are the stage being timed.
+    public var timings: [String: Double]?
 
-    public init(text: String, raw: String? = nil, stages: [String]? = nil, cleanupSkipped: String? = nil) {
+    public init(
+        text: String, raw: String? = nil, stages: [String]? = nil,
+        cleanupSkipped: String? = nil, timings: [String: Double]? = nil
+    ) {
         self.text = text
         self.raw = raw
         self.stages = stages
         self.cleanupSkipped = cleanupSkipped
+        self.timings = timings
     }
 }
 

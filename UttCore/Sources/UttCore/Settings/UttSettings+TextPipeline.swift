@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 
 /// A stage of the text pipeline, so a caller can name one it does not want.
@@ -56,6 +57,20 @@ public enum TranscriptStage: String, Codable, Sendable, CaseIterable {
     /// The API caller's own `X-Utt-Hints` corrected a near miss. Only ever set on
     /// the API and jobs roads — a person dictating has no hints to send.
     case hints
+    /// The recogniser itself. Only ever a *timing*: it produced the words rather
+    /// than changing them, so it is never in `stages` — and it is where most of the
+    /// time goes, so it has to be in `timings`.
+    case decode
+}
+
+extension Duration {
+    /// Milliseconds, to the microsecond. A number rather than a formatted string:
+    /// a caller adding these up should not have to parse them first.
+    var milliseconds: Double {
+        let (seconds, attoseconds) = components
+        let value = Double(seconds) * 1000 + Double(attoseconds) / 1e15
+        return (value * 1000).rounded() / 1000
+    }
 }
 
 /// What was heard, what came out, and what happened in between.
@@ -76,17 +91,27 @@ public struct ProcessedTranscript: Equatable, Sendable {
     /// Set when cleanup was on and did not happen. Independent of `stages`: a
     /// skipped stage changed nothing by definition.
     public let cleanupSkipped: CleanupSkipReason?
+    /// How long each stretch took in milliseconds, keyed by stage name and by
+    /// `decode` for the recogniser.
+    ///
+    /// A record parallel to `stages`, never a subset of it: a stage that ran and
+    /// left the words alone took just as long, and that time is exactly what
+    /// somebody chasing a slow transcription came for. Only stretches that
+    /// actually ran are in it — a stage the caller skipped is absent, not zero.
+    public let timings: [String: Double]
 
     public init(
         raw: String,
         text: String,
         stages: Set<TranscriptStage> = [],
-        cleanupSkipped: CleanupSkipReason? = nil
+        cleanupSkipped: CleanupSkipReason? = nil,
+        timings: [String: Double] = [:]
     ) {
         self.raw = raw
         self.text = text
         self.stages = stages
         self.cleanupSkipped = cleanupSkipped
+        self.timings = timings
     }
 
     /// True when a stage rewrote the words. Deliberately not `raw != text`: the
@@ -100,20 +125,43 @@ public struct ProcessedTranscript: Equatable, Sendable {
 
     /// The same transcript after a stage outside the settings pipeline had its
     /// turn. `raw` never moves: it is what was heard, whoever changed it since.
-    public func applying(_ stage: TranscriptStage, text: String) -> Self {
+    ///
+    /// `took` is recorded whether or not the words moved — the two are separate
+    /// questions, and a filter that thought for two seconds and handed the text
+    /// back unchanged spent them.
+    public func applying(_ stage: TranscriptStage, text: String, took elapsed: Duration? = nil) -> Self {
         ProcessedTranscript(
             raw: raw,
             text: text,
             stages: text == self.text ? stages : stages.union([stage]),
-            cleanupSkipped: cleanupSkipped
+            cleanupSkipped: cleanupSkipped,
+            timings: Self.adding(elapsed, for: stage, to: timings)
         )
+    }
+
+    /// The same transcript with one more stretch measured. Adds to what that stage
+    /// already spent, so two filtering extensions are one `filter` number.
+    public func timed(_ stage: TranscriptStage, _ elapsed: Duration) -> Self {
+        ProcessedTranscript(
+            raw: raw, text: text, stages: stages, cleanupSkipped: cleanupSkipped,
+            timings: Self.adding(elapsed, for: stage, to: timings)
+        )
+    }
+
+    private static func adding(
+        _ elapsed: Duration?, for stage: TranscriptStage, to timings: [String: Double]
+    ) -> [String: Double] {
+        guard let elapsed else { return timings }
+        var next = timings
+        next[stage.rawValue, default: 0] += elapsed.milliseconds
+        return next
     }
 }
 
 /// The API's response body, and the shape every other reader was written against.
 /// `text` stays exactly what it was, so a client reading only that keeps working.
 extension ProcessedTranscript: Encodable {
-    enum CodingKeys: String, CodingKey { case text, raw, stages, cleanupSkipped }
+    enum CodingKeys: String, CodingKey { case text, raw, stages, cleanupSkipped, timings }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -121,6 +169,9 @@ extension ProcessedTranscript: Encodable {
         try container.encode(raw, forKey: .raw)
         try container.encode(stageNames, forKey: .stages)
         try container.encodeIfPresent(cleanupSkipped, forKey: .cleanupSkipped)
+        // Absent rather than empty when nothing was measured — a transcript built
+        // by hand, or by a road that does not time itself.
+        if !timings.isEmpty { try container.encode(timings, forKey: .timings) }
     }
 }
 
@@ -159,11 +210,27 @@ public extension UttSettings {
         skipping: Set<TextStage> = [],
         cleanup: TranscriptCleanup?
     ) async -> ProcessedTranscript {
-        var output = applyingReplacements(to: raw, skipping: skipping)
+        // A monotonic clock, injected: these are durations rather than moments, and
+        // a wall clock can jump backwards under one. `date.now` still stamps *when*
+        // a thing happened; this measures how long it took.
+        @Dependency(\.continuousClock) var clock
+        var timings: [String: Double] = [:]
+        var output = raw
+        let replacing = clock.measure {
+            output = applyingReplacements(to: raw, skipping: skipping)
+        }
+        if !skipping.contains(.replacements) {
+            timings[TranscriptStage.replacements.rawValue] = replacing.milliseconds
+        }
         var stages: Set<TranscriptStage> = output == raw ? [] : [.replacements]
         var skipped: CleanupSkipReason?
         if let cleanup, !skipping.contains(.cleanup), !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            switch await cleanup(output) {
+            // Timed around both outcomes: a cleanup that gave up on the deadline
+            // spent the deadline, and that is the stretch worth seeing.
+            var outcome: CleanupOutcome = .skipped(.unavailable)
+            let cleaning = await clock.measure { outcome = await cleanup(output) }
+            timings[TranscriptStage.cleanup.rawValue] = cleaning.milliseconds
+            switch outcome {
             case let .cleaned(cleaned):
                 if cleaned != output { stages.insert(.cleanup) }
                 output = cleaned
@@ -171,12 +238,20 @@ public extension UttSettings {
                 skipped = reason
             }
         }
-        let formatted = applyingFormatting(to: output, skipping: skipping)
+        var formatted = output
+        let formatting = clock.measure {
+            formatted = applyingFormatting(to: output, skipping: skipping)
+        }
+        if !skipping.contains(.formatting) {
+            timings[TranscriptStage.formatting.rawValue] = formatting.milliseconds
+        }
         // Compared against the trimmed text, because the trimming is part of that
         // call and is not a stage: leading whitespace is nobody's preference, and
         // reporting it as "your formatting changed this" would be noise.
         if formatted != output.trimmingCharacters(in: .whitespacesAndNewlines) { stages.insert(.formatting) }
-        return ProcessedTranscript(raw: raw, text: formatted, stages: stages, cleanupSkipped: skipped)
+        return ProcessedTranscript(
+            raw: raw, text: formatted, stages: stages, cleanupSkipped: skipped, timings: timings
+        )
     }
 
     private func applyingReplacements(to text: String, skipping: Set<TextStage>) -> String {

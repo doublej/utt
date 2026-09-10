@@ -37,7 +37,7 @@ struct ExtensionGuideTests {
         let written = try keys(of: ExtensionTranscript(
             sequence: 1, text: "typed", raw: "heard", stages: ["cleanup"],
             cleanupSkipped: "timeout", finishedAt: "2026-09-09T16:58:03Z",
-            duration: 3.4, app: "Ghostty"
+            duration: 3.4, timings: ["decode": 1802.5], app: "Ghostty"
         ))
         #expect(documented == written)
     }
@@ -48,7 +48,8 @@ struct ExtensionGuideTests {
         let written = try keys(of: ExtensionJobResult(
             text: "typed", raw: "heard", stages: ["cleanup"], cleanupSkipped: "timeout",
             startedAt: "2026-09-09T17:04:09Z", finishedAt: "2026-09-09T17:04:11Z",
-            duration: 3.4
+            startedAtMs: 1_789_052_649_182, finishedAtMs: 1_789_052_651_511,
+            duration: 3.4, timings: ["decode": 1802.5]
         ))
         #expect(documented == written)
     }
@@ -57,7 +58,8 @@ struct ExtensionGuideTests {
     func filterExampleMatches() throws {
         let documented = Set(try example(after: "`<name>.in.json`").keys)
         let written = try keys(of: ExtensionFilterRequest(
-            text: "typed", raw: "heard", stages: ["cleanup"], cleanupSkipped: "timeout"
+            text: "typed", raw: "heard", stages: ["cleanup"], cleanupSkipped: "timeout",
+            timings: ["decode": 1802.5]
         ))
         #expect(documented == written)
     }

@@ -201,6 +201,7 @@ enum ExtensionStore {
                 cleanupSkipped: transcript.cleanupSkipped?.rawValue,
                 finishedAt: finishedAt,
                 duration: duration,
+                timings: transcript.timings,
                 app: app
             )
             do {

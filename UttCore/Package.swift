@@ -22,7 +22,11 @@ let package = Package(
             name: "UttCoreTests",
             dependencies: [
                 "UttCore",
-                .product(name: "Dependencies", package: "swift-dependencies")
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                // The pipeline times itself on the injected clock, whose test value
+                // is unimplemented on purpose. A suite that does not care about
+                // durations says so with `.dependency(\.continuousClock, ...)`.
+                .product(name: "DependenciesTestSupport", package: "swift-dependencies")
             ]
         )
     ]
