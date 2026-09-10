@@ -84,7 +84,7 @@ enum ApiRoutes {
         let url = FileManager.default.temporaryDirectory.appending(path: name)
         defer { try? FileManager.default.removeItem(at: url) }
         do {
-            try request.body.write(to: url, options: .atomic)
+            try request.body.writePrivately(to: url)
             // The caller knew the vocabulary before it sent the clip. A header
             // rather than a field, because the body is the audio and wrapping it
             // in an envelope would cost every client a multipart encoder.

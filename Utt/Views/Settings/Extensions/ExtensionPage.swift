@@ -239,9 +239,15 @@ struct ExtensionPage: View {
     /// The token is a credential, and handing one to an extension is a thing the user
     /// should be able to see having happened — so the page says it plainly rather
     /// than leaving it to whoever reads the values file.
+    ///
+    /// It names the file rather than reassuring. "Only your account can read it" was
+    /// the wrong promise twice over: the account is not the boundary — utt is not
+    /// sandboxed and Application Support carries no TCC prompt, so anything the person
+    /// runs is already their account — and the mode that makes it true at all is one
+    /// utt now sets itself rather than inheriting. Where the file is, they can check.
     private var apiNote: String {
         settings.api.enabled
-            ? "utt put the token in this extension's own settings file. Only your account can read it."
+            ? "utt put the token in this extension's own settings file, in Application Support. Any program you run can read it, the same as this one."
             : "utt's API is off, so this extension has no token. Turn it on under Connect › API if the extension needs one."
     }
 }

@@ -13,7 +13,11 @@ public extension URL {
                 create: true
             )
             let directory = appSupport.appendingPathComponent(UttLog.subsystem, isDirectory: true)
-            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: FilePermissions.directoryAttributes
+            )
             return directory
         }
     }
@@ -47,7 +51,11 @@ public extension URL {
             if FileManager.default.fileExists(atPath: legacy.path), !FileManager.default.fileExists(atPath: directory.path) {
                 try FileManager.default.moveItem(at: legacy, to: directory)
             }
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: FilePermissions.directoryAttributes
+            )
             return directory
         }
     }
@@ -56,7 +64,11 @@ public extension URL {
     static var uttModelsDirectory: URL {
         get throws {
             let directory = try uttApplicationSupport.appendingPathComponent("models", isDirectory: true)
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: FilePermissions.directoryAttributes
+            )
             return directory
         }
     }
@@ -85,7 +97,11 @@ public extension URL {
         get throws {
             let directory = try uttApplicationSupport
                 .appendingPathComponent("recordings", isDirectory: true)
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: FilePermissions.directoryAttributes
+            )
             return directory
         }
     }

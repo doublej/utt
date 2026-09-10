@@ -144,10 +144,9 @@ enum ExtensionStore {
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            // `.atomic` is write-to-temp-then-rename. An extension polling this file
-            // must never be able to read a half-written one — its failure mode is
-            // acting on a setting that was never chosen.
-            try encoder.encode(next).write(to: url, options: .atomic)
+            // Owner-only: this is where the API token lands for an extension that
+            // asked for one. See `FilePermissions`.
+            try encoder.encode(next).writePrivately(to: url)
         } catch {
             log.error("could not write values for \(id, privacy: .public): \(error.localizedDescription)")
         }
@@ -169,7 +168,7 @@ enum ExtensionStore {
             requestedAt: ISO8601DateFormatter().string(from: Date())
         )
         do {
-            try JSONEncoder().encode(next).write(to: url, options: .atomic)
+            try JSONEncoder().encode(next).writePrivately(to: url)
         } catch {
             log.error("could not request \(key, privacy: .public): \(error.localizedDescription)")
         }
@@ -198,7 +197,7 @@ enum ExtensionStore {
             do {
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                try encoder.encode(next).write(to: url, options: .atomic)
+                try encoder.encode(next).writePrivately(to: url)
             } catch {
                 log.error("could not deliver to \(installed.id, privacy: .public): \(error.localizedDescription)")
             }

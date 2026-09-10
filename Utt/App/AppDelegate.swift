@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // LSUIElement — see the note there — so utt starts as a regular app and
         // drops to accessory here when the user has hidden the Dock icon.
         NSApp.setActivationPolicy(settings.showDockIcon ? .regular : .accessory)
+        // Files an earlier version wrote are 0644, and so is settings.json, which
+        // @Shared(.fileStorage) writes without going through writePrivately.
+        FilePermissions.restrictExisting()
         clearOrphanedRecordings()
         // Before the quiet-launch sweep, which only closes windows that can become
         // main — a borderless panel cannot, so the overlay survives it.

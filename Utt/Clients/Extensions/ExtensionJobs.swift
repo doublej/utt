@@ -180,7 +180,7 @@ actor ExtensionJobs {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             // Atomic, so an extension polling for this file never reads a partial one.
-            try encoder.encode(result).write(to: url, options: .atomic)
+            try encoder.encode(result).writePrivately(to: url)
         } catch {
             log.error("could not answer \(audio.lastPathComponent, privacy: .public): \(error.localizedDescription)")
         }

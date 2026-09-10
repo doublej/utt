@@ -78,7 +78,7 @@ actor ExtensionFilters {
         }
         do {
             // Atomic, so the extension never picks up half a question.
-            try JSONEncoder().encode(ExtensionFilterRequest(text: text)).write(to: question, options: .atomic)
+            try JSONEncoder().encode(ExtensionFilterRequest(text: text)).writePrivately(to: question)
         } catch {
             log.error("could not ask \(id, privacy: .public): \(error.localizedDescription)")
             return text

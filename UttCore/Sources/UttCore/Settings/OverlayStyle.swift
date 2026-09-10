@@ -94,7 +94,7 @@ public struct OverlayStyle: Equatable, Codable, Sendable {
     public func write(to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(self).write(to: url, options: .atomic)
+        try encoder.encode(self).writePrivately(to: url)
     }
 }
 

@@ -210,7 +210,7 @@ private extension SettingsFeature {
     /// means Raycast shows a stale list.
     func export(_ devices: [AudioDevice]) {
         do {
-            try JSONEncoder().encode(devices).write(to: URL.uttDevicesFile, options: .atomic)
+            try JSONEncoder().encode(devices).writePrivately(to: URL.uttDevicesFile)
         } catch {
             log.debug("could not export device list: \(error.localizedDescription)")
         }
