@@ -42,6 +42,7 @@ struct ExtensionSettingsTests {
                 deliver: { _, _, _ in },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
+                setPriority: { _, _ in },
                 remove: { _ in }
             )
         }
@@ -85,6 +86,15 @@ struct ExtensionSettingsTests {
         await store.send(.extensionValueChanged("deckhand", key: "route", value: .string("carrier-pigeon")))
         await store.send(.extensionValueChanged("nobody", key: "deliver", value: .bool(false)))
         #expect(writes.recorded.isEmpty)
+    }
+
+    /// The person moving a band is a write like any other, and the guard against
+    /// the setter firing as the view settles has to hold here too.
+    @Test("choosing the band it already has writes nothing")
+    func ignoresUnchangedPriority() async {
+        let writes = Writes()
+        let store = makeStore(writes)
+        await store.send(.extensionPriorityChanged("deckhand", .normal))
     }
 
     /// The values file is the person's own choices, and for an extension that asked
@@ -147,6 +157,7 @@ struct ExtensionTranscriptTests {
                 },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
+                setPriority: { _, _ in },
                 remove: { _ in }
             )
             $0.pasteboard.frontmostApp = { AppIdentity(bundleID: "com.mitchellh.ghostty", name: "Ghostty") }

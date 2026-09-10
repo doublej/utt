@@ -55,7 +55,7 @@ struct ExtensionGuideTests {
     func consentExampleMatches() throws {
         let documented = Set(try example(after: "`<id>.consent.json`").keys)
         let written = try keys(of: ExtensionConsentFile(
-            decision: .approved, decidedAt: "2026-09-10T14:22:07Z"
+            decision: .approved, decidedAt: "2026-09-10T14:22:07Z", priority: .normal
         ))
         #expect(documented == written)
     }
@@ -67,6 +67,15 @@ struct ExtensionGuideTests {
     func namesEveryDecision() {
         for decision in [ExtensionConsent.approved, .disabled] {
             #expect(guide.contains("`\"\(decision.rawValue)\"`"), "\(decision.rawValue)")
+        }
+    }
+
+    /// A band the guide does not name is one an author reads out of the file and
+    /// cannot explain to whoever asks why their clip waited.
+    @Test("every queue band is named as it is written")
+    func namesEveryBand() {
+        for band in ExtensionPriority.allCases {
+            #expect(guide.contains("`\"\(band.rawValue)\"`"), "\(band.rawValue)")
         }
     }
 

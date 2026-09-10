@@ -112,6 +112,20 @@ struct ExtensionPage: View {
                 .controlSize(.small)
                 .tint(Palette.accent)
             }
+            // Only for an extension that sends clips. On one that does not there is
+            // no queue for it to have a place in, and the row would be a control
+            // that changes nothing.
+            if installed.manifest.sendsAudio {
+                SettingRow("Its clips are transcribed", detail: priorityNote) {
+                    Picker("Its clips are transcribed", selection: Binding(
+                        get: { installed.priority },
+                        set: { store.send(.settings(.extensionPriorityChanged(installed.id, $0))) }
+                    )) {
+                        ForEach(ExtensionPriority.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                }
+            }
             SettingRow(
                 "Remove from utt",
                 detail: "Moves the files utt keeps for \(installed.manifest.name) to the Trash: this page, its settings and its status. The program itself is not touched, and one that is still running may add itself back."
@@ -215,6 +229,15 @@ struct ExtensionPage: View {
     /// sandboxed and Application Support carries no TCC prompt, so anything the person
     /// runs is already their account — and the mode that makes it true at all is one
     /// utt now sets itself rather than inheriting. Where the file is, they can check.
+    /// Says what the choice does and, in the same breath, what it does not: the
+    /// first thing anyone wonders about a queue is whether jumping it stops what is
+    /// already running.
+    private var priorityNote: String {
+        "Where \(installed.manifest.name)'s clips go when more than one extension is "
+            + "waiting. Whatever utt is transcribing right now finishes either way — "
+            + "this decides what goes next, never what gets interrupted."
+    }
+
     /// A warning rather than an aside when the extension asked for a token the API
     /// is not currently minting: it is the one claim on the list that utt is not
     /// honouring, and the row has to say so rather than read as satisfied.

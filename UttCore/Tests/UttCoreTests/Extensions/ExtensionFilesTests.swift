@@ -38,13 +38,40 @@ struct ExtensionConsentTests {
     @Test("a decision utt wrote is read back as it was written")
     func roundTrips() throws {
         for decision in [ExtensionConsent.approved, .disabled] {
-            let data = try JSONEncoder().encode(
-                ExtensionConsentFile(decision: decision, decidedAt: "2026-09-10T14:22:07Z")
-            )
+            let data = try JSONEncoder().encode(ExtensionConsentFile(
+                decision: decision, decidedAt: "2026-09-10T14:22:07Z", priority: .last
+            ))
             let read = try JSONDecoder().decode(ExtensionConsentFile.self, from: data)
             #expect(read.decision == decision)
             #expect(read.decidedAt == "2026-09-10T14:22:07Z")
+            #expect(read.priority == .last)
         }
+    }
+
+    /// The two keys share a file, so neither may take the other down with it.
+    @Test("an unreadable priority leaves the decision standing, and the other way round")
+    func keysDecodeIndependently() throws {
+        let file = try JSONDecoder().decode(
+            ExtensionConsentFile.self,
+            from: Data(#"{"decision": "approved", "priority": "urgent"}"#.utf8)
+        )
+        #expect(file.decision == .approved)
+        #expect(file.priority == .normal)
+        let other = try JSONDecoder().decode(
+            ExtensionConsentFile.self,
+            from: Data(#"{"decision": 7, "priority": "next"}"#.utf8)
+        )
+        #expect(other.decision == .pending)
+        #expect(other.priority == .next)
+    }
+
+    /// The order the queue is taken in. `next` before `normal` before `last`, and
+    /// the numbers themselves are nobody's business but the sort's.
+    @Test("the bands rank in the order the person reads them in")
+    func ranksInOrder() {
+        #expect(ExtensionPriority.next.rank < ExtensionPriority.normal.rank)
+        #expect(ExtensionPriority.normal.rank < ExtensionPriority.last.rank)
+        #expect(Set(ExtensionPriority.allCases.map(\.rank)).count == ExtensionPriority.allCases.count)
     }
 
     /// Every one of these is a record nobody made: a truncated write, a hand-edit,

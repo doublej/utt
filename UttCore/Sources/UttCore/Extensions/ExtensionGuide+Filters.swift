@@ -206,7 +206,7 @@ let extensionTextStagesGuide = #"""
         utt writes one file per extension, and it is the whole state:
 
         ```json
-        {"decision": "approved", "decidedAt": "2026-09-10T14:22:07Z"}
+        {"decision": "approved", "decidedAt": "2026-09-10T14:22:07Z", "priority": "normal"}
         ```
 
         - **No file at all** — you are waiting. Your page shows the person your
@@ -216,6 +216,12 @@ let extensionTextStagesGuide = #"""
         - `"approved"` — everything you declared is acted on.
         - `"disabled"` — they approved you once and have since switched you off from
           your page. Same effect as waiting, and the file says which.
+
+        `priority` is where the person put your clips in the queue when several
+        extensions are waiting: `"next"` ahead of everything, `"normal"` oldest
+        first, `"last"` behind everything else. It is theirs to set on your page,
+        it never interrupts a clip already being transcribed, and the only thing it
+        changes for you is how long an answer may take.
 
         Read it if you like; never write it. utt rewrites the file from the person's
         own answer, so one you put there is overwritten rather than obeyed — and an

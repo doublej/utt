@@ -18,6 +18,10 @@ struct InstalledExtension: Equatable, Sendable, Identifiable {
     /// What the person has said about it, kept in `<id>.consent.json` beside the
     /// manifest. No record means they have not been asked yet.
     var consent: ExtensionConsent = .pending
+    /// Where its clips go when several extensions are waiting. Kept beside the
+    /// consent record for the same reason it is: a fact about this one extension
+    /// that has to outlive a settings reset.
+    var priority: ExtensionPriority = .normal
 
     var id: String { manifest.id }
     /// The one question every lane asks. Pending answers it the same way off does —
@@ -47,6 +51,8 @@ struct ExtensionClient: Sendable {
     /// Records the person's answer: approving one they have not ruled on yet, and
     /// switching an approved one off or back on. Nothing it wrote is touched.
     var setEnabled: @Sendable (_ extensionID: String, _ enabled: Bool) -> Void
+    /// Moves the extension in the queue its clips wait in.
+    var setPriority: @Sendable (_ extensionID: String, _ priority: ExtensionPriority) -> Void
     /// Moves everything utt keeps for the extension to the Trash.
     var remove: @Sendable (_ extensionID: String) -> Void
 }
@@ -60,6 +66,7 @@ extension ExtensionClient: DependencyKey {
         },
         request: { id, key in ExtensionStore.request(id, action: key) },
         setEnabled: { id, enabled in ExtensionStore.setEnabled(id, enabled) },
+        setPriority: { id, priority in ExtensionStore.prioritise(id, priority) },
         remove: { id in ExtensionStore.remove(id) }
     )
 }
@@ -250,11 +257,13 @@ enum ExtensionStore {
         // here is the only way its author finds out.
         refused(manifest.actions.map(\.key), kept: clean.actions.map(\.key), of: clean.id, kind: "action")
         refused(manifest.settings.map(\.key), kept: clean.settings.map(\.key), of: clean.id, kind: "setting")
+        let decided = record(clean.id)
         return InstalledExtension(
             manifest: clean,
             values: valuesFile(clean.id).values,
             status: status(clean.id),
-            consent: consent(clean.id)
+            consent: decided?.decision ?? .pending,
+            priority: decided?.priority ?? .normal
         )
     }
 

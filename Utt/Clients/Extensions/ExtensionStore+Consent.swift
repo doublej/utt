@@ -14,27 +14,50 @@ private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.co
 /// So the file still arrives on its own, and one step is added where the person
 /// says yes. Nothing else about installing changes.
 extension ExtensionStore {
+    /// Everything the person decided about this extension, or nil when they have
+    /// not been asked yet. One read: `load()` wants both fields and runs three
+    /// times a second.
+    static func record(_ id: String) -> ExtensionConsentFile? {
+        guard let url = consentFile(id),
+              let data = try? Data(contentsOf: url)
+        else { return nil }
+        return try? JSONDecoder().decode(ExtensionConsentFile.self, from: data)
+    }
+
     /// What the person has said about this extension. No record means they have
     /// not been asked yet.
     static func consent(_ id: String) -> ExtensionConsent {
-        guard let url = consentFile(id),
-              let data = try? Data(contentsOf: url),
-              let file = try? JSONDecoder().decode(ExtensionConsentFile.self, from: data)
-        else { return .pending }
-        return file.decision
+        record(id)?.decision ?? .pending
     }
 
     /// Records the person's answer. The only thing that ever writes one.
     static func decide(_ id: String, _ decision: ExtensionConsent) {
-        guard let url = consentFile(id) else { return }
         guard decision != .pending else {
-            try? FileManager.default.removeItem(at: url)
+            if let url = consentFile(id) { try? FileManager.default.removeItem(at: url) }
             return
         }
-        let file = ExtensionConsentFile(
+        write(id, ExtensionConsentFile(
             decision: decision,
-            decidedAt: ISO8601DateFormatter().string(from: Date())
-        )
+            decidedAt: ISO8601DateFormatter().string(from: Date()),
+            // Where they last put it in the queue, kept: approving something, or
+            // switching it off and on again, is not them changing their mind about
+            // where its clips go.
+            priority: record(id)?.priority ?? .normal
+        ))
+    }
+
+    /// Moves the extension in the queue, leaving the decision it sits beside alone.
+    /// Only meaningful for one that sends audio; harmless on any other.
+    static func prioritise(_ id: String, _ priority: ExtensionPriority) {
+        // Nothing to move until they have ruled on it: a pending extension has no
+        // clips being picked up, and writing a record here would read as consent.
+        guard var file = record(id), file.decision != .pending else { return }
+        file.priority = priority
+        write(id, file)
+    }
+
+    private static func write(_ id: String, _ file: ExtensionConsentFile) {
+        guard let url = consentFile(id) else { return }
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
