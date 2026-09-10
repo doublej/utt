@@ -11,6 +11,14 @@ let package = Package(
         .executableTarget(
             name: "asrspike",
             dependencies: [.product(name: "FluidAudio", package: "FluidAudio")]
+        ),
+        .executableTarget(
+            name: "playto",
+            dependencies: []
+        ),
+        .executableTarget(
+            name: "streamspike",
+            dependencies: [.product(name: "FluidAudio", package: "FluidAudio")]
         )
     ]
 )
