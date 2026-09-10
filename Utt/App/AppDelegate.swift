@@ -111,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard url.scheme == "utt", url.host() == "show" else { return false }
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "section" }?.value ?? ""
-        guard let section = AppSection.named(query, plugins: UttApp.store.settings.plugins.map(\.manifest)) else {
+        guard let section = AppSection.named(query, extensions: UttApp.store.settings.extensions.map(\.manifest)) else {
             log.notice("no section named \(query, privacy: .public)")
             return true
         }

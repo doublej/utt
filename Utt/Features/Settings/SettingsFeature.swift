@@ -13,11 +13,11 @@ struct SettingsFeature {
     @ObservableState
     struct State: Equatable {
         var inputDevices: [AudioDevice] = []
-        var plugins: [InstalledPlugin] = []
-        /// What launchd says about each plugin's daemon, keyed by plugin id. Read
-        /// live rather than taken from the plugin's own status file — a daemon that
+        var extensions: [InstalledExtension] = []
+        /// What launchd says about each extension's daemon, keyed by extension id. Read
+        /// live rather than taken from the extension's own status file — a daemon that
         /// crashed leaves its last cheerful status behind.
-        var daemonStates: [String: PluginDaemonState] = [:]
+        var daemonStates: [String: ExtensionDaemonState] = [:]
         var defaultInputName: String?
         /// Set while the hotkey recorder is capturing the next chord.
         var isRecordingHotkey = false
@@ -27,13 +27,13 @@ struct SettingsFeature {
         case binding(BindingAction<State>)
         case task
         case devicesLoaded([AudioDevice], defaultName: String?)
-        case pluginsLoaded([InstalledPlugin])
-        case pluginValueChanged(String, key: String, value: PluginValue)
-        case pluginActionTapped(String, key: String)
-        case pluginDaemonRestartTapped(String)
-        case pluginEnabledChanged(String, Bool)
-        case pluginRemoveTapped(String)
-        case pluginDaemonStateLoaded(String, PluginDaemonState)
+        case extensionsLoaded([InstalledExtension])
+        case extensionValueChanged(String, key: String, value: ExtensionValue)
+        case extensionActionTapped(String, key: String)
+        case extensionDaemonRestartTapped(String)
+        case extensionEnabledChanged(String, Bool)
+        case extensionRemoveTapped(String)
+        case extensionDaemonStateLoaded(String, ExtensionDaemonState)
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
@@ -43,12 +43,12 @@ struct SettingsFeature {
         case resetToDefaultsTapped
     }
 
-    private enum CancelID { case deviceWatch, pluginWatch }
+    private enum CancelID { case deviceWatch, extensionWatch }
 
     @Dependency(\.audioDevices) var audioDevices
     @Dependency(\.menuTracking) var menuTracking
-    @Dependency(\.plugins) var plugins
-    @Dependency(\.pluginDaemon) var pluginDaemon
+    @Dependency(\.extensions) var extensions
+    @Dependency(\.extensionDaemon) var extensionDaemon
     @Dependency(\.continuousClock) var clock
     @Shared(.uttSettings) var settings
 
@@ -57,39 +57,39 @@ struct SettingsFeature {
         Reduce { state, action in
             switch action {
             case .binding: return normalize()
-            case .task: return .merge(watchDevices(), watchPlugins())
+            case .task: return .merge(watchDevices(), watchExtensions())
             case let .devicesLoaded(devices, name):
                 state.inputDevices = devices
                 state.defaultInputName = name
                 return remember(from: devices)
-            case let .pluginsLoaded(installed):
-                state.plugins = installed
+            case let .extensionsLoaded(installed):
+                state.extensions = installed
                 return .none
-            case let .pluginValueChanged(id, key, value):
-                return change(plugin: id, key: key, to: value, in: &state)
-            case let .pluginActionTapped(id, key):
-                return .run { _ in plugins.request(id, key) }
-            case let .pluginEnabledChanged(id, enabled):
+            case let .extensionValueChanged(id, key, value):
+                return change(extension: id, key: key, to: value, in: &state)
+            case let .extensionActionTapped(id, key):
+                return .run { _ in extensions.request(id, key) }
+            case let .extensionEnabledChanged(id, enabled):
                 // Reloaded at once rather than at the next poll, so the switch
                 // reads as having done something.
-                guard state.plugins.first(where: { $0.id == id })?.enabled != enabled else { return .none }
+                guard state.extensions.first(where: { $0.id == id })?.enabled != enabled else { return .none }
                 return .run { send in
-                    plugins.setEnabled(id, enabled)
-                    await send(.pluginsLoaded(plugins.installed()))
+                    extensions.setEnabled(id, enabled)
+                    await send(.extensionsLoaded(extensions.installed()))
                 }
-            case let .pluginRemoveTapped(id):
+            case let .extensionRemoveTapped(id):
                 return .run { send in
-                    plugins.remove(id)
-                    await send(.pluginsLoaded(plugins.installed()))
+                    extensions.remove(id)
+                    await send(.extensionsLoaded(extensions.installed()))
                 }
-            case let .pluginDaemonRestartTapped(id):
-                guard let label = state.plugins.first(where: { $0.id == id })?.manifest.daemon?.label
+            case let .extensionDaemonRestartTapped(id):
+                guard let label = state.extensions.first(where: { $0.id == id })?.manifest.daemon?.label
                 else { return .none }
                 return .run { send in
-                    await pluginDaemon.restart(label)
-                    await send(.pluginDaemonStateLoaded(id, pluginDaemon.state(label)))
+                    await extensionDaemon.restart(label)
+                    await send(.extensionDaemonStateLoaded(id, extensionDaemon.state(label)))
                 }
-            case let .pluginDaemonStateLoaded(id, daemonState):
+            case let .extensionDaemonStateLoaded(id, daemonState):
                 state.daemonStates[id] = daemonState
                 return .none
             case let .hotkeyCaptured(hotkey):
@@ -133,75 +133,75 @@ private extension SettingsFeature {
         .cancellable(id: CancelID.deviceWatch, cancelInFlight: true)
     }
 
-    /// Plugins are files another process writes, so they appear and change without
-    /// telling utt. The same 3 s cadence as the devices — a plugin installed while
+    /// Extensions are files another process writes, so they appear and change without
+    /// telling utt. The same 3 s cadence as the devices — an extension installed while
     /// the window is open shows up within one poll, and nothing needs FSEvents for
     /// a directory this small.
     ///
-    /// Each poll also reconciles every values file: a plugin that has just been
+    /// Each poll also reconciles every values file: an extension that has just been
     /// installed gets one written from its own defaults, and one that declared
     /// `needsApi` picks up a token that was minted after it was installed.
-    func watchPlugins() -> Effect<Action> {
+    func watchExtensions() -> Effect<Action> {
         .run { send in
             while !Task.isCancelled {
-                let installed = plugins.installed()
-                for plugin in installed {
-                    PluginStore.reconcile(plugin, api: apiAccess)
+                let installed = extensions.installed()
+                for item in installed {
+                    ExtensionStore.reconcile(item, api: apiAccess)
                 }
-                // A plugin that is working rewrites its status file as it goes, and
+                // An extension that is working rewrites its status file as it goes, and
                 // utt's menu is built from that. SwiftUI rebuilds a `MenuBarExtra`
                 // whenever the state behind it changes, and a rebuild under an open
                 // menu closes the menu — so a poll that lands while one is open is
                 // dropped and the next one three seconds later carries it. Files are
                 // still reconciled: that is a write nobody is reading.
                 if !menuTracking.isOpen() {
-                    await send(.pluginsLoaded(installed))
-                    for plugin in installed {
-                        guard let label = plugin.manifest.daemon?.label else { continue }
-                        await send(.pluginDaemonStateLoaded(plugin.id, pluginDaemon.state(label)))
+                    await send(.extensionsLoaded(installed))
+                    for item in installed {
+                        guard let label = item.manifest.daemon?.label else { continue }
+                        await send(.extensionDaemonStateLoaded(item.id, extensionDaemon.state(label)))
                     }
                 }
                 try await clock.sleep(for: .seconds(3))
             }
         }
-        .cancellable(id: CancelID.pluginWatch, cancelInFlight: true)
+        .cancellable(id: CancelID.extensionWatch, cancelInFlight: true)
     }
 
-    /// What a plugin that asked for API access is given — nil while the API is off
-    /// or has no token, so a plugin never holds a credential for a listener that
+    /// What an extension that asked for API access is given — nil while the API is off
+    /// or has no token, so an extension never holds a credential for a listener that
     /// is not running.
-    var apiAccess: PluginApiAccess? {
+    var apiAccess: ExtensionApiAccess? {
         guard settings.api.enabled, !settings.api.token.isEmpty else { return nil }
-        return PluginApiAccess(token: settings.api.token, port: settings.api.port)
+        return ExtensionApiAccess(token: settings.api.token, port: settings.api.port)
     }
 
-    /// Writes the plugin's values file immediately rather than at the next poll:
+    /// Writes the extension's values file immediately rather than at the next poll:
     /// something is watching that file, and a three-second lag between flicking a
-    /// switch and the plugin obeying it reads as a broken switch.
+    /// switch and the extension obeying it reads as a broken switch.
     func change(
-        plugin id: String, key: String, to value: PluginValue, in state: inout State
+        extension id: String, key: String, to value: ExtensionValue, in state: inout State
     ) -> Effect<Action> {
-        guard let index = state.plugins.firstIndex(where: { $0.id == id }),
-              let setting = state.plugins[index].settings.first(where: { $0.key == key }),
+        guard let index = state.extensions.firstIndex(where: { $0.id == id }),
+              let setting = state.extensions[index].settings.first(where: { $0.key == key }),
               setting.accepts(value),
               // SwiftUI calls a binding's setter as the view settles, not only when
               // a person moves the control. Writing on those would advance the
-              // revision every time the page is looked at, and a plugin watching
+              // revision every time the page is looked at, and an extension watching
               // that number would act on a change nobody made.
               setting.value != value
         else { return .none }
 
-        var values = state.plugins[index].settings
-            .reduce(into: [String: PluginValue]()) { $0[$1.key] = $1.value }
+        var values = state.extensions[index].settings
+            .reduce(into: [String: ExtensionValue]()) { $0[$1.key] = $1.value }
         values[key] = value
-        state.plugins[index] = InstalledPlugin(
-            manifest: state.plugins[index].manifest,
+        state.extensions[index] = InstalledExtension(
+            manifest: state.extensions[index].manifest,
             values: values,
-            status: state.plugins[index].status,
-            enabled: state.plugins[index].enabled
+            status: state.extensions[index].status,
+            enabled: state.extensions[index].enabled
         )
-        let api = state.plugins[index].manifest.needsApi ? apiAccess : nil
-        return .run { [values] _ in plugins.write(id, values, api) }
+        let api = state.extensions[index].manifest.needsApi ? apiAccess : nil
+        return .run { [values] _ in extensions.write(id, values, api) }
     }
 
     /// Publishes the device list where processes that are not CoreAudio clients can

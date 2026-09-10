@@ -3,7 +3,7 @@ import Foundation
 /// The guide's overflow sections. Here rather than inline for one reason: the
 /// guide is one long string and the size rule is per file — and a seventh file in
 /// this directory would break the other rule.
-let pluginFilterGuide = #"""
+let extensionFilterGuide = #"""
         ## Rewriting transcripts before they land: `filtersTranscripts` and `<id>.filter/`
 
         Set `"filtersTranscripts": true` and utt shows you every transcript before
@@ -37,9 +37,9 @@ let pluginFilterGuide = #"""
         model, have it loaded before the first question arrives. Nothing is
         retried and nothing is queued: a missed question is gone.
 
-        Plugins that filter run one after another in id order; the second sees
+        Extensions that filter run one after another in id order; the second sees
         what the first made of the text. Every transcript passes through here —
-        the hotkey, the API, and clips other plugins sent — so a filter that is
+        the hotkey, the API, and clips other extensions sent — so a filter that is
         only meant for one of them has to decide that itself, from the text.
 
         This hands you everything dictated on that Mac, the same as
@@ -48,7 +48,7 @@ let pluginFilterGuide = #"""
         """#
 
 /// The section of the guide about opting out of the user's text pipeline.
-let pluginTextStagesGuide = #"""
+let extensionTextStagesGuide = #"""
         ### Skipping the user's text rules
 
         The text utt hands back has been through the user's own pipeline: their
@@ -69,7 +69,7 @@ let pluginTextStagesGuide = #"""
         against a later version still loads.
 
         This never touches what the person dictates, and it is shown on your page
-        under Access — a user editing a rule can see why your plugin ignores it.
+        under Access — a user editing a rule can see why your extension ignores it.
         Ask for it because your clips genuinely want raw text, not to save yourself
         undoing utt's work afterwards.
 

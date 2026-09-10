@@ -4,10 +4,10 @@ import Foundation
 import UttCore
 import os
 
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "plugins.daemon")
+private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.daemon")
 
-/// What launchd says about a plugin's daemon.
-enum PluginDaemonState: Equatable, Sendable {
+/// What launchd says about an extension's daemon.
+enum ExtensionDaemonState: Equatable, Sendable {
     /// Loaded and running, with the pid launchd reports.
     case running(pid: Int)
     /// launchd knows the job but nothing is running — it exited, or crashed.
@@ -26,37 +26,37 @@ enum PluginDaemonState: Equatable, Sendable {
     }
 }
 
-/// Reports on a plugin's launchd job, and restarts it.
+/// Reports on an extension's launchd job, and restarts it.
 ///
 /// Deliberately narrow. utt asks launchd about a label and can kick that label;
 /// it will not bootstrap, unload, or run anything a manifest names, because a
 /// manifest is a file any process on this Mac can write.
 @DependencyClient
-struct PluginDaemonClient: Sendable {
-    var state: @Sendable (_ label: String) async -> PluginDaemonState = { _ in .unknown }
+struct ExtensionDaemonClient: Sendable {
+    var state: @Sendable (_ label: String) async -> ExtensionDaemonState = { _ in .unknown }
     /// `launchctl kickstart -k` — starts it if it is down, restarts it if it is up.
     /// The one lifecycle verb that needs no plist and cannot leave the job in a
     /// state utt has no way back out of.
     var restart: @Sendable (_ label: String) async -> Void
 }
 
-extension PluginDaemonClient: DependencyKey {
-    static let liveValue = PluginDaemonClient(
+extension ExtensionDaemonClient: DependencyKey {
+    static let liveValue = ExtensionDaemonClient(
         state: { label in await Launchctl.state(of: label) },
         restart: { label in await Launchctl.restart(label) }
     )
 }
 
 extension DependencyValues {
-    var pluginDaemon: PluginDaemonClient {
-        get { self[PluginDaemonClient.self] }
-        set { self[PluginDaemonClient.self] = newValue }
+    var extensionDaemon: ExtensionDaemonClient {
+        get { self[ExtensionDaemonClient.self] }
+        set { self[ExtensionDaemonClient.self] = newValue }
     }
 }
 
 private enum Launchctl {
-    static func state(of label: String) async -> PluginDaemonState {
-        guard PluginDaemon(label: label).isUsable else { return .unknown }
+    static func state(of label: String) async -> ExtensionDaemonState {
+        guard ExtensionDaemon(label: label).isUsable else { return .unknown }
         guard let output = await run(["list", label]) else { return .unknown }
         // `launchctl list <label>` prints a plist-ish dictionary. A job that is
         // loaded but not running has "PID" absent entirely rather than zero.
@@ -68,7 +68,7 @@ private enum Launchctl {
     }
 
     static func restart(_ label: String) async {
-        guard PluginDaemon(label: label).isUsable else { return }
+        guard ExtensionDaemon(label: label).isUsable else { return }
         // The user's own GUI domain, never the system's.
         _ = await run(["kickstart", "-k", "gui/\(getuid())/\(label)"])
     }

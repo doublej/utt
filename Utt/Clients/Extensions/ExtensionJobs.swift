@@ -4,38 +4,38 @@ import Foundation
 import UttCore
 import os
 
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "plugins.jobs")
+private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.jobs")
 
-/// The direct lane: a plugin drops an audio file in its own jobs directory and utt
+/// The direct lane: an extension drops an audio file in its own jobs directory and utt
 /// writes the text back beside it.
 ///
 /// The same transcription the hotkey and the API use — the engine and model the
 /// settings name, then the user's own replacement and formatting rules — reached
-/// without a listener, a token, or anything on the network. A plugin on this Mac
+/// without a listener, a token, or anything on the network. An extension on this Mac
 /// has no business opening a socket to a program it can already write a file to.
 @DependencyClient
-struct PluginJobsClient: Sendable {
+struct ExtensionJobsClient: Sendable {
     /// Starts watching, or restarts with a new transcriber when the engine or
     /// model changes. Idempotent, like `ApiServerClient.apply`.
-    var apply: @Sendable (_ transcribe: @escaping PluginJobs.Transcriber) async -> Void
-    /// Which plugin's clip is being transcribed right now, and nil between them.
-    /// The menu bar lights in that plugin's own colour, so a clip arriving from a
+    var apply: @Sendable (_ transcribe: @escaping ExtensionJobs.Transcriber) async -> Void
+    /// Which extension's clip is being transcribed right now, and nil between them.
+    /// The menu bar lights in that extension's own colour, so a clip arriving from a
     /// phone is visibly not something typed at this Mac.
-    var activity: @Sendable () -> AsyncStream<PluginActivity?> = { .finished }
+    var activity: @Sendable () -> AsyncStream<ExtensionActivity?> = { .finished }
 }
 
-/// A plugin's clip, in flight.
-struct PluginActivity: Equatable, Sendable {
-    let pluginID: String
+/// An extension's clip, in flight.
+struct ExtensionActivity: Equatable, Sendable {
+    let extensionID: String
     let name: String
-    /// The plugin's declared colour, already parsed. Nil falls back to utt's own.
-    let rgb: PluginRGB?
+    /// The extension's declared colour, already parsed. Nil falls back to utt's own.
+    let rgb: ExtensionRGB?
 }
 
-extension PluginJobsClient: DependencyKey {
-    static let liveValue: PluginJobsClient = {
-        let runner = PluginJobs()
-        return PluginJobsClient(
+extension ExtensionJobsClient: DependencyKey {
+    static let liveValue: ExtensionJobsClient = {
+        let runner = ExtensionJobs()
+        return ExtensionJobsClient(
             apply: { transcribe in await runner.apply(transcribe) },
             activity: { runner.activity() }
         )
@@ -43,16 +43,16 @@ extension PluginJobsClient: DependencyKey {
 }
 
 extension DependencyValues {
-    var pluginJobs: PluginJobsClient {
-        get { self[PluginJobsClient.self] }
-        set { self[PluginJobsClient.self] = newValue }
+    var extensionJobs: ExtensionJobsClient {
+        get { self[ExtensionJobsClient.self] }
+        set { self[ExtensionJobsClient.self] = newValue }
     }
 }
 
-actor PluginJobs {
-    /// The clip, and the pipeline stages the plugin that sent it asked to skip.
+actor ExtensionJobs {
+    /// The clip, and the pipeline stages the extension that sent it asked to skip.
     /// Passed per job rather than baked into the closure: one transcriber serves
-    /// every plugin, and they do not agree about the text rules.
+    /// every extension, and they do not agree about the text rules.
     typealias Transcriber = @Sendable (URL, Set<TextStage>) async throws -> String
 
     /// Short enough that dictation does not feel posted into a queue. Reading one
@@ -60,13 +60,13 @@ actor PluginJobs {
     /// would be the upgrade if it ever showed up in a profile.
     private static let interval = Duration.milliseconds(300)
     /// The API's cap, for the same reason: a clip past it is a mistake, and holding
-    /// the engine on one blocks every other plugin behind it.
+    /// the engine on one blocks every other extension behind it.
     private static let maximumBytes = ApiConfiguration.maximumBodyBytes
 
     private var task: Task<Void, Never>?
-    private var listeners: [UUID: AsyncStream<PluginActivity?>.Continuation] = [:]
+    private var listeners: [UUID: AsyncStream<ExtensionActivity?>.Continuation] = [:]
 
-    nonisolated func activity() -> AsyncStream<PluginActivity?> {
+    nonisolated func activity() -> AsyncStream<ExtensionActivity?> {
         AsyncStream { continuation in
             let id = UUID()
             Task { await self.add(continuation, id: id) }
@@ -74,13 +74,13 @@ actor PluginJobs {
         }
     }
 
-    private func add(_ continuation: AsyncStream<PluginActivity?>.Continuation, id: UUID) {
+    private func add(_ continuation: AsyncStream<ExtensionActivity?>.Continuation, id: UUID) {
         listeners[id] = continuation
     }
 
     private func remove(_ id: UUID) { listeners[id] = nil }
 
-    private func announce(_ activity: PluginActivity?) {
+    private func announce(_ activity: ExtensionActivity?) {
         for listener in listeners.values { listener.yield(activity) }
     }
 
@@ -91,13 +91,13 @@ actor PluginJobs {
 
     private func watch(_ transcribe: @escaping Transcriber) async {
         while !Task.isCancelled {
-            for (plugin, job) in Self.pending() {
-                announce(PluginActivity(
-                    pluginID: plugin.id,
-                    name: plugin.manifest.name,
-                    rgb: plugin.manifest.rgb
+            for (installed, job) in Self.pending() {
+                announce(ExtensionActivity(
+                    extensionID: installed.id,
+                    name: installed.manifest.name,
+                    rgb: installed.manifest.rgb
                 ))
-                await run(job, plugin.manifest.skipsTextStages, transcribe)
+                await run(job, installed.manifest.skipsTextStages, transcribe)
                 announce(nil)
             }
             try? await Task.sleep(for: Self.interval)
@@ -107,39 +107,39 @@ actor PluginJobs {
     /// One job: transcribe, answer beside it, and take the audio away.
     ///
     /// The audio is removed whatever happens. Leaving a clip that failed would mean
-    /// retrying it forever at three times a second, and the plugin has the answer
+    /// retrying it forever at three times a second, and the extension has the answer
     /// either way.
     private func run(
         _ audio: URL, _ skipping: Set<TextStage>, _ transcribe: @escaping Transcriber
     ) async {
         defer { try? FileManager.default.removeItem(at: audio) }
-        let result: PluginJobResult
+        let result: ExtensionJobResult
         let finishedAt = ISO8601DateFormatter().string(from: Date())
         do {
             let size = (try? audio.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             guard size <= Self.maximumBytes else {
                 let megabytes = Self.maximumBytes / 1024 / 1024
-                result = PluginJobResult(
+                result = ExtensionJobResult(
                     error: "That clip is larger than \(megabytes) MB.", finishedAt: finishedAt)
                 Self.answer(result, for: audio)
                 return
             }
             let text = try await transcribe(audio, skipping)
-            result = PluginJobResult(
+            result = ExtensionJobResult(
                 text: TranscriptHints.apply(text, hints: Self.hints(for: audio)),
                 finishedAt: finishedAt
             )
         } catch {
             log.error("job \(audio.lastPathComponent, privacy: .public) failed: \(error.localizedDescription)")
-            result = PluginJobResult(error: "Could not transcribe that clip.", finishedAt: finishedAt)
+            result = ExtensionJobResult(error: "Could not transcribe that clip.", finishedAt: finishedAt)
         }
         Self.answer(result, for: audio)
     }
 
-    /// Words the plugin knew were coming, from `<name>.hints.json` beside the clip.
+    /// Words the extension knew were coming, from `<name>.hints.json` beside the clip.
     ///
     /// Read at transcription time rather than at pickup, and absent is simply none:
-    /// a plugin that writes the hints after renaming the audio in has lost the race
+    /// an extension that writes the hints after renaming the audio in has lost the race
     /// it was told about, and gets an uncorrected transcript rather than an error.
     private static func hints(for audio: URL) -> [String] {
         let url = audio.deletingPathExtension().appendingPathExtension("hints.json")
@@ -150,12 +150,12 @@ actor PluginJobs {
         return hints
     }
 
-    /// Every audio file waiting in a jobs directory, oldest first so a plugin that
+    /// Every audio file waiting in a jobs directory, oldest first so an extension that
     /// sent two clips gets them back in the order it spoke them.
-    private static func pending() -> [(InstalledPlugin, URL)] {
-        PluginStore.installed()
+    private static func pending() -> [(InstalledExtension, URL)] {
+        ExtensionStore.installed()
             .filter { $0.enabled && $0.manifest.sendsAudio }
-            .flatMap { plugin in files(in: PluginStore.jobsDirectory(plugin.id)).map { (plugin, $0) } }
+            .flatMap { installed in files(in: ExtensionStore.jobsDirectory(installed.id)).map { (installed, $0) } }
             .sorted { created($0.1) < created($1.1) }
     }
 
@@ -164,9 +164,9 @@ actor PluginJobs {
               let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path)
         else { return [] }
         // Only the extensions AVFoundation can open. Anything else — a `.part` file
-        // a plugin is still writing, a stray note — is not a job and is left alone.
+        // an extension is still writing, a stray note — is not a job and is left alone.
         return names
-            .filter { PluginJobResult.audioExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
+            .filter { ExtensionJobResult.audioExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
             .map { directory.appendingPathComponent($0) }
     }
 
@@ -174,12 +174,12 @@ actor PluginJobs {
         (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
     }
 
-    private static func answer(_ result: PluginJobResult, for audio: URL) {
+    private static func answer(_ result: ExtensionJobResult, for audio: URL) {
         let url = audio.deletingPathExtension().appendingPathExtension("json")
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            // Atomic, so a plugin polling for this file never reads a partial one.
+            // Atomic, so an extension polling for this file never reads a partial one.
             try encoder.encode(result).write(to: url, options: .atomic)
         } catch {
             log.error("could not answer \(audio.lastPathComponent, privacy: .public): \(error.localizedDescription)")

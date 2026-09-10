@@ -35,13 +35,18 @@ public extension URL {
         get throws { try uttApplicationSupport.appending(component: "devices.json") }
     }
 
-    /// Where plugins declare themselves. Created eagerly rather than on demand:
-    /// a plugin cannot drop a manifest into a directory that does not exist yet,
+    /// Where extensions declare themselves. Created eagerly rather than on demand:
+    /// an extension cannot drop a manifest into a directory that does not exist yet,
     /// and it has no way to know whether utt has ever run.
-    static var uttPluginsDirectory: URL {
+    static var uttExtensionsDirectory: URL {
         get throws {
             let directory = try uttApplicationSupport
-                .appendingPathComponent("plugins", isDirectory: true)
+                .appendingPathComponent("extensions", isDirectory: true)
+            // Up to 1.1.1 this directory was `plugins/`; carry an existing one over once.
+            let legacy = try uttApplicationSupport.appendingPathComponent("plugins", isDirectory: true)
+            if FileManager.default.fileExists(atPath: legacy.path), !FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.moveItem(at: legacy, to: directory)
+            }
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             return directory
         }

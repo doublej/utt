@@ -6,24 +6,24 @@ import Foundation
 /// model otherwise gets wrong here is the *shape* — it invents a registration call,
 /// or assumes utt will merge a partial values file. Both are stated plainly below,
 /// along with the rules that decide whether a manifest is accepted at all.
-public enum PluginGuide {
+public enum ExtensionGuide {
     public static func markdown(directory: String) -> String {
-        pluginGuideTemplate
-            .replacingOccurrences(of: "{{filters}}", with: pluginFilterGuide)
-            .replacingOccurrences(of: "{{stages}}", with: pluginTextStagesGuide)
+        extensionGuideTemplate
+            .replacingOccurrences(of: "{{filters}}", with: extensionFilterGuide)
+            .replacingOccurrences(of: "{{stages}}", with: extensionTextStagesGuide)
             .replacingOccurrences(of: "{{dir}}", with: directory)
     }
 }
 
 // The guide lives outside the enum because it is one long document, and a type
 // whose body is a page of prose trips every size rule there is.
-private let pluginGuideTemplate = #"""
-        # Write a plugin for utt
+private let extensionGuideTemplate = #"""
+        # Write an extension for utt
 
-        **utt** is a macOS app that transcribes speech on-device. A plugin is any
+        **utt** is a macOS app that transcribes speech on-device. An extension is any
         program of yours that wants a settings page inside utt's own window — a
         daemon, a menu bar app, a script. utt renders the page; your program keeps
-        running on its own and reads what the user chose. A plugin can also send
+        running on its own and reads what the user chose. An extension can also send
         utt audio to transcribe, receive every transcript as it finishes, show its
         daemon's live state, and offer buttons.
 
@@ -43,7 +43,7 @@ private let pluginGuideTemplate = #"""
         {
           "id": "deckhand",
           "name": "Deckhand",
-          "blurb": "One sentence under your name: what the plugin does for the person.",
+          "blurb": "One sentence under your name: what the extension does for the person.",
           "systemImage": "sailboat",
           "needsApi": false,
           "wantsTranscripts": false,
@@ -76,7 +76,7 @@ private let pluginGuideTemplate = #"""
           symbol is dropped, not drawn.
         - `tint` is your colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark in
           it while it is transcribing *your* clip, so the user can see that work
-          arriving from your plugin is not dictation at their Mac. One that cannot be
+          arriving from your extension is not dictation at their Mac. One that cannot be
           parsed is dropped rather than guessed at.
         - Only `id` and `name` are required. Omitted keys take their defaults —
           write the keys you care about.
@@ -118,7 +118,7 @@ private let pluginGuideTemplate = #"""
         Set it and you get a submenu inside utt's own menu bar menu, labelled with
         your `name` and your `systemImage`. Not an item of your own: the menu bar
         belongs to the person using the Mac, and utt stays one mark there however
-        many plugins are installed.
+        many extensions are installed.
 
         There is nothing else to declare — the submenu is built from what you have
         already said:
@@ -150,7 +150,7 @@ private let pluginGuideTemplate = #"""
         want Stop, declare it as an action and stop yourself; your job's `KeepAlive`
         is between you and launchd.
 
-        Labels beginning `com.apple.` are refused: a plugin may report on its own
+        Labels beginning `com.apple.` are refused: an extension may report on its own
         daemon, not reach into the system's.
 
         ## What utt writes: `<id>.values.json`
@@ -255,9 +255,9 @@ private let pluginGuideTemplate = #"""
         - `app` is where the text was pasted, and is absent when nothing received it
           — a failed paste, or a transcript that came in through the API.
         - Written whether or not the user keeps history: retention governs what utt
-          stores, not what it hands to a plugin they installed.
+          stores, not what it hands to an extension they installed.
         - This hands you everything dictated on that Mac. The user is told so on your
-          plugin's page. Do not ask for it unless you use it, and do not send it
+          extension's page. Do not ask for it unless you use it, and do not send it
           anywhere they have not asked you to.
 
         {{filters}}
@@ -283,7 +283,7 @@ private let pluginGuideTemplate = #"""
            use your manifest's own defaults until it appears.
         3. To transcribe audio, set `sendsAudio` and use the jobs directory. Reach
            for `needsApi` only if you need the HTTP API for something else — talking
-           to utt from another device, say. A plugin on the same Mac has no reason to
+           to utt from another device, say. An extension on the same Mac has no reason to
            open a socket to a program it can already write a file to.
         4. If you do need the API, take the token from the values file. Never read
            utt's `settings.json`.

@@ -2,29 +2,29 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-/// A page utt did not write. The controls come from the plugin's manifest, so
+/// A page utt did not write. The controls come from the extension's manifest, so
 /// this view renders a schema rather than a fixed list of settings — the one
 /// place in the app where that is true.
 ///
 /// Everything shown here was written by another process. It is displayed, never
-/// interpreted: the status block is the plugin's own words, and the settings are
-/// whatever survived `PluginManifest.sanitized()`.
-struct PluginPage: View {
+/// interpreted: the status block is the extension's own words, and the settings are
+/// whatever survived `ExtensionManifest.sanitized()`.
+struct ExtensionPage: View {
     let store: StoreOf<AppFeature>
-    let plugin: InstalledPlugin
+    let installed: InstalledExtension
     @Shared(.uttSettings) private var settings
-    @State private var confirming: PluginAction?
+    @State private var confirming: ExtensionAction?
     @State private var removing = false
 
     var body: some View {
-        if !plugin.status.isEmpty {
+        if !installed.status.isEmpty {
             SettingsGroup("Status") {
                 // Alphabetical: a JSON object has no order to preserve, and
-                // inventing one would put the fields in an order the plugin
+                // inventing one would put the fields in an order the extension
                 // did not choose either.
-                ForEach(plugin.status.keys.sorted(), id: \.self) { key in
+                ForEach(installed.status.keys.sorted(), id: \.self) { key in
                     SettingRow(key.asFieldLabel) {
-                        Text(plugin.status[key] ?? "")
+                        Text(installed.status[key] ?? "")
                             .font(Typography.metadata)
                             .foregroundStyle(Palette.textSecondary)
                     }
@@ -32,7 +32,7 @@ struct PluginPage: View {
             }
         }
 
-        if let daemon = plugin.manifest.daemon {
+        if let daemon = installed.manifest.daemon {
             SettingsGroup("Daemon") {
                 SettingRow(
                     daemon.label,
@@ -40,16 +40,16 @@ struct PluginPage: View {
                     detailTint: daemonState == .stopped ? Palette.warning : Palette.textTertiary
                 ) {
                     Button("Restart") {
-                        store.send(.settings(.pluginDaemonRestartTapped(plugin.id)))
+                        store.send(.settings(.extensionDaemonRestartTapped(installed.id)))
                     }
                     .font(Typography.metadata)
                 }
             }
         }
 
-        if !plugin.manifest.actions.isEmpty {
+        if !installed.manifest.actions.isEmpty {
             SettingsGroup("Actions") {
-                ForEach(plugin.manifest.actions) { action in
+                ForEach(installed.manifest.actions) { action in
                     SettingRow(action.label, detail: action.detail) {
                         Button(action.label) { press(action) }
                             .font(Typography.metadata)
@@ -58,15 +58,15 @@ struct PluginPage: View {
             }
         }
 
-        if plugin.settings.isEmpty {
+        if installed.settings.isEmpty {
             Card {
-                Text("\(plugin.manifest.name) has no settings to change here.")
+                Text("\(installed.manifest.name) has no settings to change here.")
                     .font(Typography.hint)
                     .foregroundStyle(Palette.textTertiary)
             }
         } else {
             SettingsGroup("Settings") {
-                ForEach(plugin.settings) { setting in
+                ForEach(installed.settings) { setting in
                     row(setting)
                 }
             }
@@ -74,10 +74,10 @@ struct PluginPage: View {
 
         confirmation
 
-        if plugin.manifest.wantsTranscripts || plugin.manifest.needsApi || plugin.manifest.sendsAudio
-            || plugin.manifest.filtersTranscripts {
+        if installed.manifest.wantsTranscripts || installed.manifest.needsApi || installed.manifest.sendsAudio
+            || installed.manifest.filtersTranscripts {
             SettingsGroup("Access") {
-                if plugin.manifest.filtersTranscripts {
+                if installed.manifest.filtersTranscripts {
                     SettingRow(
                         "Rewrites your transcripts",
                         detail: "Sees each transcript before it is pasted and can hand back different text. If it does not answer within two seconds, the text goes through as you said it.",
@@ -86,7 +86,7 @@ struct PluginPage: View {
                         Image(systemName: "wand.and.sparkles").foregroundStyle(Palette.textTertiary)
                     }
                 }
-                if plugin.manifest.sendsAudio {
+                if installed.manifest.sendsAudio {
                     SettingRow(
                         "Sends audio to be transcribed",
                         detail: "Drops clips in a folder of its own and gets the text back. Transcribed on this Mac, with your engine and your text rules. Nothing goes over the network."
@@ -94,21 +94,21 @@ struct PluginPage: View {
                         Image(systemName: "waveform").foregroundStyle(Palette.textTertiary)
                     }
                 }
-                if !plugin.manifest.skipsTextStages.isEmpty {
+                if !installed.manifest.skipsTextStages.isEmpty {
                     SettingRow("Skips some of your text rules", detail: skipNote) {
                         Image(systemName: "text.badge.minus").foregroundStyle(Palette.textTertiary)
                     }
                 }
-                if plugin.manifest.wantsTranscripts {
+                if installed.manifest.wantsTranscripts {
                     SettingRow(
                         "Receives your transcripts",
-                        detail: "Everything you dictate on this Mac is written to this plugin's own file as it finishes, whether or not utt keeps it in History.",
+                        detail: "Everything you dictate on this Mac is written to this extension's own file as it finishes, whether or not utt keeps it in History.",
                         detailTint: Palette.textTertiary
                     ) {
                         Image(systemName: "text.quote").foregroundStyle(Palette.textTertiary)
                     }
                 }
-                if plugin.manifest.needsApi {
+                if installed.manifest.needsApi {
                     SettingRow(
                         "Holds the API token",
                         detail: apiNote,
@@ -125,16 +125,16 @@ struct PluginPage: View {
     }
 
     /// utt's own switch and its own eject button, last on the page: everything
-    /// above is the plugin describing itself; this is what the person can do to it.
+    /// above is the extension describing itself; this is what the person can do to it.
     private var management: some View {
         SettingsGroup("In utt") {
             SettingRow(
                 "Enabled",
-                detail: "Off keeps this page and the plugin's settings, but utt stops handing it transcripts and audio, stops waiting for its answers, and takes it out of the menu bar."
+                detail: "Off keeps this page and the extension's settings, but utt stops handing it transcripts and audio, stops waiting for its answers, and takes it out of the menu bar."
             ) {
                 Toggle("Enabled", isOn: Binding(
-                    get: { plugin.enabled },
-                    set: { store.send(.settings(.pluginEnabledChanged(plugin.id, $0))) }
+                    get: { installed.enabled },
+                    set: { store.send(.settings(.extensionEnabledChanged(installed.id, $0))) }
                 ))
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -143,7 +143,7 @@ struct PluginPage: View {
             }
             SettingRow(
                 "Remove from utt",
-                detail: "Moves the files utt keeps for \(plugin.manifest.name) to the Trash: this page, its settings and its status. The program itself is not touched, and one that is still running may add itself back."
+                detail: "Moves the files utt keeps for \(installed.manifest.name) to the Trash: this page, its settings and its status. The program itself is not touched, and one that is still running may add itself back."
             ) {
                 Button("Remove…") { removing = true }
                     .font(Typography.metadata)
@@ -152,11 +152,11 @@ struct PluginPage: View {
     }
 
     private var removalConfirmation: some View {
-        EmptyView().alert("Remove \(plugin.manifest.name) from utt?", isPresented: $removing) {
+        EmptyView().alert("Remove \(installed.manifest.name) from utt?", isPresented: $removing) {
             Button("Cancel", role: .cancel) {}
             Button("Remove", role: .destructive) {
-                store.send(.settings(.pluginRemoveTapped(plugin.id)))
-                SettingsRoute.shared.open(.plugins)
+                store.send(.settings(.extensionRemoveTapped(installed.id)))
+                SettingsRoute.shared.open(.extensions)
             }
         } message: {
             Text("Its files go to the Trash. The program stays installed.")
@@ -173,7 +173,7 @@ struct PluginPage: View {
             Button("Cancel", role: .cancel) { confirming = nil }
             Button(confirming?.label ?? "Continue") {
                 if let action = confirming {
-                    store.send(.settings(.pluginActionTapped(plugin.id, key: action.key)))
+                    store.send(.settings(.extensionActionTapped(installed.id, key: action.key)))
                 }
                 confirming = nil
             }
@@ -182,46 +182,46 @@ struct PluginPage: View {
         }
     }
 
-    private var daemonState: PluginDaemonState {
-        store.settings.daemonStates[plugin.id] ?? .unknown
+    private var daemonState: ExtensionDaemonState {
+        store.settings.daemonStates[installed.id] ?? .unknown
     }
 
-    /// What launchd says, not what the plugin says about itself. A crashed daemon
+    /// What launchd says, not what the extension says about itself. A crashed daemon
     /// leaves a status file claiming it is up, and that is the one state the
-    /// plugin's own file cannot report.
+    /// extension's own file cannot report.
     private var daemonDetail: String {
         switch daemonState {
         case .running: daemonState.summary
         case .stopped: "\(daemonState.summary). launchd has the job but nothing is running. Restart starts it."
-        case .unknown: "\(daemonState.summary). launchd has no job by this name on this Mac, so Restart cannot help until the plugin installs it."
+        case .unknown: "\(daemonState.summary). launchd has no job by this name on this Mac, so Restart cannot help until the extension installs it."
         }
     }
 
-    private func press(_ action: PluginAction) {
+    private func press(_ action: ExtensionAction) {
         guard !action.confirms else { return confirming = action }
-        store.send(.settings(.pluginActionTapped(plugin.id, key: action.key)))
+        store.send(.settings(.extensionActionTapped(installed.id, key: action.key)))
     }
 
-    /// Which stages this plugin opted out of, named the way the pages that own them
+    /// Which stages this extension opted out of, named the way the pages that own them
     /// are named. It is on the page rather than silent because the alternative is a
     /// person editing a replacement rule and watching it not take effect.
     private var skipNote: String {
-        let stages = plugin.manifest.skipsTextStages.map(\.pageName).sorted()
-        return "\(plugin.manifest.name) asked for its own clips back without \(stages.joined(separator: " or ")). "
+        let stages = installed.manifest.skipsTextStages.map(\.pageName).sorted()
+        return "\(installed.manifest.name) asked for its own clips back without \(stages.joined(separator: " or ")). "
             + "Only the audio it sends itself — what you dictate is untouched."
     }
 
-    /// The token is a credential, and handing one to a plugin is a thing the user
+    /// The token is a credential, and handing one to an extension is a thing the user
     /// should be able to see having happened — so the page says it plainly rather
     /// than leaving it to whoever reads the values file.
     private var apiNote: String {
         settings.api.enabled
-            ? "utt put the token in this plugin's own settings file. Only your account can read it."
-            : "utt's API is off, so this plugin has no token. Turn it on under Connect › API if the plugin needs one."
+            ? "utt put the token in this extension's own settings file. Only your account can read it."
+            : "utt's API is off, so this extension has no token. Turn it on under Connect › API if the extension needs one."
     }
 
     @ViewBuilder
-    private func row(_ setting: PluginSetting) -> some View {
+    private func row(_ setting: ExtensionSetting) -> some View {
         SettingRow(setting.label, detail: setting.detail) {
             switch setting.kind {
             case .bool:
@@ -248,21 +248,21 @@ struct PluginPage: View {
         }
     }
 
-    /// Writes go through the store, not `@Shared`: a plugin is watching its values
+    /// Writes go through the store, not `@Shared`: an extension is watching its values
     /// file and has to see the change now, which a settings-file write would not
     /// reach. Same reason the API card binds this way.
-    private func binding<Value>(_ setting: PluginSetting, default fallback: Value) -> Binding<Value> {
+    private func binding<Value>(_ setting: ExtensionSetting, default fallback: Value) -> Binding<Value> {
         Binding(
             get: { setting.value.unwrapped as? Value ?? fallback },
             set: { newValue in
-                guard let value = PluginValue(newValue) else { return }
-                store.send(.settings(.pluginValueChanged(plugin.id, key: setting.key, value: value)))
+                guard let value = ExtensionValue(newValue) else { return }
+                store.send(.settings(.extensionValueChanged(installed.id, key: setting.key, value: value)))
             }
         )
     }
 }
 
-private extension PluginValue {
+private extension ExtensionValue {
     /// The scalar behind the case, for a SwiftUI control that wants a `Bool`,
     /// a `String` or a `Double`.
     var unwrapped: Any {
@@ -284,7 +284,7 @@ private extension PluginValue {
 }
 
 extension String {
-    /// A status key as a person reads it: `lastRelay` → "Last relay". Plugins write
+    /// A status key as a person reads it: `lastRelay` → "Last relay". Extensions write
     /// camelCase keys, and rendering one verbatim puts "LastRelay" on the page.
     /// No dictionary and no title-casing — the key's own words, in its own order.
     var asFieldLabel: String {

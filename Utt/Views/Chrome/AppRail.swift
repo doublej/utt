@@ -41,13 +41,13 @@ struct AppRail: View {
                 }
             }
             .padding(.bottom, Spacing.large)
-            // The window is a fixed 720pt, so past a couple of plugins the sections
+            // The window is a fixed 720pt, so past a couple of extensions the sections
             // stop fitting and the overflow pushed the window's own light
             // background out from under the rail. Scroll the sections; the mark and
             // the wordmark stay where they are.
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(AppSection.groups(plugins: store.settings.plugins.map(\.manifest)), id: \.title) { group in
+                    ForEach(AppSection.groups(extensions: store.settings.extensions.map(\.manifest)), id: \.title) { group in
                         RailGroup(title: group.title, sections: group.sections, selection: $selection)
                     }
                 }

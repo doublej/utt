@@ -1,12 +1,12 @@
 import Foundation
 
-/// A button on a plugin's page.
+/// A button on an extension's page.
 ///
 /// Pressing one writes `<id>.action.json` and nothing else. utt does not run
-/// programs on a plugin's behalf: a manifest is a file any process on the machine
+/// programs on an extension's behalf: a manifest is a file any process on the machine
 /// can write, and a manifest that could name a command to execute would turn
 /// "drop a file in a folder" into "run this as the user".
-public struct PluginAction: Codable, Hashable, Sendable, Identifiable {
+public struct ExtensionAction: Codable, Hashable, Sendable, Identifiable {
     public var id: String { key }
     /// What utt writes when the button is pressed.
     public let key: String
@@ -32,20 +32,20 @@ public struct PluginAction: Codable, Hashable, Sendable, Identifiable {
         confirms = (try? container.decodeIfPresent(Bool.self, forKey: .confirms)) as? Bool ?? false
     }
 
-    public func sanitized() -> PluginAction? {
-        guard PluginManifest.isSafeKey(key), let label = PluginManifest.text(label, limit: 40)
+    public func sanitized() -> ExtensionAction? {
+        guard ExtensionManifest.isSafeKey(key), let label = ExtensionManifest.text(label, limit: 40)
         else { return nil }
-        return PluginAction(
+        return ExtensionAction(
             key: key,
             label: label,
-            detail: PluginManifest.text(detail ?? "", limit: 160),
+            detail: ExtensionManifest.text(detail ?? "", limit: 160),
             confirms: confirms
         )
     }
 }
 
-/// A request utt has written for the plugin to carry out, at `<id>.action.json`.
-public struct PluginActionRequest: Codable, Equatable, Sendable {
+/// A request utt has written for the extension to carry out, at `<id>.action.json`.
+public struct ExtensionActionRequest: Codable, Equatable, Sendable {
     /// Increments per request. Poll it; do not act on the key alone, or pressing
     /// the same button twice looks like nothing happened.
     public var sequence: Int
@@ -65,12 +65,12 @@ public struct PluginActionRequest: Codable, Equatable, Sendable {
 /// manages, and will not bootstrap a job on the say-so of a file that any local
 /// process can write. That is the line between describing the system and changing
 /// it on unverified instructions.
-public struct PluginDaemon: Codable, Hashable, Sendable {
+public struct ExtensionDaemon: Codable, Hashable, Sendable {
     public let label: String
 
     public init(label: String) { self.label = label }
 
-    /// Reverse-DNS characters only, and never Apple's own: a plugin may report on
+    /// Reverse-DNS characters only, and never Apple's own: an extension may report on
     /// its own daemon, not reach into the system's.
     public var isUsable: Bool {
         !label.isEmpty && label.count <= 128

@@ -1,23 +1,23 @@
 import Foundation
 
-/// The file a plugin watches: what the user chose, and — when the plugin asked for
+/// The file an extension watches: what the user chose, and — when the extension asked for
 /// it and the API is on — the credentials for reaching utt.
 ///
 /// It is the store, not a copy of one. utt reads it to populate the page and
 /// rewrites it on every edit, which is why `revision` exists: a watcher comparing
 /// mtime is comparing a timestamp with one-second granularity on some filesystems,
 /// and would miss a second edit inside the same second.
-public struct PluginValuesFile: Codable, Equatable, Sendable {
+public struct ExtensionValuesFile: Codable, Equatable, Sendable {
     /// Increments on every write utt makes. Never reused, never reset.
     public var revision: Int = 0
-    public var values: [String: PluginValue] = [:]
+    public var values: [String: ExtensionValue] = [:]
     /// Present only while the manifest declared `needsApi` *and* the API is
     /// enabled with a token. Absent means "not available right now" — which is
-    /// also what a plugin should treat a missing token as, rather than falling
+    /// also what an extension should treat a missing token as, rather than falling
     /// back to reading utt's settings file.
-    public var api: PluginApiAccess?
+    public var api: ExtensionApiAccess?
 
-    public init(revision: Int = 0, values: [String: PluginValue] = [:], api: PluginApiAccess? = nil) {
+    public init(revision: Int = 0, values: [String: ExtensionValue] = [:], api: ExtensionApiAccess? = nil) {
         self.revision = revision
         self.values = values
         self.api = api
@@ -30,23 +30,23 @@ public struct PluginValuesFile: Codable, Equatable, Sendable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         revision = (try? container.decodeIfPresent(Int.self, forKey: .revision)) as? Int ?? 0
-        values = (try? container.decodeIfPresent([String: PluginValue].self, forKey: .values)) as? [String: PluginValue] ?? [:]
-        api = try? container.decodeIfPresent(PluginApiAccess.self, forKey: .api)
+        values = (try? container.decodeIfPresent([String: ExtensionValue].self, forKey: .values)) as? [String: ExtensionValue] ?? [:]
+        api = try? container.decodeIfPresent(ExtensionApiAccess.self, forKey: .api)
     }
 
     /// The next revision of this file, given what the user just chose.
     ///
-    /// `revision` is taken from what is on disk rather than from memory: a plugin
+    /// `revision` is taken from what is on disk rather than from memory: an extension
     /// that rewrote the file itself, or an app that restarted, must not send the
     /// counter backwards — a watcher would read the same number twice and skip an
     /// edit.
-    public func next(values: [String: PluginValue], api: PluginApiAccess?) -> PluginValuesFile {
-        PluginValuesFile(revision: revision &+ 1, values: values, api: api)
+    public func next(values: [String: ExtensionValue], api: ExtensionApiAccess?) -> ExtensionValuesFile {
+        ExtensionValuesFile(revision: revision &+ 1, values: values, api: api)
     }
 }
 
-/// How a plugin reaches utt's HTTP API.
-public struct PluginApiAccess: Codable, Equatable, Sendable {
+/// How an extension reaches utt's HTTP API.
+public struct ExtensionApiAccess: Codable, Equatable, Sendable {
     public let token: String
     public let port: Int
 
@@ -56,14 +56,14 @@ public struct PluginApiAccess: Codable, Equatable, Sendable {
     }
 }
 
-/// A transcript handed to a plugin that asked for them, written to
+/// A transcript handed to an extension that asked for them, written to
 /// `<id>.transcript.json` as each one finishes.
 ///
 /// The newest one only, not a log: utt already keeps the history, and a file that
 /// grew forever would be a second copy of everything ever said, in a directory
-/// nothing prunes. A plugin that wants a log keeps its own.
-public struct PluginTranscript: Codable, Equatable, Sendable {
-    /// Increments on every transcript. The same bargain as `PluginValuesFile`'s
+/// nothing prunes. An extension that wants a log keeps its own.
+public struct ExtensionTranscript: Codable, Equatable, Sendable {
+    /// Increments on every transcript. The same bargain as `ExtensionValuesFile`'s
     /// revision — poll this, not the modification time.
     public var sequence: Int
     public var text: String
@@ -84,13 +84,13 @@ public struct PluginTranscript: Codable, Equatable, Sendable {
     }
 }
 
-/// The answer to one audio file a plugin dropped in its jobs directory, written
+/// The answer to one audio file an extension dropped in its jobs directory, written
 /// beside it as `<name>.json`.
 ///
-/// Exactly one of `text` and `error` is present. A plugin that finds neither has
+/// Exactly one of `text` and `error` is present. An extension that finds neither has
 /// read the file while it was being written, which the atomic write makes
 /// impossible — so treat that as a bug worth reporting rather than a state.
-public struct PluginJobResult: Codable, Equatable, Sendable {
+public struct ExtensionJobResult: Codable, Equatable, Sendable {
     public var text: String?
     /// Why it could not be transcribed, in words a person could be shown.
     public var error: String?
@@ -103,15 +103,15 @@ public struct PluginJobResult: Codable, Equatable, Sendable {
         self.finishedAt = finishedAt
     }
 
-    /// Audio a plugin may hand over. The extension is how AVFoundation picks its
+    /// Audio an extension may hand over. The extension is how AVFoundation picks its
     /// reader — a wav named `.m4a` fails to open however correct its bytes are —
-    /// so it is the plugin's declaration of the format, and the only one.
+    /// so it is the extension's declaration of the format, and the only one.
     public static let audioExtensions: Set<String> = ["wav", "m4a", "mp3", "aiff", "flac", "caf"]
 }
 
-/// One transcript put to a plugin that declared `filtersTranscripts`, written to
-/// `<id>.filter/<name>.in.json`. The plugin answers with `<name>.out.json`.
-public struct PluginFilterRequest: Codable, Equatable, Sendable {
+/// One transcript put to an extension that declared `filtersTranscripts`, written to
+/// `<id>.filter/<name>.in.json`. The extension answers with `<name>.out.json`.
+public struct ExtensionFilterRequest: Codable, Equatable, Sendable {
     public var text: String
 
     public init(text: String) {
@@ -119,12 +119,12 @@ public struct PluginFilterRequest: Codable, Equatable, Sendable {
     }
 }
 
-/// What the plugin hands back: the text utt should use instead.
+/// What the extension hands back: the text utt should use instead.
 ///
 /// Read the way a manifest is read — another process wrote it. A reply utt
 /// cannot read is not an empty transcript, it is no reply, and the text passes
-/// through as it was. An empty string *is* a reply: the plugin chose to drop it.
-public struct PluginFilterReply: Codable, Equatable, Sendable {
+/// through as it was. An empty string *is* a reply: the extension chose to drop it.
+public struct ExtensionFilterReply: Codable, Equatable, Sendable {
     public var text: String
 
     public init(text: String) {
@@ -132,13 +132,13 @@ public struct PluginFilterReply: Codable, Equatable, Sendable {
     }
 
     /// A reply longer than this is not a rewrite of a dictated sentence; it is a
-    /// plugin gone wrong, and pasting it would hang whatever it landed in.
+    /// extension gone wrong, and pasting it would hang whatever it landed in.
     public static let maximumBytes = 1 << 20
 
     /// The replacement text, or nil when the file is not a usable reply.
     public static func text(in data: Data) -> String? {
         guard data.count <= maximumBytes,
-              let reply = try? JSONDecoder().decode(PluginFilterReply.self, from: data)
+              let reply = try? JSONDecoder().decode(ExtensionFilterReply.self, from: data)
         else { return nil }
         return reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }

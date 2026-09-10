@@ -17,11 +17,11 @@ struct MenuBarIcon: View {
 
     private var driver: DotMatrixDriver { .shared }
 
-    /// What the mark's speed is driven by. A plugin's clip has no meter to read —
+    /// What the mark's speed is driven by. An extension's clip has no meter to read —
     /// the audio was recorded somewhere else and arrives already finished — so it
     /// gets a steady rate that reads as working rather than as a level.
     private var level: Double {
-        store.pluginActivity == nil ? Double(store.transcription.meterLevel) : 0.6
+        store.extensionActivity == nil ? Double(store.transcription.meterLevel) : 0.6
     }
 
     var body: some View {
@@ -44,14 +44,14 @@ struct MenuBarIcon: View {
         }
     }
 
-    /// The plugin's own colour while its clip is being transcribed, so a clip sent
-    /// from a phone is visibly not something being said at this Mac. A plugin that
+    /// The extension's own colour while its clip is being transcribed, so a clip sent
+    /// from a phone is visibly not something being said at this Mac. An extension that
     /// declared no colour, or one utt could not read, falls back to utt's own.
     private var litColor: Color {
-        if let rgb = store.pluginActivity?.rgb {
+        if let rgb = store.extensionActivity?.rgb {
             return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
         }
-        if store.pluginActivity != nil { return Palette.accent }
+        if store.extensionActivity != nil { return Palette.accent }
         return store.transcription.isRecording ? Palette.recording : Palette.accent
     }
 }
@@ -73,10 +73,10 @@ struct MenuBarContent: View {
         Button("Copy last transcript") { store.send(.copyLastTapped) }
             .disabled(transcripts.history.isEmpty)
 
-        if !menuPlugins.isEmpty {
+        if !menuExtensions.isEmpty {
             Divider()
-            ForEach(menuPlugins) { plugin in
-                PluginMenu(store: store, plugin: plugin)
+            ForEach(menuExtensions) { installed in
+                ExtensionMenu(store: store, installed: installed)
             }
         }
 
@@ -98,10 +98,10 @@ struct MenuBarContent: View {
             .keyboardShortcut("q")
     }
 
-    /// A plugin appears here only if it asked to. One that did gets a submenu
-    /// rather than an item of its own — see `PluginMenu`.
-    private var menuPlugins: [InstalledPlugin] {
-        store.settings.plugins.filter { $0.enabled && $0.manifest.showsInMenuBar }
+    /// An extension appears here only if it asked to. One that did gets a submenu
+    /// rather than an item of its own — see `ExtensionMenu`.
+    private var menuExtensions: [InstalledExtension] {
+        store.settings.extensions.filter { $0.enabled && $0.manifest.showsInMenuBar }
     }
 
     private var statusLine: String {

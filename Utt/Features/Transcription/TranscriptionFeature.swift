@@ -76,7 +76,7 @@ struct TranscriptionFeature {
     @Dependency(\.sleepManagement) var sleepManagement
     @Dependency(\.mediaControl) var mediaControl
     @Dependency(\.soundEffects) var soundEffects
-    @Dependency(\.pluginFilters) var pluginFilters
+    @Dependency(\.extensionFilters) var extensionFilters
     @Dependency(\.date.now) var now
     @Shared(.uttSettings) var settings
 
@@ -205,11 +205,11 @@ private extension TranscriptionFeature {
         let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
         return .run { [settings] send in
             await send(.transcriptReady(Result {
-                // The user's own rules first, then any plugin that asked to see the
-                // text — so a plugin rewrites what the person would have read, not
+                // The user's own rules first, then any extension that asked to see the
+                // text — so an extension rewrites what the person would have read, not
                 // the raw recogniser output the rules are there to clean up.
                 let raw = try await transcription.transcribe(result.url, engine, model)
-                return await pluginFilters.apply(settings.applyTextTransforms(to: raw))
+                return await extensionFilters.apply(settings.applyTextTransforms(to: raw))
             }))
             try? FileManager.default.removeItem(at: result.url)
         }

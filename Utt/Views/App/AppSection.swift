@@ -5,7 +5,7 @@ import UttCore
 /// because it is one rail — a person moves from their transcripts to a setting
 /// and back the same way they move between two settings.
 ///
-/// A plugin's page is a case like any other and carries its own manifest: the
+/// An extension's page is a case like any other and carries its own manifest: the
 /// rail cannot look up a title for a section that was declared by another process
 /// after this enum was compiled.
 enum AppSection: Hashable, Identifiable {
@@ -14,24 +14,24 @@ enum AppSection: Hashable, Identifiable {
     case delivery, text, retention
     case sounds, permissions, general, about
     case api
-    case plugins
-    case plugin(PluginManifest)
+    case extensions
+    case `extension`(ExtensionManifest)
 
     var id: String {
-        if case let .plugin(manifest) = self { return "plugin:\(manifest.id)" }
+        if case let .extension(manifest) = self { return "extension:\(manifest.id)" }
         return title
     }
 
     /// The rail, in reading order: the transcripts, then what starts a recording,
     /// what comes out of it, the app around both, and how to reach it — and last
     /// whatever has connected itself to utt.
-    static func groups(plugins: [PluginManifest]) -> [(title: String, sections: [AppSection])] {
+    static func groups(extensions: [ExtensionManifest]) -> [(title: String, sections: [AppSection])] {
         [
             ("", [.history]),
             ("Dictate", [.hotkey, .microphone, .model]),
             ("Output", [.delivery, .text, .retention]),
             ("App", [.sounds, .permissions, .general, .about]),
-            ("Connect", [.api, .plugins] + plugins.map(AppSection.plugin))
+            ("Connect", [.api, .extensions] + extensions.map { .extension($0) })
         ]
     }
 
@@ -41,16 +41,16 @@ enum AppSection: Hashable, Identifiable {
     ///
     /// Matched on a squashed id — case folded, everything but letters and digits
     /// dropped — so a caller writes `sounds` rather than `Sounds%20%26%20Indicator`.
-    /// A prefix is enough, and a plugin also answers to its bare id: the ids are
-    /// the rail in reading order, and the first match wins, so `plugins` and
-    /// `plugin:deckhand` stay reachable while `deckhand` still lands.
-    static func named(_ query: String, plugins: [PluginManifest]) -> AppSection? {
+    /// A prefix is enough, and an extension also answers to its bare id: the ids are
+    /// the rail in reading order, and the first match wins, so `extensions` and
+    /// `extension:deckhand` stay reachable while `deckhand` still lands.
+    static func named(_ query: String, extensions: [ExtensionManifest]) -> AppSection? {
         let wanted = query.squashed
         guard !wanted.isEmpty else { return nil }
-        let all = groups(plugins: plugins).flatMap(\.sections)
+        let all = groups(extensions: extensions).flatMap(\.sections)
         return all.first { $0.id.squashed.hasPrefix(wanted) }
             ?? all.first {
-                guard case let .plugin(manifest) = $0 else { return false }
+                guard case let .extension(manifest) = $0 else { return false }
                 return manifest.id.squashed.hasPrefix(wanted)
             }
     }
@@ -69,8 +69,8 @@ enum AppSection: Hashable, Identifiable {
         case .general: "General"
         case .about: "About"
         case .api: "API"
-        case .plugins: "Plugins"
-        case let .plugin(manifest): manifest.name
+        case .extensions: "Extensions"
+        case let .extension(manifest): manifest.name
         }
     }
 
@@ -88,8 +88,8 @@ enum AppSection: Hashable, Identifiable {
         case .general: "gearshape"
         case .about: "info.circle"
         case .api: "network"
-        case .plugins: "puzzlepiece.extension"
-        case let .plugin(manifest): manifest.systemImage ?? "puzzlepiece.extension"
+        case .extensions: "puzzlepiece.extension"
+        case let .extension(manifest): manifest.systemImage ?? "puzzlepiece.extension"
         }
     }
 
@@ -109,14 +109,14 @@ enum AppSection: Hashable, Identifiable {
         case .general: "How utt sits in the system."
         case .about: "Version, updates and who made the models."
         case .api: "Let another app or device send audio to this Mac and get text back."
-        case .plugins: "Programs that work with utt. Each one keeps its settings here, next to utt's own."
-        case let .plugin(manifest): manifest.blurb ?? "Settings for \(manifest.name). Changed here, read by \(manifest.name)."
+        case .extensions: "Programs that work with utt. Each one keeps its settings here, next to utt's own."
+        case let .extension(manifest): manifest.blurb ?? "Settings for \(manifest.name). Changed here, read by \(manifest.name)."
         }
     }
 }
 
 private extension String {
     /// Case folded, letters and digits only. `"Sounds & Indicator"` →
-    /// `"soundsindicator"`, `"plugin:deckhand"` → `"plugindeckhand"`.
+    /// `"soundsindicator"`, `"extension:deckhand"` → `"extensiondeckhand"`.
     var squashed: String { lowercased().filter { $0.isLetter || $0.isNumber } }
 }

@@ -7,7 +7,7 @@ import DependenciesMacros
 ///
 /// SwiftUI rebuilds a `MenuBarExtra` — its items *and* its label — whenever the
 /// state it reads changes, and a rebuild while the menu is open tears the open menu
-/// down. utt's menu is built from what plugins say about themselves, and a plugin
+/// down. utt's menu is built from what extensions say about themselves, and an extension
 /// that is working rewrites its status file continuously, so the 3 s poll that picks
 /// that up was closing the menu roughly as fast as it could be opened.
 ///

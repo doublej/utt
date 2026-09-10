@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import UttCore
 
-/// A plugin naming a stage is the one caller that gets a different transcript from
+/// An extension naming a stage is the one caller that gets a different transcript from
 /// everyone else, so the two things worth pinning down are that skipping actually
 /// skips and that naming nothing changes nothing.
 struct TextStageSkipTests {
@@ -44,7 +44,7 @@ struct TextStageSkipTests {
     @Test("an unknown stage name is dropped and the known ones survive")
     func unknownStageIsDropped() throws {
         let json = #"{"id":"deckhand","name":"Deckhand","skipsTextStages":["formatting","teleport"]}"#
-        let manifest = try JSONDecoder().decode(PluginManifest.self, from: Data(json.utf8))
+        let manifest = try JSONDecoder().decode(ExtensionManifest.self, from: Data(json.utf8))
         #expect(manifest.skipsTextStages == [.formatting])
         #expect(manifest.sanitized()?.skipsTextStages == [.formatting])
     }
@@ -52,7 +52,7 @@ struct TextStageSkipTests {
     @Test("a manifest that says nothing skips nothing")
     func absentKeyMeansNoSkipping() throws {
         let json = #"{"id":"deckhand","name":"Deckhand"}"#
-        let manifest = try JSONDecoder().decode(PluginManifest.self, from: Data(json.utf8))
+        let manifest = try JSONDecoder().decode(ExtensionManifest.self, from: Data(json.utf8))
         #expect(manifest.skipsTextStages.isEmpty)
     }
 }

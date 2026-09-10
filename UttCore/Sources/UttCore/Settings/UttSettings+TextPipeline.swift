@@ -3,7 +3,7 @@ import Foundation
 /// A stage of the text pipeline, so a caller can name one it does not want.
 ///
 /// Two, because the pipeline is two decisions: what the words should be, and what
-/// they should look like. A plugin sending audio is often the one caller that
+/// they should look like. An extension sending audio is often the one caller that
 /// wants only one of them — a terminal wants "claude code" spelled the way the
 /// rules spell it, and does not want the whole line lowercased on the way past.
 public enum TextStage: String, Codable, Sendable, CaseIterable {
@@ -17,7 +17,7 @@ public enum TextStage: String, Codable, Sendable, CaseIterable {
 }
 
 public extension TextStage {
-    /// What the settings page that owns this stage calls it, so a plugin's
+    /// What the settings page that owns this stage calls it, so an extension's
     /// disclosure and the page a person would go fix it use the same words.
     var pageName: String {
         switch self {
@@ -37,7 +37,7 @@ public extension UttSettings {
     /// exactly one place — three appliers invoked by hand drift apart.
     ///
     /// `skipping` is for a caller that asked for a transcription rather than a
-    /// person dictating: a plugin declaring `skipsTextStages` gets its clip back
+    /// person dictating: an extension declaring `skipsTextStages` gets its clip back
     /// without the stages it named. The trimming is not a stage — a transcript with
     /// leading whitespace is nobody's preference.
     func applyTextTransforms(to text: String, skipping: Set<TextStage> = []) -> String {

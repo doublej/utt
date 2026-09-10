@@ -1,13 +1,13 @@
 import Foundation
 
-/// What a plugin says it is, and which settings it wants utt to show for it.
+/// What an extension says it is, and which settings it wants utt to show for it.
 ///
-/// A manifest is a file in `plugins/` that *another process wrote*, so it is read
+/// A manifest is a file in `extensions/` that *another process wrote*, so it is read
 /// the way the API reads a request: nothing is trusted, and anything unusable is
 /// dropped rather than repaired. `sanitized()` is the whole trust boundary —
 /// `id` names a file utt will later write, so an id carrying `/` or `..` is a
 /// path traversal, and an unbounded settings array is a rail nobody can scroll.
-public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
+public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     public let id: String
     public let name: String
     /// One line under the page title.
@@ -15,58 +15,58 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// SF Symbol. Dropped when it is not one — `Image(systemName:)` draws nothing
     /// for a name that does not exist, which reads as a broken page.
     public var systemImage: String?
-    public var settings: [PluginSetting] = []
-    /// The plugin says it calls utt's own HTTP API, and wants the bearer token
+    public var settings: [ExtensionSetting] = []
+    /// The extension says it calls utt's own HTTP API, and wants the bearer token
     /// handed to it rather than read out of utt's settings file behind its back.
-    /// Honoured only while the API is actually enabled — see `PluginValuesFile`.
+    /// Honoured only while the API is actually enabled — see `ExtensionValuesFile`.
     public var needsApi = false
-    /// The plugin wants every transcript utt produces, written to
+    /// The extension wants every transcript utt produces, written to
     /// `<id>.transcript.json` as each one finishes. This hands a local program
-    /// everything dictated on this Mac, so the plugin's page says so plainly.
+    /// everything dictated on this Mac, so the extension's page says so plainly.
     public var wantsTranscripts = false
-    /// The plugin sends audio to be transcribed, by dropping a file in its own jobs
+    /// The extension sends audio to be transcribed, by dropping a file in its own jobs
     /// directory. utt writes the text back beside it. This is the direct lane: no
     /// listener, no token, and nothing on the network.
     public var sendsAudio = false
-    /// The plugin sees every transcript before it lands and may hand back other
+    /// The extension sees every transcript before it lands and may hand back other
     /// text — a rewrite, a translation, a template filled in. utt writes the
     /// question into `<id>.filter/` and waits briefly for the answer beside it.
-    /// This puts the plugin on the path between the key coming up and the text
-    /// appearing, so a slow or stopped plugin costs a pause and then nothing.
+    /// This puts the extension on the path between the key coming up and the text
+    /// appearing, so a slow or stopped extension costs a pause and then nothing.
     public var filtersTranscripts = false
-    /// Stages of utt's text pipeline this plugin's own transcriptions skip.
+    /// Stages of utt's text pipeline this extension's own transcriptions skip.
     ///
-    /// Only the clips the plugin sends itself — never what the person dictates.
-    /// The pipeline is tuned for a human writing prose at a cursor, and a plugin
+    /// Only the clips the extension sends itself — never what the person dictates.
+    /// The pipeline is tuned for a human writing prose at a cursor, and an extension
     /// asking for a transcription often wants something else: a terminal wants the
     /// replacement rules but not a lowercased line, a note-taker wants the words
-    /// exactly as spoken. Naming a stage here is the plugin saying so instead of
+    /// exactly as spoken. Naming a stage here is the extension saying so instead of
     /// undoing utt's work afterwards and getting it subtly wrong.
     ///
-    /// Unknown names are dropped rather than rejected, so a plugin written against
+    /// Unknown names are dropped rather than rejected, so an extension written against
     /// a later utt still loads on this one.
     public var skipsTextStages: Set<TextStage> = []
-    /// The plugin's own colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark
-    /// in it while transcribing that plugin's audio, so a clip arriving from
+    /// The extension's own colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark
+    /// in it while transcribing that extension's audio, so a clip arriving from
     /// somewhere else is visibly not utt's own dictation.
     public var tint: String?
-    /// Give the plugin a menu bar item of its own, beside utt's. It carries the
-    /// plugin's symbol and colour, and a menu built from what the plugin already
+    /// Give the extension a menu bar item of its own, beside utt's. It carries the
+    /// extension's symbol and colour, and a menu built from what the extension already
     /// declares — its status lines, its buttons, its daemon.
     public var showsInMenuBar = false
-    /// Buttons on the plugin's page. Pressing one writes a request the plugin picks
+    /// Buttons on the extension's page. Pressing one writes a request the extension picks
     /// up — utt never runs anything itself.
-    public var actions: [PluginAction] = []
+    public var actions: [ExtensionAction] = []
     /// A launchd job utt may report on. Its state is read live, so a daemon that
     /// died still reads as stopped however cheerful its own status file is.
-    public var daemon: PluginDaemon?
+    public var daemon: ExtensionDaemon?
 
     public init(
         id: String, name: String, blurb: String? = nil,
-        systemImage: String? = nil, settings: [PluginSetting] = [],
+        systemImage: String? = nil, settings: [ExtensionSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
         filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
-        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
+        tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
         showsInMenuBar: Bool = false
     ) {
         self.id = id
@@ -92,7 +92,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         case showsInMenuBar
     }
 
-    /// Forgiving, like `UttSettings`: a plugin writing only the keys it cares about
+    /// Forgiving, like `UttSettings`: an extension writing only the keys it cares about
     /// must not have its whole manifest rejected. Swift's synthesized decoder
     /// ignores property defaults and demands every key, which would make `settings`
     /// and `needsApi` mandatory for no reason.
@@ -102,31 +102,31 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         name = try container.decode(String.self, forKey: .name)
         blurb = try? container.decodeIfPresent(String.self, forKey: .blurb)
         systemImage = try? container.decodeIfPresent(String.self, forKey: .systemImage)
-        settings = (try? container.decodeIfPresent([PluginSetting].self, forKey: .settings)) as? [PluginSetting] ?? []
+        settings = (try? container.decodeIfPresent([ExtensionSetting].self, forKey: .settings)) as? [ExtensionSetting] ?? []
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
         filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
         // Decoded as strings, not as the enum: `Set<TextStage>` throws on the first
         // name it does not know, and `try?` around that would drop every stage the
-        // plugin *did* spell right along with the typo.
+        // extension *did* spell right along with the typo.
         let stageNames = (try? container.decode([String].self, forKey: .skipsTextStages)) ?? []
         skipsTextStages = Set(stageNames.compactMap(TextStage.init(rawValue:)))
         tint = try? container.decodeIfPresent(String.self, forKey: .tint)
-        actions = (try? container.decodeIfPresent([PluginAction].self, forKey: .actions)) as? [PluginAction] ?? []
-        daemon = try? container.decodeIfPresent(PluginDaemon.self, forKey: .daemon)
+        actions = (try? container.decodeIfPresent([ExtensionAction].self, forKey: .actions)) as? [ExtensionAction] ?? []
+        daemon = try? container.decodeIfPresent(ExtensionDaemon.self, forKey: .daemon)
         showsInMenuBar = (try? container.decodeIfPresent(Bool.self, forKey: .showsInMenuBar)) ?? false
     }
 
-    /// At most this many rows on a plugin's page. A plugin asking for more has a
+    /// At most this many rows on an extension's page. An extension asking for more has a
     /// configuration file of its own to write, not a settings page.
     public static let maximumSettings = 24
-    /// A page is not a control panel. A plugin wanting more buttons than this has a
+    /// A page is not a control panel. An extension wanting more buttons than this has a
     /// window of its own to build.
     public static let maximumActions = 8
 
     /// The manifest utt will actually render, or nil when it cannot be trusted.
-    public func sanitized() -> PluginManifest? {
+    public func sanitized() -> ExtensionManifest? {
         guard Self.isSafeIdentifier(id), let name = Self.text(name) else { return nil }
         var seen = Set<String>()
         var seenActions = Set<String>()
@@ -140,7 +140,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             // silently overwrite the first on every edit.
             .filter { seen.insert($0.key).inserted }
             .prefix(Self.maximumSettings)
-        return PluginManifest(
+        return ExtensionManifest(
             id: id,
             name: name,
             blurb: blurb.flatMap { Self.text($0, limit: 120) },
@@ -152,7 +152,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             filtersTranscripts: filtersTranscripts,
             skipsTextStages: skipsTextStages,
             // Dropped rather than corrected: a colour utt cannot read is one the
-            // plugin did not mean, and guessing at it would light the menu bar in
+            // extension did not mean, and guessing at it would light the menu bar in
             // something nobody chose.
             tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 },
             actions: Array(actionsSeen),
@@ -163,13 +163,13 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
 
     /// The tint as three 0...1 components, or nil when it is not a colour.
     ///
-    /// Kept here rather than in the view layer because it is a plugin-supplied
+    /// Kept here rather than in the view layer because it is an extension-supplied
     /// string, which makes it the same kind of thing as every other field on this
     /// type: parsed strictly, refused rather than repaired.
-    public var rgb: PluginRGB? { tint.flatMap { Self.rgb(from: $0) } }
+    public var rgb: ExtensionRGB? { tint.flatMap { Self.rgb(from: $0) } }
 
     /// `#RGB` or `#RRGGBB`, with or without the hash. Anything else is not a colour.
-    static func rgb(from hex: String) -> PluginRGB? {
+    static func rgb(from hex: String) -> ExtensionRGB? {
         let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
         guard digits.allSatisfy(\.isHexDigit) else { return nil }
         let pairs: [String]
@@ -183,15 +183,15 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         }
         let values = pairs.compactMap { UInt8($0, radix: 16).map { Double($0) / 255 } }
         guard values.count == 3 else { return nil }
-        return PluginRGB(red: values[0], green: values[1], blue: values[2])
+        return ExtensionRGB(red: values[0], green: values[1], blue: values[2])
     }
 
     /// The settings this manifest asks for, with the stored choices applied.
     ///
     /// A stored value the control cannot show falls back to the manifest's own
-    /// default — which is what a plugin shipping a new schema over an old values
+    /// default — which is what an extension shipping a new schema over an old values
     /// file produces, and the alternative is a picker with nothing selected.
-    public func resolved(stored: [String: PluginValue]) -> [PluginSetting] {
+    public func resolved(stored: [String: ExtensionValue]) -> [ExtensionSetting] {
         settings.map { setting in
             guard let value = stored[setting.key], setting.accepts(value) else { return setting }
             var setting = setting
@@ -201,15 +201,15 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     }
 
     /// A setting or action key. Unlike an id it never becomes a filename, so case
-    /// is free — and it has to be, because a plugin naturally writes `openLog` and
+    /// is free — and it has to be, because an extension naturally writes `openLog` and
     /// `lastRelay`. Holding keys to the id's lowercase rule silently dropped every
-    /// camelCase one, which is a plugin arriving with half its buttons missing.
+    /// camelCase one, which is an extension arriving with half its buttons missing.
     public static func isSafeKey(_ key: String) -> Bool {
         !key.isEmpty && key.count <= 64
             && key.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }
     }
 
-    /// Lowercase, and no path separators: this becomes `plugins/<id>.values.json`,
+    /// Lowercase, and no path separators: this becomes `extensions/<id>.values.json`,
     /// and a case-insensitive filesystem would let `Deckhand` and `deckhand` fight
     /// over the same file.
     public static func isSafeIdentifier(_ id: String) -> Bool {
@@ -218,15 +218,15 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             && id.first != "." // no dotfiles, and no "." or ".." at all
     }
 
-    /// Everything utt writes or makes for a plugin, by the part after `<id>.`.
+    /// Everything utt writes or makes for an extension, by the part after `<id>.`.
     /// A fixed list rather than a prefix match: ids may contain dots, so
-    /// `deck.` as a prefix would claim `deck.hand.json` for a plugin called `deck`.
+    /// `deck.` as a prefix would claim `deck.hand.json` for an extension called `deck`.
     public static let ownedSuffixes: Set<String> = [
         "json", "values.json", "status.json", "action.json", "transcript.json",
         "jobs", "filter", "disabled"
     ]
 
-    /// Whether a name in the plugins directory belongs to this plugin.
+    /// Whether a name in the extensions directory belongs to this extension.
     public static func file(_ name: String, belongsTo id: String) -> Bool {
         guard name.hasPrefix("\(id).") else { return false }
         return ownedSuffixes.contains(String(name.dropFirst(id.count + 1)))
@@ -240,7 +240,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     }
 
     /// Trimmed, single-line and bounded. A newline in a label breaks the row it sits
-    /// in, and nothing stops a plugin from sending one.
+    /// in, and nothing stops an extension from sending one.
     public static func text(_ value: String, limit: Int = 80) -> String? {
         let flattened = value.components(separatedBy: .newlines).joined(separator: " ")
         let trimmed = flattened.trimmingCharacters(in: .whitespaces)

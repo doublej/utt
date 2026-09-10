@@ -4,37 +4,37 @@ import Testing
 import UttCore
 @testable import utt
 
-/// What reaches a plugin's values file, and when.
+/// What reaches an extension's values file, and when.
 ///
-/// The bug these pin down was found by running the real thing: opening a plugin's
+/// The bug these pin down was found by running the real thing: opening an extension's
 /// page drove the revision from 1 to 7 without anyone touching a control. SwiftUI
 /// calls a binding's setter as the view settles, and every one of those calls was
-/// a write — which is exactly the number a plugin is watching to decide something
+/// a write — which is exactly the number an extension is watching to decide something
 /// changed.
 @MainActor
-@Suite("Plugin settings writes")
-struct PluginSettingsTests {
-    private let manifest = PluginManifest(
+@Suite("Extension settings writes")
+struct ExtensionSettingsTests {
+    private let manifest = ExtensionManifest(
         id: "deckhand",
         name: "Deckhand",
         settings: [
-            PluginSetting(key: "deliver", kind: .bool, label: "Deliver", value: .bool(true)),
-            PluginSetting(key: "route", kind: .choice, label: "Route",
+            ExtensionSetting(key: "deliver", kind: .bool, label: "Deliver", value: .bool(true)),
+            ExtensionSetting(key: "route", kind: .choice, label: "Route",
                           options: ["auto", "socket"], value: .string("auto"))
         ]
     )
 
     /// A recorder standing in for the values file.
     private final class Writes: @unchecked Sendable {
-        var recorded: [(String, [String: PluginValue])] = []
+        var recorded: [(String, [String: ExtensionValue])] = []
     }
 
     private func makeStore(_ writes: Writes) -> TestStore<SettingsFeature.State, SettingsFeature.Action> {
-        let installed = InstalledPlugin(manifest: manifest, values: [:], status: [:])
-        return TestStore(initialState: SettingsFeature.State(plugins: [installed])) {
+        let installed = InstalledExtension(manifest: manifest, values: [:], status: [:])
+        return TestStore(initialState: SettingsFeature.State(extensions: [installed])) {
             SettingsFeature()
         } withDependencies: {
-            $0.plugins = PluginClient(
+            $0.extensions = ExtensionClient(
                 installed: { [installed] },
                 write: { id, values, _ in writes.recorded.append((id, values)) },
                 deliver: { _, _, _ in },
@@ -49,8 +49,8 @@ struct PluginSettingsTests {
     func writesOnRealChange() async {
         let writes = Writes()
         let store = makeStore(writes)
-        await store.send(.pluginValueChanged("deckhand", key: "deliver", value: .bool(false))) {
-            $0.plugins[0] = InstalledPlugin(
+        await store.send(.extensionValueChanged("deckhand", key: "deliver", value: .bool(false))) {
+            $0.extensions[0] = InstalledExtension(
                 manifest: self.manifest,
                 values: ["deliver": .bool(false), "route": .string("auto")],
                 status: [:]
@@ -68,31 +68,31 @@ struct PluginSettingsTests {
     func ignoresUnchangedValue() async {
         let writes = Writes()
         let store = makeStore(writes)
-        await store.send(.pluginValueChanged("deckhand", key: "deliver", value: .bool(true)))
+        await store.send(.extensionValueChanged("deckhand", key: "deliver", value: .bool(true)))
         #expect(writes.recorded.isEmpty)
     }
 
-    /// A plugin's page is a schema another process wrote; a value that does not fit
+    /// An extension's page is a schema another process wrote; a value that does not fit
     /// the control must not reach the file.
     @Test("a value of the wrong kind is refused")
     func refusesMistypedValue() async {
         let writes = Writes()
         let store = makeStore(writes)
-        await store.send(.pluginValueChanged("deckhand", key: "deliver", value: .string("yes")))
-        await store.send(.pluginValueChanged("deckhand", key: "route", value: .string("carrier-pigeon")))
-        await store.send(.pluginValueChanged("nobody", key: "deliver", value: .bool(false)))
+        await store.send(.extensionValueChanged("deckhand", key: "deliver", value: .string("yes")))
+        await store.send(.extensionValueChanged("deckhand", key: "route", value: .string("carrier-pigeon")))
+        await store.send(.extensionValueChanged("nobody", key: "deliver", value: .bool(false)))
         #expect(writes.recorded.isEmpty)
     }
 }
 
-/// What a plugin is handed when a transcript finishes.
+/// What an extension is handed when a transcript finishes.
 ///
 /// The delivery point is `AppFeature`, not the history reducer: a person who turns
-/// history off has said what utt should *keep*, not what a plugin they installed
+/// history off has said what utt should *keep*, not what an extension they installed
 /// may be told.
 @MainActor
-@Suite("Plugin transcript delivery")
-struct PluginTranscriptTests {
+@Suite("Extension transcript delivery")
+struct ExtensionTranscriptTests {
     private struct Handed: Equatable {
         let text: String
         let duration: Double
@@ -112,7 +112,7 @@ struct PluginTranscriptTests {
         return TestStore(initialState: state) {
             AppFeature()
         } withDependencies: {
-            $0.plugins = PluginClient(
+            $0.extensions = ExtensionClient(
                 installed: { [] },
                 write: { _, _, _ in },
                 deliver: { text, duration, app in
@@ -130,7 +130,7 @@ struct PluginTranscriptTests {
         }
     }
 
-    @Test("a finished transcript reaches the plugins with the app that received it")
+    @Test("a finished transcript reaches the extensions with the app that received it")
     func deliversWithApp() async {
         let delivered = Delivered()
         let store = makeStore(delivered, keepHistory: true)
@@ -143,7 +143,7 @@ struct PluginTranscriptTests {
     }
 
     /// A failed paste reached no app, and saying it did would be a lie in both the
-    /// history list and the plugin's file.
+    /// history list and the extension's file.
     @Test("a transcript nothing received names no app")
     func deliversWithoutApp() async {
         let delivered = Delivered()
@@ -154,7 +154,7 @@ struct PluginTranscriptTests {
         #expect(delivered.received.first?.app == nil)
     }
 
-    /// Retention is about what utt keeps, not about what a plugin is told.
+    /// Retention is about what utt keeps, not about what an extension is told.
     @Test("history being off does not stop delivery")
     func deliversWithHistoryOff() async {
         let delivered = Delivered()

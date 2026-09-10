@@ -33,10 +33,10 @@ struct AppFeature {
         /// What the API listener is doing, which is not what the settings ask for:
         /// a port already in use leaves the switch on and nothing listening.
         var apiState: ApiServerState = .off
-        /// Set while a plugin's clip is being transcribed — the menu bar mark runs
-        /// in that plugin's colour so work arriving from elsewhere is not mistaken
+        /// Set while an extension's clip is being transcribed — the menu bar mark runs
+        /// in that extension's colour so work arriving from elsewhere is not mistaken
         /// for dictation at this Mac.
-        var pluginActivity: PluginActivity?
+        var extensionActivity: ExtensionActivity?
     }
 
     enum Action {
@@ -46,7 +46,7 @@ struct AppFeature {
         case modelPreparation(ModelPreparation)
         case modelPrepared(Result<Bool, Never>)
         case apiStateChanged(ApiServerState)
-        case pluginActivityChanged(PluginActivity?)
+        case extensionActivityChanged(ExtensionActivity?)
         case prepareModelTapped
         case grantTapped(Permission)
         case relaunchTapped
@@ -60,7 +60,7 @@ struct AppFeature {
         case history(HistoryFeature.Action)
     }
 
-    enum CancelID { case keyEvents, permissionPoll, modelPrepare, apiStates, pluginActivity }
+    enum CancelID { case keyEvents, permissionPoll, modelPrepare, apiStates, extensionActivity }
 
     @Dependency(\.keyEventMonitor) var keyEventMonitor
     @Dependency(\.recording) var recording
@@ -69,9 +69,9 @@ struct AppFeature {
     @Dependency(\.permissions) var permissions
     @Dependency(\.transcription) var transcription
     @Dependency(\.apiServer) var apiServer
-    @Dependency(\.plugins) var plugins
-    @Dependency(\.pluginJobs) var pluginJobs
-    @Dependency(\.pluginFilters) var pluginFilters
+    @Dependency(\.extensions) var extensions
+    @Dependency(\.extensionJobs) var extensionJobs
+    @Dependency(\.extensionFilters) var extensionFilters
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -99,8 +99,8 @@ struct AppFeature {
             case let .apiStateChanged(update):
                 state.apiState = update
                 return .none
-            case let .pluginActivityChanged(activity):
-                state.pluginActivity = activity
+            case let .extensionActivityChanged(activity):
+                state.extensionActivity = activity
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
             case let .grantTapped(permission): return grant(permission)
@@ -194,11 +194,11 @@ private extension AppFeature {
             .cancellable(id: CancelID.apiStates),
 
             .run { send in
-                for await update in pluginJobs.activity() {
-                    await send(.pluginActivityChanged(update))
+                for await update in extensionJobs.activity() {
+                    await send(.extensionActivityChanged(update))
                 }
             }
-            .cancellable(id: CancelID.pluginActivity),
+            .cancellable(id: CancelID.extensionActivity),
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),
@@ -255,10 +255,10 @@ private extension AppFeature {
             // one received it would be a lie in the history list.
             let app = pasted ? await pasteboard.frontmostApp() : nil
             await send(.history(.record(text: text, duration: duration, app: app)))
-            // The same moment, to any plugin that asked for transcripts. Not routed
+            // The same moment, to any extension that asked for transcripts. Not routed
             // through the history reducer: retention governs what utt keeps, not
-            // what a plugin the user installed is handed.
-            plugins.deliver(text, duration, app?.name ?? nil)
+            // what an extension the user installed is handed.
+            extensions.deliver(text, duration, app?.name ?? nil)
         }
     }
 
@@ -275,17 +275,17 @@ private extension AppFeature {
             // A caller gets the same text the hotkey would have pasted: the engine
             // the settings name, then the user's own replacement and formatting
             // rules. An API that answered with the raw transcript would be a second
-            // pipeline to keep in step with the first — and a plugin dropping a file
+            // pipeline to keep in step with the first — and an extension dropping a file
             // is the same caller by another road, so it gets the same closure.
             let transcribe: @Sendable (URL, Set<TextStage>) async throws -> String = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
                 let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
-                return await pluginFilters.apply(settings.applyTextTransforms(to: text, skipping: skipping))
+                return await extensionFilters.apply(settings.applyTextTransforms(to: text, skipping: skipping))
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare
             // one in, and the endpoint's promise is the text the hotkey would paste.
             await apiServer.apply(settings.api.configuration, { try await transcribe($0, []) })
-            await pluginJobs.apply(transcribe)
+            await extensionJobs.apply(transcribe)
         }
     }
 
