@@ -409,6 +409,13 @@ dot-matrix-preview:
 icon:
     python3 tools/make-app-icon.py
 
+# Render the iPhone wallpapers into iCloud Drive. The PNGs are output, not
+
+# repo content — the script is what is committed. --out overrides the folder.
+[group('design')]
+wallpapers *args:
+    python3 tools/make-wallpapers.py {{ args }}
+
 # Pin the recording overlay on screen and hot-reload overlay.json as you edit it.
 # The app writes the file with its current defaults if it is missing, then re-reads
 
