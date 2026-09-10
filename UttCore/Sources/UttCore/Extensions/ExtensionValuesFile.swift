@@ -115,13 +115,42 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
     public var text: String?
     /// Why it could not be transcribed, in words a person could be shown.
     public var error: String?
-    /// When utt finished with it, ISO 8601.
+    /// What the recogniser heard, before utt's stages and before the extension's own
+    /// hints. The same bargain as `ExtensionTranscript.raw`: it is the one thing the
+    /// sender cannot reconstruct, since it knows its hints and the user's rules are
+    /// none of its business.
+    public var raw: String?
+    /// Which stages actually changed the words, sorted. `hints` is one of them.
+    public var stages: [String]?
+    /// Why the cleanup stage did not run, when it was on and did not.
+    public var cleanupSkipped: String?
+    /// When utt picked the clip up, ISO 8601. Absent from a file written by a utt
+    /// older than this one.
+    public var startedAt: String?
+    /// When utt finished with it, ISO 8601 — stamped after the transcription, so
+    /// `finishedAt` minus `startedAt` is the work and nothing else.
     public var finishedAt: String
+    /// Seconds of audio behind it.
+    public var duration: Double?
 
-    public init(text: String? = nil, error: String? = nil, finishedAt: String) {
+    public init(
+        text: String? = nil,
+        error: String? = nil,
+        raw: String? = nil,
+        stages: [String]? = nil,
+        cleanupSkipped: String? = nil,
+        startedAt: String? = nil,
+        finishedAt: String,
+        duration: Double? = nil
+    ) {
         self.text = text
         self.error = error
+        self.raw = raw
+        self.stages = stages
+        self.cleanupSkipped = cleanupSkipped
+        self.startedAt = startedAt
         self.finishedAt = finishedAt
+        self.duration = duration
     }
 
     /// Audio an extension may hand over. The extension is how AVFoundation picks its

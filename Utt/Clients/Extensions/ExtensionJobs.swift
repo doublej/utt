@@ -1,3 +1,4 @@
+import AVFoundation
 import Dependencies
 import DependenciesMacros
 import Foundation
@@ -114,26 +115,55 @@ actor ExtensionJobs {
     ) async {
         defer { try? FileManager.default.removeItem(at: audio) }
         let result: ExtensionJobResult
-        let finishedAt = ISO8601DateFormatter().string(from: Date())
+        // Two stamps rather than one: an extension knows when it wrote the clip, but
+        // not how much of the wait was this watcher getting to it and how much was the
+        // work. One timestamp cannot answer that whichever end it is taken from.
+        let startedAt = Self.stamp()
         do {
             let size = (try? audio.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             guard size <= Self.maximumBytes else {
                 let megabytes = Self.maximumBytes / 1024 / 1024
                 result = ExtensionJobResult(
-                    error: "That clip is larger than \(megabytes) MB.", finishedAt: finishedAt)
+                    error: "That clip is larger than \(megabytes) MB.",
+                    startedAt: startedAt, finishedAt: Self.stamp())
                 Self.answer(result, for: audio)
                 return
             }
+            let duration = Self.duration(of: audio)
             let piped = try await transcribe(audio, skipping)
+            // Hints are the sender's own stage and they run last, so they are named in
+            // `stages` rather than folded into `raw` — the answer the API road already
+            // gives. `raw` stays what the recogniser heard.
+            let corrected = piped.applying(
+                .hints, text: TranscriptHints.apply(piped.text, hints: Self.hints(for: audio))
+            )
             result = ExtensionJobResult(
-                text: TranscriptHints.apply(piped.text, hints: Self.hints(for: audio)),
-                finishedAt: finishedAt
+                text: corrected.text,
+                raw: corrected.raw,
+                stages: corrected.stageNames,
+                cleanupSkipped: corrected.cleanupSkipped?.rawValue,
+                startedAt: startedAt,
+                finishedAt: Self.stamp(),
+                duration: duration
             )
         } catch {
             log.error("job \(audio.lastPathComponent, privacy: .public) failed: \(error.localizedDescription)")
-            result = ExtensionJobResult(error: "Could not transcribe that clip.", finishedAt: finishedAt)
+            result = ExtensionJobResult(
+                error: "Could not transcribe that clip.",
+                startedAt: startedAt, finishedAt: Self.stamp())
         }
         Self.answer(result, for: audio)
+    }
+
+    private static func stamp() -> String { ISO8601DateFormatter().string(from: Date()) }
+
+    /// Seconds of audio, read off the clip itself. The transcriber hands back text,
+    /// and the one road that wants this should not cost every other one a new return
+    /// value. Nil for a file the reader cannot open, which is a clip about to fail.
+    private static func duration(of audio: URL) -> Double? {
+        guard let file = try? AVAudioFile(forReading: audio), file.fileFormat.sampleRate > 0
+        else { return nil }
+        return Double(file.length) / file.fileFormat.sampleRate
     }
 
     /// Words the extension knew were coming, from `<name>.hints.json` beside the clip.

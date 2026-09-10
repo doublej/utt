@@ -42,6 +42,17 @@ struct ExtensionGuideTests {
         #expect(documented == written)
     }
 
+    @Test("the jobs answer example names every key utt writes, and no others")
+    func jobAnswerExampleMatches() throws {
+        let documented = Set(try example(after: "writes `clip-1.json` beside it").keys)
+        let written = try keys(of: ExtensionJobResult(
+            text: "typed", raw: "heard", stages: ["cleanup"], cleanupSkipped: "timeout",
+            startedAt: "2026-09-09T17:04:09Z", finishedAt: "2026-09-09T17:04:11Z",
+            duration: 3.4
+        ))
+        #expect(documented == written)
+    }
+
     @Test("the filter question example names every key utt writes, and no others")
     func filterExampleMatches() throws {
         let documented = Set(try example(after: "`<name>.in.json`").keys)

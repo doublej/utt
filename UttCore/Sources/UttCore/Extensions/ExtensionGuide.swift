@@ -218,16 +218,34 @@ private let extensionGuideTemplate = #"""
         3. utt transcribes it and writes `clip-1.json` beside it:
 
            ```json
-           {"text": "the words that were spoken", "finishedAt": "2026-09-09T17:04:11Z"}
+           {
+             "text": "the words that were spoken",
+             "raw": "um the words what were spoken",
+             "stages": ["cleanup", "hints", "replacements"],
+             "cleanupSkipped": "timeout",
+             "startedAt": "2026-09-09T17:04:09Z",
+             "finishedAt": "2026-09-09T17:04:11Z",
+             "duration": 3.4
+           }
            ```
 
            or, when it could not:
 
            ```json
-           {"error": "Could not transcribe that clip.", "finishedAt": "..."}
+           {"error": "Could not transcribe that clip.",
+            "startedAt": "...", "finishedAt": "..."}
            ```
 
            Exactly one of `text` and `error` is present, and the write is atomic.
+           `raw`, `stages`, `cleanupSkipped` and `duration` mean exactly what they
+           mean in `<id>.transcript.json` below, with one more stage name: `hints`,
+           for your own list correcting a near miss. `raw` is what the recogniser
+           heard, before your hints and before the person's stages. A file written by
+           a utt older than this one has none of these keys, nor `startedAt` — decode
+           them as optional. `startedAt` is when utt picked the clip up and
+           `finishedAt` is when it was done, both ISO 8601: the gap between your own
+           rename and `startedAt` is this watcher getting to you, and the gap between
+           the two stamps is the work.
         4. The audio is deleted either way, and so is the hints file. The answer
            file is yours — read it and delete it; utt never touches it again.
 
@@ -239,10 +257,9 @@ private let extensionGuideTemplate = #"""
         You get the same text the hotkey would have pasted: the engine and model
         the user chose, then their own replacement rules, transcript cleanup and
         formatting — minus any stage you named in `skipsTextStages`, and after any
-        filtering extension has had its turn. Only `text` comes back here: the
-        stages an answer file does not carry are in `<id>.transcript.json` and in
-        the filter lane, both below. Transcription is on their Mac; nothing is sent
-        anywhere.
+        filtering extension has had its turn — and the answer says which of those
+        stages changed the words, the same way `<id>.transcript.json` and the filter
+        lane below do. Transcription is on their Mac; nothing is sent anywhere.
 
         {{transcripts}}
 
