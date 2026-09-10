@@ -13,6 +13,14 @@ public struct Transcript: Codable, Equatable, Identifiable, Sendable {
     public var id: UUID
     public var timestamp: Date
     public var text: String
+    /// What the recogniser heard, kept only when a stage changed it before it
+    /// landed — a replacement rule, the cleanup, the formatting or a filtering
+    /// extension. Nil means what was heard is what was typed, so storing it again
+    /// would double a file that already holds every word ever dictated.
+    ///
+    /// Optional and decoded as such: a `history.json` written before utt recorded
+    /// this still loads, which is the difference between an old file and data loss.
+    public var raw: String?
     /// The captured audio, when it was kept. Nil is the normal case: 16 kHz mono
     /// PCM runs ~32 KB/s, so retaining every clip would make the unlimited default
     /// for `maxHistoryEntries` a disk leak. Text is what history is for.
@@ -25,6 +33,7 @@ public struct Transcript: Codable, Equatable, Identifiable, Sendable {
         id: UUID = UUID(),
         timestamp: Date,
         text: String,
+        raw: String? = nil,
         audioPath: URL? = nil,
         duration: TimeInterval,
         sourceAppBundleID: String? = nil,
@@ -33,6 +42,7 @@ public struct Transcript: Codable, Equatable, Identifiable, Sendable {
         self.id = id
         self.timestamp = timestamp
         self.text = text
+        self.raw = raw
         self.audioPath = audioPath
         self.duration = duration
         self.sourceAppBundleID = sourceAppBundleID

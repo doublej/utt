@@ -67,6 +67,15 @@ public struct ExtensionTranscript: Codable, Equatable, Sendable {
     /// revision — poll this, not the modification time.
     public var sequence: Int
     public var text: String
+    /// What the recogniser heard, before utt's own stages had it. Always written:
+    /// an extension cannot otherwise tell a mishearing from something a stage took
+    /// out, and it has no second copy to compare against.
+    public var raw: String?
+    /// Which stages actually changed the words between the two, sorted. Empty means
+    /// the text is exactly what was heard.
+    public var stages: [String]?
+    /// Why the cleanup stage did not run, when it was on and did not.
+    public var cleanupSkipped: String?
     /// When it finished, ISO 8601.
     public var finishedAt: String
     /// Seconds of audio behind it.
@@ -75,9 +84,21 @@ public struct ExtensionTranscript: Codable, Equatable, Sendable {
     /// paste failed or the transcript came from the API, so no app received it.
     public var app: String?
 
-    public init(sequence: Int, text: String, finishedAt: String, duration: Double, app: String? = nil) {
+    public init(
+        sequence: Int,
+        text: String,
+        raw: String? = nil,
+        stages: [String]? = nil,
+        cleanupSkipped: String? = nil,
+        finishedAt: String,
+        duration: Double,
+        app: String? = nil
+    ) {
         self.sequence = sequence
         self.text = text
+        self.raw = raw
+        self.stages = stages
+        self.cleanupSkipped = cleanupSkipped
         self.finishedAt = finishedAt
         self.duration = duration
         self.app = app
@@ -112,10 +133,22 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
 /// One transcript put to an extension that declared `filtersTranscripts`, written to
 /// `<id>.filter/<name>.in.json`. The extension answers with `<name>.out.json`.
 public struct ExtensionFilterRequest: Codable, Equatable, Sendable {
+    /// The transcript as it stands: the user's stages have run, and so has every
+    /// filtering extension before this one.
     public var text: String
+    /// What the recogniser heard, before any of that. A filter that rewrites text
+    /// is entitled to know which words were spoken and which were put there.
+    public var raw: String?
+    /// The stages that changed the words so far, sorted.
+    public var stages: [String]?
+    /// Why the cleanup stage did not run, when it was on and did not.
+    public var cleanupSkipped: String?
 
-    public init(text: String) {
+    public init(text: String, raw: String? = nil, stages: [String]? = nil, cleanupSkipped: String? = nil) {
         self.text = text
+        self.raw = raw
+        self.stages = stages
+        self.cleanupSkipped = cleanupSkipped
     }
 }
 

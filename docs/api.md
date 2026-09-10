@@ -93,12 +93,30 @@ curl -X POST http://mac.local:8756/transcribe \
 ```
 
 ```json
-{ "text": "Hello world, this is a test of the transcription API." }
+{
+  "text": "Hello world, this is a test of the transcription API.",
+  "raw": "hello world this is a test of the transcription api",
+  "stages": ["formatting", "replacements"]
+}
 ```
 
 The transcript has been through the same pipeline the hotkey uses: the engine and
 model named in Settings, then the word replacements and formatting rules. A
 caller gets exactly what utt would have pasted.
+
+`text` is that transcript and does not change shape, so a client written against
+the old single-field response keeps working. Beside it:
+
+- `raw` — what the recogniser heard, before every stage and before the hints in
+  your own `X-Utt-Hints` header. Equal to `text` when nothing changed it.
+- `stages` — which stages actually changed the words, sorted: `replacements`,
+  `cleanup`, `formatting`, `filter` (an extension the user has installed) and
+  `hints` (your own). Empty means what was heard is what you got. Hints are named
+  as a stage rather than folded into `raw` because they are the caller's own
+  correction: `raw` stays the one thing a caller cannot reconstruct.
+- `cleanupSkipped` — present only when the user has transcript cleanup switched on
+  and it did not run on this clip: `unavailable`, `guardrail`, `timeout`,
+  `tooLong`, `tooShort` or `failedVerification`. The transcript landed anyway.
 
 Errors are `{"error": "..."}` with `400` (not audio, or an empty body), `401`
 (token), `404` (path), `413` (too large) or `500` (the engine failed).

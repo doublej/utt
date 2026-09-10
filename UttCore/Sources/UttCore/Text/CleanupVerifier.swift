@@ -70,10 +70,19 @@ private extension String {
     var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
 
+/// What one pass of the cleanup stage produced.
+///
+/// In UttCore rather than beside the model call, because the pipeline is what has
+/// to record the reason: `ProcessedTranscript` carries it to the panel, the API
+/// and every extension, and none of them can ask the model afterwards.
+public enum CleanupOutcome: Equatable, Sendable {
+    case cleaned(String)
+    case skipped(CleanupSkipReason)
+}
+
 /// Why the cleanup stage did not run, for the one line the post-delivery panel
-/// gets. UttCore only ever learns that cleanup returned `nil`, so the reason is
-/// carried separately — "why did it clean that one and not this one" has to be
-/// answerable somewhere, and the panel is the only place that is not the cursor.
+/// gets, and one field of every transcript utt hands on — "why did it clean that
+/// one and not this one" has to be answerable somewhere.
 public enum CleanupSkipReason: String, Sendable, Equatable, CaseIterable, Codable {
     /// No usable on-device model: not eligible, Apple Intelligence off, or the
     /// weights are still landing.

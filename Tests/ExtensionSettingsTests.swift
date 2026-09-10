@@ -95,6 +95,8 @@ struct ExtensionSettingsTests {
 struct ExtensionTranscriptTests {
     private struct Handed: Equatable {
         let text: String
+        let raw: String
+        let stages: [String]
         let duration: Double
         let app: String?
     }
@@ -107,7 +109,11 @@ struct ExtensionTranscriptTests {
         @Shared(.uttSettings) var settings
         $settings.withLock { $0.saveTranscriptionHistory = keepHistory }
         var state = AppFeature.State()
-        state.transcription.lastTranscript = "the words that were spoken"
+        state.transcription.lastTranscript = ProcessedTranscript(
+            raw: "the words what were spoken",
+            text: "the words that were spoken",
+            stages: [.cleanup]
+        )
         state.transcription.lastDuration = 3.4
         return TestStore(initialState: state) {
             AppFeature()
@@ -115,8 +121,14 @@ struct ExtensionTranscriptTests {
             $0.extensions = ExtensionClient(
                 installed: { [] },
                 write: { _, _, _ in },
-                deliver: { text, duration, app in
-                    delivered.received.append(Handed(text: text, duration: duration, app: app))
+                deliver: { transcript, duration, app in
+                    delivered.received.append(Handed(
+                        text: transcript.text,
+                        raw: transcript.raw,
+                        stages: transcript.stageNames,
+                        duration: duration,
+                        app: app
+                    ))
                 },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
@@ -139,6 +151,10 @@ struct ExtensionTranscriptTests {
         await store.finish()
         #expect(delivered.received.count == 1)
         #expect(delivered.received.first?.text == "the words that were spoken")
+        // Both versions and the stage that explains the difference — an extension
+        // has no other way to tell a mishearing from something a stage took out.
+        #expect(delivered.received.first?.raw == "the words what were spoken")
+        #expect(delivered.received.first?.stages == ["cleanup"])
         #expect(delivered.received.first?.app == "Ghostty")
     }
 

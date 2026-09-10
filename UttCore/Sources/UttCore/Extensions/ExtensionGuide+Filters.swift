@@ -14,12 +14,23 @@ let extensionFilterGuide = #"""
         2. When a transcript finishes, utt writes `<name>.in.json` there:
 
            ```json
-           {"text": "the words that were spoken"}
+           {
+             "text": "the words that were spoken",
+             "raw": "the words what were spoken",
+             "stages": ["cleanup"]
+           }
            ```
 
-           The text is what the person would have seen: their own replacement and
-           formatting rules have already run. `<name>` is unique per transcript and
-           means nothing.
+           `text` is what the person would have seen: their own replacement and
+           formatting rules have already run, and so has every filtering extension
+           before you. `raw` is what the recogniser heard before any of that, and
+           `stages` names the stages that changed the words — `replacements`,
+           `cleanup`, `formatting`, and `filter` for an extension ahead of you in
+           the chain. An empty `stages` means nothing has touched it. A
+           `cleanupSkipped` field appears when the user has cleanup on and it did
+           not run. Rewrite `text`; `raw` is context, not a transcript to hand back
+           unless you mean to undo what the user configured. `<name>` is unique per
+           transcript and means nothing.
         3. Write `<name>.out.json` beside it, atomically:
 
            ```json

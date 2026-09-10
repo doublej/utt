@@ -248,6 +248,8 @@ private let extensionGuideTemplate = #"""
         {
           "sequence": 12,
           "text": "the words that were spoken",
+          "raw": "the words what were spoken",
+          "stages": ["cleanup"],
           "finishedAt": "2026-09-09T16:58:03Z",
           "duration": 3.4,
           "app": "Ghostty"
@@ -257,6 +259,18 @@ private let extensionGuideTemplate = #"""
         - The **newest one only**. This is not a log — utt already keeps the history,
           and a file that grew forever would be a second copy of everything ever
           said. Keep your own log if you need one.
+        - `text` is what was typed and `raw` is what the recogniser heard. They
+          differ when a stage changed the words on the way, and `stages` says which:
+          `replacements` (the user's word rules), `cleanup` (the on-device model
+          taking out fillers and false starts), `formatting` (lowercasing and
+          punctuation stripping) and `filter` (an extension rewriting the
+          transcript, possibly yours). An empty `stages` means the two are the same.
+        - `cleanupSkipped` appears only when the user has cleanup on and it did not
+          run on this transcript: `unavailable`, `guardrail`, `timeout`, `tooLong`,
+          `tooShort` or `failedVerification`. The transcript landed regardless.
+        - Use `text` unless you have a reason not to. `raw` is there so a mishearing
+          can be told apart from something a stage removed — it is not a better
+          transcript, and the user did not choose it.
         - `sequence` increments per transcript. Poll it exactly as you poll
           `revision`; it survives a restart because it is read from the file.
         - `app` is where the text was pasted, and is absent when nothing received it

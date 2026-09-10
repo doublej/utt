@@ -20,7 +20,7 @@ struct HistoryFeature {
     enum Action: BindableAction {
         case binding(BindingAction<State>)
         /// Recorded after a transcript has actually been delivered.
-        case record(text: String, duration: TimeInterval, app: AppIdentity?)
+        case record(transcript: ProcessedTranscript, duration: TimeInterval, app: AppIdentity?)
         case copyTapped(Transcript.ID)
         case deleteTapped(Transcript.ID)
         case clearTapped
@@ -38,7 +38,7 @@ struct HistoryFeature {
         Reduce { state, action in
             switch action {
             case .binding: return .none
-            case let .record(text, duration, app): return record(text, duration, app)
+            case let .record(transcript, duration, app): return record(transcript, duration, app)
             case let .copyTapped(id): return copy(id)
             case let .deleteTapped(id): $history.withLock { $0.remove(id) }; return .none
             case .clearTapped: state.confirmingClear = true; return .none
@@ -61,11 +61,16 @@ struct HistoryFeature {
 }
 
 private extension HistoryFeature {
-    func record(_ text: String, _ duration: TimeInterval, _ app: AppIdentity?) -> Effect<Action> {
+    func record(
+        _ transcript: ProcessedTranscript, _ duration: TimeInterval, _ app: AppIdentity?
+    ) -> Effect<Action> {
         guard settings.saveTranscriptionHistory else { return .none }
         let entry = Transcript(
             timestamp: now,
-            text: text,
+            text: transcript.text,
+            // Only when a stage rewrote it: an unchanged transcript stored twice is
+            // a history file that is twice the size and says nothing more.
+            raw: transcript.changed ? transcript.raw : nil,
             duration: duration,
             sourceAppBundleID: app?.bundleID,
             sourceAppName: app?.name

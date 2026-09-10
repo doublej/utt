@@ -73,8 +73,20 @@ public enum ApiGuide {
         Success is `200`:
 
         ```json
-        { "text": "Hello world, this is a test of the transcription API." }
+        {
+          "text": "Hello world, this is a test of the transcription API.",
+          "raw": "hello world this is a test of the transcription api",
+          "stages": ["formatting", "replacements"]
+        }
         ```
+
+        `text` is the transcript and is the only field most clients need. `raw` is
+        what the recogniser heard before any stage touched it — including your own
+        hints — and `stages` names the stages that changed it: `replacements`,
+        `cleanup`, `formatting`, `filter` (an extension the user installed) and
+        `hints` (your own header). An empty `stages` means the two are the same. A
+        `cleanupSkipped` field appears only when the user has cleanup on and it did
+        not run on this clip.
 
         Failure is a status plus one sentence:
 
@@ -177,6 +189,8 @@ public enum ApiGuide {
         - **The text is finished.** utt has already applied the user's word
           replacements and formatting rules. Do not capitalise, trim punctuation or
           "clean up" the transcript — you would be undoing what the user configured.
+          `raw` is there to show a person what was heard, or to log both; it is not
+          a transcript to paste instead.
         - **The Mac's address moves.** Prefer the Bonjour name (`something.local`)
           the settings card shows over a DHCP-assigned IP.
         - **utt may simply be asleep or quit.** A connection refused is the normal

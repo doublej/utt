@@ -17,9 +17,9 @@ struct TranscriptHUDView: View {
         case recording
         case transcribing
         /// Held, waiting on ⏎ or ⎋.
-        case review(String)
+        case review(ProcessedTranscript)
         /// Already pasted; this is the receipt.
-        case delivered(String)
+        case delivered(ProcessedTranscript)
     }
 
     var body: some View {
@@ -42,8 +42,8 @@ struct TranscriptHUDView: View {
         if let pending = transcription.pendingReview { return .review(pending) }
         if transcription.isRecording { return .recording }
         if transcription.status == .transcribing { return .transcribing }
-        if transcription.lastDeliveredAt != nil, let text = transcription.lastTranscript {
-            return .delivered(text)
+        if transcription.lastDeliveredAt != nil, let last = transcription.lastTranscript {
+            return .delivered(last)
         }
         return nil
     }
@@ -54,8 +54,8 @@ struct TranscriptHUDView: View {
             switch phase {
             case .recording: listening
             case .transcribing: transcribing
-            case let .review(text): review(text)
-            case let .delivered(text): delivered(text)
+            case let .review(transcript): review(transcript)
+            case let .delivered(transcript): delivered(transcript)
             }
         }
         .padding(Spacing.medium)
@@ -86,9 +86,9 @@ struct TranscriptHUDView: View {
         }
     }
 
-    private func review(_ text: String) -> some View {
+    private func review(_ transcript: ProcessedTranscript) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
-            transcript(text)
+            finished(transcript)
             HStack(spacing: Spacing.small) {
                 target
                 Spacer()
@@ -102,10 +102,10 @@ struct TranscriptHUDView: View {
         }
     }
 
-    private func delivered(_ text: String) -> some View {
+    private func delivered(_ transcript: ProcessedTranscript) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
-            transcript(text)
-            cleanupNote
+            finished(transcript)
+            cleanupNote(transcript)
             HStack(spacing: Spacing.small) {
                 target
                 Spacer()
@@ -123,11 +123,23 @@ struct TranscriptHUDView: View {
     /// paste time, or putting anything in the text stream, breaks the one promise
     /// the app makes about what reaches the cursor.
     @ViewBuilder
-    private var cleanupNote: some View {
-        if let reason = store.transcription.cleanupSkipped {
-            Text(reason.sentence)
-                .font(Typography.metadata)
-                .foregroundStyle(Palette.textTertiary)
+    private func cleanupNote(_ transcript: ProcessedTranscript) -> some View {
+        if let reason = transcript.cleanupSkipped {
+            note(reason.sentence)
+        }
+    }
+
+    /// The finished text, and — only when a stage rewrote it — what was heard.
+    ///
+    /// Not on every dictation: most transcripts come out of the pipeline unchanged
+    /// or changed trivially, and a before-and-after every time is noise the eye
+    /// learns to skip. The finished text keeps the mono face and the full size; the
+    /// heard line is metadata, under it, one line, with the rest on hover.
+    @ViewBuilder
+    private func finished(_ result: ProcessedTranscript) -> some View {
+        transcript(result.text)
+        if result.changed {
+            note("heard: \(result.raw)").lineLimit(1).help(result.raw)
         }
     }
 
@@ -141,6 +153,12 @@ struct TranscriptHUDView: View {
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .help(text)
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(Typography.metadata)
+            .foregroundStyle(Palette.textTertiary)
     }
 
     @ViewBuilder

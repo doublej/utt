@@ -42,6 +42,13 @@ struct HistoryRow: View {
             if let app = transcript.sourceAppName {
                 Text(app)
             }
+            // A word in the metadata line rather than a second line of text: this
+            // list is read by scanning it, and the entry that matters is the one
+            // that was typed. What was heard is one hover away, which is where a
+            // person goes only once they have found the transcript they mean.
+            if let raw = transcript.raw {
+                Text("rewritten").help("Heard: \(raw)")
+            }
         }
         .font(Typography.monoSmall)
         .foregroundStyle(Palette.textTertiary)

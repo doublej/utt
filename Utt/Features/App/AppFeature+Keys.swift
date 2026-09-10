@@ -74,7 +74,7 @@ extension AppFeature {
     func withLastTranscript(
         _ state: State, _ action: @escaping @Sendable (String) async -> Void
     ) -> Effect<Action> {
-        guard let text = state.transcription.lastTranscript ?? transcripts.history.first?.text
+        guard let text = state.transcription.lastTranscript?.text ?? transcripts.history.first?.text
         else { return .none }
         return .run { _ in await action(text) }
     }
