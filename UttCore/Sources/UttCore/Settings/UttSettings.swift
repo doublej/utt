@@ -120,6 +120,12 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// `RulePresets` seeds them on request.
     public var wordRemappings: [WordRemapping] = []
 
+    /// Run the transcript past the on-device language model to take out filler
+    /// words, false starts and mid-sentence self-corrections. Off by default: it
+    /// costs about a second a paragraph, and the model's own content check fires
+    /// on ordinary sentences, so it cannot be promised.
+    public var cleanupTranscripts: Bool = false
+
     /// Lowercase the whole transcript.
     public var lowercaseTranscripts: Bool = false
 
@@ -219,7 +225,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case muteWhileRecording, preventSystemSleep, keepMicrophoneWarm, showRecordingOverlay
         case transcriptionEngine, selectedModel
         case useClipboardPaste, copyToClipboard, deliveryMode, showTranscriptHUD, hudDismissAfter
-        case wordRemappings, lowercaseTranscripts, removePunctuation
+        case wordRemappings, cleanupTranscripts, lowercaseTranscripts, removePunctuation
         case saveTranscriptionHistory, maxHistoryEntries
         case soundEffectsEnabled, soundEffectsVolume
         case openOnLogin, showDockIcon, api, hasCompletedOnboarding
@@ -254,6 +260,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
 
     private mutating func decodeTextPipeline(from container: KeyedDecodingContainer<CodingKeys>) throws {
         wordRemappings = try container.decodeIfPresent([WordRemapping].self, forKey: .wordRemappings) ?? wordRemappings
+        cleanupTranscripts = try container.decodeIfPresent(Bool.self, forKey: .cleanupTranscripts) ?? cleanupTranscripts
         lowercaseTranscripts = try container.decodeIfPresent(Bool.self, forKey: .lowercaseTranscripts) ?? lowercaseTranscripts
         removePunctuation = try container.decodeIfPresent(Bool.self, forKey: .removePunctuation) ?? removePunctuation
     }

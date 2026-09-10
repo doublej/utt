@@ -69,3 +69,43 @@ public enum CleanupVerifier {
 private extension String {
     var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }
+
+/// Why the cleanup stage did not run, for the one line the post-delivery panel
+/// gets. UttCore only ever learns that cleanup returned `nil`, so the reason is
+/// carried separately — "why did it clean that one and not this one" has to be
+/// answerable somewhere, and the panel is the only place that is not the cursor.
+public enum CleanupSkipReason: String, Sendable, Equatable, CaseIterable, Codable {
+    /// No usable on-device model: not eligible, Apple Intelligence off, or the
+    /// weights are still landing.
+    case unavailable
+    /// The model's own content check fired. Measured on ordinary sentences, which
+    /// is why the setting must never promise cleanup.
+    case guardrail
+    /// The model was still generating when the deadline passed.
+    case timeout
+    /// More transcript than the context window holds.
+    case tooLong
+    /// The result dropped more than the verifier's budget, or came back empty.
+    case tooShort
+    /// The result was not a deletion-only edit of the input.
+    case failedVerification
+
+    public init(_ failure: CleanupVerifier.Failure) {
+        switch failure {
+        case .notASubsequence: self = .failedVerification
+        case .tooMuchDeleted, .emptyOutput: self = .tooShort
+        }
+    }
+
+    /// One line, past tense, no apology: the transcript already landed.
+    public var sentence: String {
+        switch self {
+        case .unavailable: "Cleanup skipped — Apple Intelligence is not available"
+        case .guardrail: "Cleanup skipped — the model declined this transcript"
+        case .timeout: "Cleanup skipped — the model took too long"
+        case .tooLong: "Cleanup skipped — the transcript is too long for the model"
+        case .tooShort: "Cleanup skipped — the result dropped too much of it"
+        case .failedVerification: "Cleanup skipped — the result changed more than a clean-up may"
+        }
+    }
+}

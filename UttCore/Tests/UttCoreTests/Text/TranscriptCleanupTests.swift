@@ -182,3 +182,54 @@ struct CleanupStageTests {
         func record(_ text: String) { value = text }
     }
 }
+
+/// Paragraph structure is the user's, and the spike watched the model collapse it.
+/// Splitting it out is what stops that, so the round trip has to be exact.
+struct TranscriptParagraphsTests {
+    @Test("a blank line separates paragraphs, a single newline does not")
+    func splitsOnBlankLines() {
+        let (parts, separators) = TranscriptParagraphs.split("one\ntwo\n\nthree")
+        #expect(parts == ["one\ntwo", "three"])
+        #expect(separators == ["\n\n"])
+    }
+
+    @Test("the separators come back verbatim")
+    func roundTripsUnusualSeparators() {
+        for text in ["a\n\n\nb", "a\n  \nb", "a\n\nb\n\nc", "a", "", "a\n\n"] {
+            let (parts, separators) = TranscriptParagraphs.split(text)
+            #expect(TranscriptParagraphs.join(parts, separators: separators) == text)
+        }
+    }
+
+    @Test("cleaning each part independently keeps the structure")
+    func rejoinsCleanedParts() {
+        let (parts, separators) = TranscriptParagraphs.split("um one\n\nuh two")
+        let cleaned = parts.map { $0.replacingOccurrences(of: "um ", with: "").replacingOccurrences(of: "uh ", with: "") }
+        #expect(TranscriptParagraphs.join(cleaned, separators: separators) == "one\n\ntwo")
+    }
+
+    /// A blank paragraph would otherwise be sent to the model, which answered an
+    /// empty transcript with its own instruction text.
+    @Test("a separator run never becomes a part of its own")
+    func noEmptyPartsBetweenSeparators() {
+        let (parts, _) = TranscriptParagraphs.split("a\n\n\n\nb")
+        #expect(parts == ["a", "b"])
+    }
+}
+
+struct CleanupSkipReasonTests {
+    @Test("a verifier failure names the reason the panel shows")
+    func mapsEveryFailure() {
+        #expect(CleanupSkipReason(.notASubsequence) == .failedVerification)
+        #expect(CleanupSkipReason(.tooMuchDeleted) == .tooShort)
+        #expect(CleanupSkipReason(.emptyOutput) == .tooShort)
+    }
+
+    @Test("every reason has a line to put on the card")
+    func everyReasonHasASentence() {
+        for reason in CleanupSkipReason.allCases {
+            #expect(reason.sentence.hasPrefix("Cleanup skipped — "))
+            #expect(reason.sentence.count > "Cleanup skipped — ".count)
+        }
+    }
+}

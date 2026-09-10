@@ -126,6 +126,15 @@ struct SettingsTests {
     // MARK: - Defaults
 
     @Test
+    func cleanupIsOffByDefaultAndSurvivesAnOlderFile() throws {
+        #expect(UttSettings().cleanupTranscripts == false)
+        let older = try decodeSettings(#"{"lowercaseTranscripts": true}"#)
+        #expect(older.cleanupTranscripts == false)
+        let newer = try decodeSettings(#"{"cleanupTranscripts": true}"#)
+        #expect(newer.cleanupTranscripts)
+    }
+
+    @Test
     func preRollEnabledByDefault() {
         #expect(UttSettings().preRollEnabled)
     }
