@@ -3,52 +3,129 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>1.1.1</title>
-            <pubDate>Wed, 09 Sep 2026 18:55:56 +0200</pubDate>
+            <title>2.0.0</title>
+            <pubDate>Thu, 10 Sep 2026 17:09:17 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>1.1.1</sparkle:shortVersionString>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>2.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-A correction to how plugins reach the menu bar, and two things about them that
-were quietly wrong.
+Plugins are now extensions, and one of them can no longer start working just by
+appearing on disk. Alongside that: utt can tidy a transcript with Apple's
+on-device model, and everything that receives a transcript now also receives
+what was actually heard.
 
-## A plugin belongs under utt's icon, not beside it
+## Plugins are extensions
 
-1.1.0 gave a plugin that asked for it an icon of its own in the menu bar. That
-was the wrong shape. The menu bar is yours; a plugin is something you installed
-*into utt*, and two of them meant three icons where there had been one.
+The word changed everywhere — the settings page, the manifest directory, the
+documentation. "Plugin" suggested something bolted on; these are programs that
+speak to utt, and several of them are the whole reason a transcript leaves the
+app at all.
 
-A plugin now appears as a submenu inside utt's own menu, labelled with its name
-and its symbol. What is in it has not changed — whatever the plugin reports
-about itself, its daemon's state and a **Restart**, its own buttons, and a way
-straight to its page. utt stays one mark in the menu bar however many plugins
-you install.
+**This is the breaking part of 2.0**, and it falls on the programs, not on you.
+utt moves your existing `plugins/` folder to `extensions/` once, on first
+launch, so everything installed carries across with its settings and its state
+intact. What does not move is the program on the other side: a companion that
+writes into `plugins/` is now writing into a folder utt no longer reads, and
+needs its author's updated build. The deep link changed with it —
+`utt://show?section=plugin:<id>` is now `section=extension:<id>`.
 
-## It asks before something you cannot take back
+Nothing about the file formats changed, only where they live.
 
-A plugin can mark a button as one that should not happen by accident, and utt
-asks first. It was only asking on the plugin's page — pressed from the menu bar,
-the same button went straight through. The menu bar is where a mis-click is
-likelier, not less likely.
+## An extension asks before it can do anything
 
-## A dropped setting no longer disappears in silence
+Installing an extension has always been dropping a file in a folder — no
+installer, no registry, nothing signed. That is worth keeping, and it is why
+utt now asks.
 
-utt refuses anything in a plugin's description it cannot show you honestly, and
-drops it rather than guessing. That is still right, but the person who wrote the
-plugin had no way to see it happen: they shipped three buttons, one appeared,
-and nothing said why. utt now names what it refused in its log, once, so that is
-a minute's work to find instead of an afternoon's.
+What it could not stay is *silent*. A manifest that appeared could ask for your
+audio, every transcript you dictate and the API token, and until now it got all
+three the moment it landed. A manifest that appears now lands **pending**: inert,
+with no clips transcribed, no transcripts delivered and no token written, until
+you say yes on its page. The page tells you what it asked for in plain words
+before you decide.
+
+Everything you already had keeps working, and you will not be asked about it.
+Extensions present when you upgrade are carried over as approved — or as
+switched off, if that is what you had already chosen.
+
+An extension that sends a clip before you have ruled on it gets an answer saying
+so, rather than watching a file that never appears.
+
+## You decide whose clips go first
+
+Several extensions can want a transcription at the same time, and until now the
+oldest clip simply won. Each extension that sends audio now has a place in the
+queue you choose: **First**, **In turn**, or **Last**. Its own clips still come
+back in the order it sent them.
+
+It decides who goes next, never who gets interrupted — whatever is being
+transcribed finishes either way.
+
+## utt can tidy what you said
+
+Switch on **Text → Cleanup** and utt runs the transcript through Apple's
+on-device language model before it lands: the "um", the false start, the
+sentence you corrected halfway through, and the punctuation a recogniser does
+not add. It is off by default, and it stays off until you turn it on.
+
+The model is never trusted. Everything it is allowed to do is a deletion or a
+punctuation change, and utt checks that its answer really is your words with
+some taken out — not a summary, not a rewrite, not an answer to a question it
+thought you asked. Anything else and the raw transcript is pasted instead,
+whole. It costs about a second a paragraph, which is why it is a choice rather
+than the default.
+
+`docs/transcript-cleanup.md` has the full account, including what it will not do
+and why the numbers are what they are.
+
+## What was heard, beside what was typed
+
+Once something rewrites your words, "the transcript" stops being one thing. So
+every place a transcript goes now carries both: what the recogniser heard, what
+finally landed, and which stages changed it — your replacement rules, the
+cleanup stage, formatting, a filtering extension, or an API caller's own hints.
+
+That is in the panel after you dictate, in the history, in an extension's file
+and in the API response. A stage that ran and left your words alone is now
+distinguishable from a stage that never ran, which it was not before.
+
+Each of those stages also reports what it cost, in milliseconds, so a dictation
+that felt slow can be attributed rather than guessed at.
+
+## The Text settings are the pipeline, in order
+
+The old Output section had grown into a drawer. Text now has its own group in
+the rail — **Replacements**, **Cleanup**, **Formatting** — listed in the order
+they actually run, and **Output** keeps delivery and saving. Old links to the
+retired pages still land somewhere sensible.
+
+## Fixes
+
+Your clipboard comes back whatever was on it. The restore only ever put back
+plain text, so a clipboard holding an image, a file or styled text got nothing
+back and kept the transcript instead.
+
+utt's own files are created private, 0600 and 0700, rather than inheriting
+whatever the umask happened to be. Your history and your API token live in them.
+
+The menu bar no longer shifts while its menu is open, and a rail taller than the
+window scrolls instead of uncovering it.
 
 ## Updating
 
-Nothing you have set up needs redoing. A plugin that asked for the menu bar
-needs no change to move into utt's menu — it is the same flag.
+Everything you have set up carries over. Your extensions move folders by
+themselves and keep working without being approved again.
+
+The one thing to watch is an extension whose own program has not been updated
+for 2.0: utt will show it, because its manifest moved, but the program will be
+writing its clips and its status into the old folder and nothing will happen.
+That needs a new build from whoever wrote it.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v1.1.1/utt-1.1.1.zip" length="11489831" type="application/octet-stream" sparkle:edSignature="YsEb6sNbCJO3DKfwa1KTLLrtdXElaHE9/yw7JUKXgr5egYocj/pvul9h8m1qxm3aUjJ0jGLZ6B4JAe2G0oiXBw=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v2.0.0/utt-2.0.0.zip" length="11727607" type="application/octet-stream" sparkle:edSignature="oFhrqko3d+vH8b+6qk8p/U2+Fb8aeQZYrRkLqd0xHZky4P8Fc2JJVlhwEh2iblZl/IxCHFmb56xdCiWxovR5Dg=="/>
         </item>
     </channel>
 </rss>
