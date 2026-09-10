@@ -37,6 +37,24 @@ enum AppSection: Hashable, Identifiable {
 
     var isSettings: Bool { self != .history }
 
+    /// The section a `utt://show?section=…` names, or nil.
+    ///
+    /// Matched on a squashed id — case folded, everything but letters and digits
+    /// dropped — so a caller writes `sounds` rather than `Sounds%20%26%20Indicator`.
+    /// A prefix is enough, and a plugin also answers to its bare id: the ids are
+    /// the rail in reading order, and the first match wins, so `plugins` and
+    /// `plugin:deckhand` stay reachable while `deckhand` still lands.
+    static func named(_ query: String, plugins: [PluginManifest]) -> AppSection? {
+        let wanted = query.squashed
+        guard !wanted.isEmpty else { return nil }
+        let all = groups(plugins: plugins).flatMap(\.sections)
+        return all.first { $0.id.squashed.hasPrefix(wanted) }
+            ?? all.first {
+                guard case let .plugin(manifest) = $0 else { return false }
+                return manifest.id.squashed.hasPrefix(wanted)
+            }
+    }
+
     var title: String {
         switch self {
         case .history: "Transcripts"
@@ -95,4 +113,10 @@ enum AppSection: Hashable, Identifiable {
         case let .plugin(manifest): manifest.blurb ?? "Settings for \(manifest.name). Changed here, read by \(manifest.name)."
         }
     }
+}
+
+private extension String {
+    /// Case folded, letters and digits only. `"Sounds & Indicator"` →
+    /// `"soundsindicator"`, `"plugin:deckhand"` → `"plugindeckhand"`.
+    var squashed: String { lowercased().filter { $0.isLetter || $0.isNumber } }
 }

@@ -11,6 +11,12 @@ import SwiftUI
 struct AppRail: View {
     let store: StoreOf<AppFeature>
     @Binding var selection: AppSection
+    /// The one thing wrong with the app right now, if anything is. It lives here
+    /// rather than over the page because it is a statement about utt, not about
+    /// whatever page happens to be open — and a bar that appears above the content
+    /// column pushes every page down by its own height the moment it shows up.
+    var notice: String?
+    var fix: (() -> Void)?
     let collapse: () -> Void
 
     private var recorderState: RecorderState { RecorderState(store.transcription.status) }
@@ -18,16 +24,21 @@ struct AppRail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: Spacing.small) {
-                UttMark(
-                    size: 56,
-                    tint: recording ? Palette.recording : Palette.accent,
-                    recording: recording,
-                    level: Double(store.transcription.meterLevel),
-                    hotCore: 0.3
-                )
-                Spacer(minLength: 0)
-                RecorderStatePill(state: recorderState)
+            VStack(alignment: .leading, spacing: Spacing.small) {
+                HStack(alignment: .top, spacing: Spacing.small) {
+                    UttMark(
+                        size: 56,
+                        tint: recording ? Palette.recording : Palette.accent,
+                        recording: recording,
+                        level: Double(store.transcription.meterLevel),
+                        hotCore: 0.3
+                    )
+                    Spacer(minLength: 0)
+                    RecorderStatePill(state: recorderState)
+                }
+                if let notice {
+                    RailNotice(text: notice, fix: fix)
+                }
             }
             .padding(.bottom, Spacing.large)
             // The window is a fixed 720pt, so past a couple of plugins the sections
@@ -121,5 +132,39 @@ private struct RailRow: View {
         .onHover { hovering = $0 }
         .accessibilityLabel(section.title)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+/// The reason behind the lamp, in the same block as the lamp. One line at a time:
+/// three stacked warnings in a 188pt column would be the whole rail.
+private struct RailNotice: View {
+    let text: String
+    let fix: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Palette.lcdYellow)
+                    .padding(.top, 2)
+                Text(text)
+                    .font(Typography.hint)
+                    .foregroundStyle(Palette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let fix {
+                Button("Fix", action: fix)
+                    .font(Typography.metadata)
+                    .controlSize(.small)
+                    .padding(.leading, 15)
+            }
+        }
+        .padding(Spacing.extraSmall)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
+                .fill(Palette.lcdYellow.opacity(0.14))
+        )
     }
 }

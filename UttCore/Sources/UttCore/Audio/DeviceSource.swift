@@ -13,7 +13,11 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
     case headphoneJack
     case usb
     case bluetooth
-    /// An iPhone or iPad acting as a microphone over Continuity, on the cable.
+    /// A device delivered through Continuity Capture that the HAL calls wired.
+    /// Never shown as "USB": `ccwd` only means the audio is not coming over the
+    /// air *to the HAL*, and a wireless lavalier talking to a receiver on the desk
+    /// reports exactly this. Claiming a cable the user cannot see is worse than
+    /// saying nothing about how it is attached.
     case continuityWired
     /// The same, over Wi-Fi. Worth telling apart from the wired case: it is the one
     /// that drops, and the one where moving the phone or plugging it in is the fix.
@@ -33,7 +37,7 @@ public enum DeviceSource: String, Codable, Equatable, Sendable, CaseIterable {
         case .headphoneJack: "Headphone jack"
         case .usb: "USB"
         case .bluetooth: "Bluetooth"
-        case .continuityWired: "Continuity · USB"
+        case .continuityWired: "Continuity"
         case .continuityWireless: "Continuity · Wi-Fi"
         case .virtual: "Virtual"
         case .aggregate: "Aggregate"

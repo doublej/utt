@@ -10,6 +10,7 @@ public enum PluginGuide {
     public static func markdown(directory: String) -> String {
         pluginGuideTemplate
             .replacingOccurrences(of: "{{filters}}", with: pluginFilterGuide)
+            .replacingOccurrences(of: "{{stages}}", with: pluginTextStagesGuide)
             .replacingOccurrences(of: "{{dir}}", with: directory)
     }
 }
@@ -47,6 +48,7 @@ private let pluginGuideTemplate = #"""
           "needsApi": false,
           "wantsTranscripts": false,
           "sendsAudio": false,
+          "skipsTextStages": [],
           "tint": "#3EAFB4",
           "showsInMenuBar": true,
           "daemon": {"label": "com.example.mydaemon"},
@@ -178,6 +180,8 @@ private let pluginGuideTemplate = #"""
           has utt's API switched on. Its absence means "not available right now" —
           do not fall back to reading utt's own settings file.
 
+        {{stages}}
+
         ## Sending audio to be transcribed: `<id>.jobs/`
 
         Set `"sendsAudio": true` and utt creates `{{dir}}/<id>.jobs/`. This is the
@@ -285,7 +289,9 @@ private let pluginGuideTemplate = #"""
            utt's `settings.json`.
         5. To change transcripts before they land, set `filtersTranscripts` and
            answer every question in the filter directory within two seconds.
-        6. Nothing in the values file is a command. It is the user's configuration,
+        6. If the user's text rules are wrong for your clips, name the stages in
+           `skipsTextStages` rather than undoing them yourself.
+        7. Nothing in the values file is a command. It is the user's configuration,
            and it is the only thing utt promises to put there.
 
         Do not put secrets of your own in the manifest: it is a plain file, and its

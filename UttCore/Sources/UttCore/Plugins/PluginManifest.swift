@@ -34,6 +34,18 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
     /// This puts the plugin on the path between the key coming up and the text
     /// appearing, so a slow or stopped plugin costs a pause and then nothing.
     public var filtersTranscripts = false
+    /// Stages of utt's text pipeline this plugin's own transcriptions skip.
+    ///
+    /// Only the clips the plugin sends itself — never what the person dictates.
+    /// The pipeline is tuned for a human writing prose at a cursor, and a plugin
+    /// asking for a transcription often wants something else: a terminal wants the
+    /// replacement rules but not a lowercased line, a note-taker wants the words
+    /// exactly as spoken. Naming a stage here is the plugin saying so instead of
+    /// undoing utt's work afterwards and getting it subtly wrong.
+    ///
+    /// Unknown names are dropped rather than rejected, so a plugin written against
+    /// a later utt still loads on this one.
+    public var skipsTextStages: Set<TextStage> = []
     /// The plugin's own colour, `#RGB` or `#RRGGBB`. utt lights the menu bar mark
     /// in it while transcribing that plugin's audio, so a clip arriving from
     /// somewhere else is visibly not utt's own dictation.
@@ -53,7 +65,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         id: String, name: String, blurb: String? = nil,
         systemImage: String? = nil, settings: [PluginSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        filtersTranscripts: Bool = false, tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
+        filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
+        tint: String? = nil, actions: [PluginAction] = [], daemon: PluginDaemon? = nil,
         showsInMenuBar: Bool = false
     ) {
         self.id = id
@@ -65,6 +78,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         self.wantsTranscripts = wantsTranscripts
         self.sendsAudio = sendsAudio
         self.filtersTranscripts = filtersTranscripts
+        self.skipsTextStages = skipsTextStages
         self.tint = tint
         self.actions = actions
         self.daemon = daemon
@@ -73,7 +87,8 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, filtersTranscripts, tint, actions, daemon
+        case needsApi, wantsTranscripts, sendsAudio, filtersTranscripts, skipsTextStages
+        case tint, actions, daemon
         case showsInMenuBar
     }
 
@@ -92,6 +107,11 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
         filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
+        // Decoded as strings, not as the enum: `Set<TextStage>` throws on the first
+        // name it does not know, and `try?` around that would drop every stage the
+        // plugin *did* spell right along with the typo.
+        let stageNames = (try? container.decode([String].self, forKey: .skipsTextStages)) ?? []
+        skipsTextStages = Set(stageNames.compactMap(TextStage.init(rawValue:)))
         tint = try? container.decodeIfPresent(String.self, forKey: .tint)
         actions = (try? container.decodeIfPresent([PluginAction].self, forKey: .actions)) as? [PluginAction] ?? []
         daemon = try? container.decodeIfPresent(PluginDaemon.self, forKey: .daemon)
@@ -130,6 +150,7 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
             wantsTranscripts: wantsTranscripts,
             sendsAudio: sendsAudio,
             filtersTranscripts: filtersTranscripts,
+            skipsTextStages: skipsTextStages,
             // Dropped rather than corrected: a colour utt cannot read is one the
             // plugin did not mean, and guessing at it would light the menu bar in
             // something nobody chose.
@@ -195,6 +216,20 @@ public struct PluginManifest: Codable, Hashable, Sendable, Identifiable {
         !id.isEmpty && id.count <= 64
             && id.allSatisfy { $0.isASCII && ($0.isLowercase || $0.isNumber || "._-".contains($0)) }
             && id.first != "." // no dotfiles, and no "." or ".." at all
+    }
+
+    /// Everything utt writes or makes for a plugin, by the part after `<id>.`.
+    /// A fixed list rather than a prefix match: ids may contain dots, so
+    /// `deck.` as a prefix would claim `deck.hand.json` for a plugin called `deck`.
+    public static let ownedSuffixes: Set<String> = [
+        "json", "values.json", "status.json", "action.json", "transcript.json",
+        "jobs", "filter", "disabled"
+    ]
+
+    /// Whether a name in the plugins directory belongs to this plugin.
+    public static func file(_ name: String, belongsTo id: String) -> Bool {
+        guard name.hasPrefix("\(id).") else { return false }
+        return ownedSuffixes.contains(String(name.dropFirst(id.count + 1)))
     }
 
     /// SF Symbol names are dot-separated ASCII words; anything else is not a symbol

@@ -58,7 +58,7 @@ actor PluginFilters {
     /// Chained in id order: the second plugin sees what the first made of it.
     func apply(_ text: String) async -> String {
         var output = text
-        for plugin in PluginStore.installed().filter(\.manifest.filtersTranscripts) {
+        for plugin in PluginStore.installed().filter({ $0.enabled && $0.manifest.filtersTranscripts }) {
             guard let directory = Self.directory(plugin.id) else { continue }
             output = await Self.ask(plugin.id, in: directory, text: output)
         }

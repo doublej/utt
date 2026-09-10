@@ -27,7 +27,11 @@ struct DeviceSourceTests {
     func bothContinuityTransports() {
         #expect(DeviceSource.from(transport: "ccwd") == .continuityWired)
         #expect(DeviceSource.from(transport: "ccwl") == .continuityWireless)
-        #expect(DeviceSource.continuityWired.label == "Continuity · USB")
+        // The wired case names no cable: `ccwd` is what a wireless lavalier
+        // reports through its own receiver, and "USB" on that row is a claim the
+        // HAL never made.
+        #expect(DeviceSource.continuityWired.label == "Continuity")
+        #expect(DeviceSource.continuityWired.label?.contains("USB") == false)
         #expect(DeviceSource.continuityWireless.label == "Continuity · Wi-Fi")
     }
 

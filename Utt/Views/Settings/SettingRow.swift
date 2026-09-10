@@ -3,7 +3,7 @@ import SwiftUI
 import UttCore
 
 /// One setting, the way a settings page reads: the name on the left, what it does
-/// under that in smaller type, the control on the right. The explanation is on
+/// under that in smaller type, the control in a fixed column on the right. The explanation is on
 /// the page rather than in a tooltip because a tooltip is only read by someone
 /// who already suspects there is something to know.
 struct SettingRow<Control: View>: View {
@@ -35,7 +35,16 @@ struct SettingRow<Control: View>: View {
                 }
             }
             Spacer(minLength: Spacing.medium)
-            control()
+            // One column, every row, every page — and the spacer is what aligns
+            // it, not the frame. A macOS push button ignores a width proposal, so
+            // `maxWidth: .infinity` leaves a button sitting in the middle of the
+            // column while a text field fills it, which is the ragged right edge.
+            // Slack first, control last: every control ends on the same line.
+            HStack(spacing: Spacing.extraSmall) {
+                Spacer(minLength: 0)
+                control()
+            }
+            .frame(width: Layout.controlColumn)
         }
     }
 }

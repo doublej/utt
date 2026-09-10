@@ -42,15 +42,22 @@ struct ApiPage: View {
                         }
                     }
                     .labelsHidden()
-                    .frame(width: 220)
                 }
                 SettingRow("Address") {
-                    Text(url)
-                        .font(Typography.monoSmall)
-                        .foregroundStyle(Palette.textSecondary)
-                        .textSelection(.enabled)
-                    Button(label("address", "Copy")) { copy(url, as: "address") }
-                        .font(Typography.metadata)
+                    // Explicitly one control, not two: the column sizes whatever
+                    // the row hands it, and a bare pair would each claim it.
+                    HStack(spacing: Spacing.extraSmall) {
+                        Text(url)
+                            .font(Typography.monoSmall)
+                            .foregroundStyle(Palette.textSecondary)
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            // The address is the point of the row; the button gives
+                            // up its slack rather than the URL losing its port.
+                            .layoutPriority(1)
+                        Button(label("address", "Copy")) { copy(url, as: "address") }
+                            .font(Typography.metadata)
+                    }
                 }
                 SettingRow("Port") {
                     TextField("Port", value: bind(\.port), format: .number.grouping(.never))

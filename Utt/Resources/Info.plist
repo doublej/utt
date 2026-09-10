@@ -21,7 +21,7 @@
   <string>utt records your voice so it can transcribe it on-device.</string>
   <key>NSInputMonitoringUsageDescription</key>
   <string>utt watches for your push-to-talk hotkey.</string>
-  <!-- utt://start, utt://stop, utt://toggle, utt://cancel — see AppDelegate.
+  <!-- utt://start, utt://stop, utt://toggle, utt://cancel, utt://show?section= — see AppDelegate.
        Callers should use `open -g`: bringing utt to the front would make it the
        app the transcript gets pasted into. -->
   <key>CFBundleURLTypes</key>

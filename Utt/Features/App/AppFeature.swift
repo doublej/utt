@@ -277,12 +277,14 @@ private extension AppFeature {
             // rules. An API that answered with the raw transcript would be a second
             // pipeline to keep in step with the first — and a plugin dropping a file
             // is the same caller by another road, so it gets the same closure.
-            let transcribe: @Sendable (URL) async throws -> String = { url in
+            let transcribe: @Sendable (URL, Set<TextStage>) async throws -> String = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
                 let text = try await transcription.transcribe(url, settings.transcriptionEngine, model)
-                return await pluginFilters.apply(settings.applyTextTransforms(to: text))
+                return await pluginFilters.apply(settings.applyTextTransforms(to: text, skipping: skipping))
             }
-            await apiServer.apply(settings.api.configuration, transcribe)
+            // The API skips nothing: a stranger over HTTP has no manifest to declare
+            // one in, and the endpoint's promise is the text the hotkey would paste.
+            await apiServer.apply(settings.api.configuration, { try await transcribe($0, []) })
             await pluginJobs.apply(transcribe)
         }
     }

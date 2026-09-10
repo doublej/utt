@@ -24,7 +24,6 @@ struct DeliveryPage: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(width: 200)
                 .disabled(!canReview)
             }
         }

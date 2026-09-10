@@ -15,6 +15,9 @@ struct InstalledPlugin: Equatable, Sendable, Identifiable {
     /// From `<id>.status.json` — read-only, the plugin's own words. Empty when the
     /// file is missing, which is what "not running" looks like.
     let status: [String: String]
+    /// Off is the person's decision, kept in `<id>.disabled` beside the manifest:
+    /// the page stays, and nothing the plugin declares is acted on.
+    var enabled = true
 
     var id: String { manifest.id }
     /// The manifest's settings with the stored choices applied.
@@ -36,6 +39,10 @@ struct PluginClient: Sendable {
     var deliver: @Sendable (_ text: String, _ duration: Double, _ app: String?) -> Void
     /// Records that the user pressed one of the plugin's own buttons.
     var request: @Sendable (_ pluginID: String, _ actionKey: String) -> Void
+    /// Switches the plugin off or on without touching what it wrote.
+    var setEnabled: @Sendable (_ pluginID: String, _ enabled: Bool) -> Void
+    /// Moves everything utt keeps for the plugin to the Trash.
+    var remove: @Sendable (_ pluginID: String) -> Void
 }
 
 extension PluginClient: DependencyKey {
@@ -43,7 +50,9 @@ extension PluginClient: DependencyKey {
         installed: { PluginStore.installed() },
         write: { id, values, api in PluginStore.write(id, values: values, api: api) },
         deliver: { text, duration, app in PluginStore.deliver(text, duration: duration, app: app) },
-        request: { id, key in PluginStore.request(id, action: key) }
+        request: { id, key in PluginStore.request(id, action: key) },
+        setEnabled: { id, enabled in PluginStore.setEnabled(id, enabled) },
+        remove: { id in PluginStore.remove(id) }
     )
 }
 
@@ -84,6 +93,37 @@ enum PluginStore {
         else { return nil }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    /// An empty file, and its presence is the whole state: a marker survives the
+    /// plugin rewriting its manifest, which it does at every start-up.
+    private static func marker(_ id: String) -> URL? {
+        try? URL.uttPluginsDirectory.appendingPathComponent("\(id).disabled")
+    }
+
+    static func setEnabled(_ id: String, _ enabled: Bool) {
+        guard PluginManifest.isSafeIdentifier(id), let marker = marker(id) else { return }
+        if enabled {
+            try? FileManager.default.removeItem(at: marker)
+        } else {
+            FileManager.default.createFile(atPath: marker.path, contents: nil)
+        }
+    }
+
+    /// To the Trash, not deleted: the values file is the person's own choices,
+    /// and the plugin's status and answers are theirs to look at afterwards.
+    static func remove(_ id: String) {
+        guard PluginManifest.isSafeIdentifier(id),
+              let directory = try? URL.uttPluginsDirectory,
+              let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path)
+        else { return }
+        for name in names where PluginManifest.file(name, belongsTo: id) {
+            do {
+                try FileManager.default.trashItem(at: directory.appendingPathComponent(name), resultingItemURL: nil)
+            } catch {
+                log.error("could not remove \(name, privacy: .public): \(error.localizedDescription)")
+            }
+        }
     }
 
     static func reconcile(_ plugin: InstalledPlugin, api: PluginApiAccess?) {
@@ -141,7 +181,7 @@ enum PluginStore {
     /// affect the transcript the person is waiting for. Delivery does not depend on
     /// the history setting — that governs what utt keeps, not what it hands on.
     static func deliver(_ text: String, duration: Double, app: String?) {
-        let wanting = installed().filter(\.manifest.wantsTranscripts)
+        let wanting = installed().filter { $0.enabled && $0.manifest.wantsTranscripts }
         guard !wanting.isEmpty else { return }
         let finishedAt = ISO8601DateFormatter().string(from: Date())
         for plugin in wanting {
@@ -197,7 +237,8 @@ enum PluginStore {
         return InstalledPlugin(
             manifest: clean,
             values: valuesFile(clean.id).values,
-            status: status(clean.id)
+            status: status(clean.id),
+            enabled: marker(clean.id).map { !FileManager.default.fileExists(atPath: $0.path) } ?? true
         )
     }
 

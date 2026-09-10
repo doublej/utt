@@ -82,8 +82,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// `utt://start`, `utt://stop`, `utt://toggle`, `utt://cancel` — the hotkey's
-    /// four decisions, for anything that can open a URL: Raycast, Shortcuts, a
-    /// Stream Deck, `open` in a script.
+    /// four decisions — plus `utt://show?section=…`, which puts the window on a
+    /// page. For anything that can open a URL: Raycast, Shortcuts, a Stream Deck,
+    /// `open` in a script, an agent checking its own work.
     ///
     /// Callers must use `open -g`. utt does not activate itself here, but a plain
     /// `open` does it for them, and the frontmost app at the moment a recording
@@ -92,12 +93,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
+            if show(url) { continue }
             guard let action = Self.action(for: url) else {
                 log.notice("ignoring unknown url \(url.absoluteString, privacy: .public)")
                 continue
             }
             UttApp.store.send(.transcription(action))
         }
+    }
+
+    /// `utt://show?section=api`. Navigation only, and deliberately without
+    /// `SettingsRoute.open` — that one fronts the window, which is the whole thing
+    /// this verb exists to avoid. Paired with `open -g` nothing moves on screen
+    /// except the page inside a window the caller can then screenshot.
+    @MainActor
+    private func show(_ url: URL) -> Bool {
+        guard url.scheme == "utt", url.host() == "show" else { return false }
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "section" }?.value ?? ""
+        guard let section = AppSection.named(query, plugins: UttApp.store.settings.plugins.map(\.manifest)) else {
+            log.notice("no section named \(query, privacy: .public)")
+            return true
+        }
+        SettingsRoute.shared.section = section
+        return true
     }
 
     @MainActor

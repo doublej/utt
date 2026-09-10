@@ -31,6 +31,8 @@ struct SettingsFeature {
         case pluginValueChanged(String, key: String, value: PluginValue)
         case pluginActionTapped(String, key: String)
         case pluginDaemonRestartTapped(String)
+        case pluginEnabledChanged(String, Bool)
+        case pluginRemoveTapped(String)
         case pluginDaemonStateLoaded(String, PluginDaemonState)
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
@@ -67,6 +69,19 @@ struct SettingsFeature {
                 return change(plugin: id, key: key, to: value, in: &state)
             case let .pluginActionTapped(id, key):
                 return .run { _ in plugins.request(id, key) }
+            case let .pluginEnabledChanged(id, enabled):
+                // Reloaded at once rather than at the next poll, so the switch
+                // reads as having done something.
+                guard state.plugins.first(where: { $0.id == id })?.enabled != enabled else { return .none }
+                return .run { send in
+                    plugins.setEnabled(id, enabled)
+                    await send(.pluginsLoaded(plugins.installed()))
+                }
+            case let .pluginRemoveTapped(id):
+                return .run { send in
+                    plugins.remove(id)
+                    await send(.pluginsLoaded(plugins.installed()))
+                }
             case let .pluginDaemonRestartTapped(id):
                 guard let label = state.plugins.first(where: { $0.id == id })?.manifest.daemon?.label
                 else { return .none }
@@ -182,7 +197,8 @@ private extension SettingsFeature {
         state.plugins[index] = InstalledPlugin(
             manifest: state.plugins[index].manifest,
             values: values,
-            status: state.plugins[index].status
+            status: state.plugins[index].status,
+            enabled: state.plugins[index].enabled
         )
         let api = state.plugins[index].manifest.needsApi ? apiAccess : nil
         return .run { [values] _ in plugins.write(id, values, api) }

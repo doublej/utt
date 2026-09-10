@@ -27,7 +27,6 @@ struct HistoryPage: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120)
             }
             .disabled(!settings.saveTranscriptionHistory)
             SettingRow("Stored now", detail: "Search and re-paste them from the main window.") {

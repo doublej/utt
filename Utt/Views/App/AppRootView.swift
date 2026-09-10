@@ -54,22 +54,32 @@ struct AppRootView: View {
 
     private var expanded: some View {
         HStack(spacing: 0) {
-            AppRail(store: store, selection: $route.section) {
+            AppRail(store: store, selection: $route.section, notice: banner, fix: bannerAction) {
                 route.section = .history
                 collapsed = true
             }
-            VStack(spacing: Spacing.extraSmall) {
-                if let banner {
-                    BannerRow(text: banner, action: bannerAction)
-                }
-                if showingSettings {
-                    SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
-                } else {
-                    HistoryList(store: store)
-                }
-            }
-            .padding(Spacing.medium)
+            content
         }
+    }
+
+    /// The page, and nothing else. It ignores the safe area for the same reason the
+    /// rail does — otherwise the titlebar's 32pt come off the top of this column
+    /// only, and the content sits in a box visibly shorter than the rail beside it.
+    /// The 44pt is the rail's own top padding, so a page header starts level with
+    /// the mark.
+    private var content: some View {
+        Group {
+            if showingSettings {
+                SettingsPanel(store: store, showingGuide: $showingGuide, showingOnboarding: $showingOnboarding)
+            } else {
+                HistoryList(store: store)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, Spacing.medium)
+        .padding(.top, 44)
+        .padding(.bottom, Spacing.medium)
+        .ignoresSafeArea()
     }
 
     /// One line, for the one problem most worth fixing right now. Three stacked
@@ -90,32 +100,6 @@ struct AppRootView: View {
     private var bannerAction: (() -> Void)? {
         guard store.needsRelaunch || !store.missingPermissions.isEmpty else { return nil }
         return { showingGuide = true }
-    }
-}
-
-private struct BannerRow: View {
-    let text: String
-    let action: (() -> Void)?
-
-    var body: some View {
-        HStack(spacing: Spacing.extraSmall) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Palette.warning)
-            Text(text)
-                .font(Typography.metadata)
-                .foregroundStyle(Palette.textPrimary)
-            Spacer()
-            if let action {
-                Button("Fix", action: action)
-                    .font(Typography.metadata)
-            }
-        }
-        .padding(.horizontal, Spacing.medium)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.small, style: .continuous)
-                .fill(Palette.warning.opacity(0.12))
-        )
     }
 }
 

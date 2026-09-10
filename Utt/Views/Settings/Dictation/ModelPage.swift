@@ -26,7 +26,6 @@ struct ModelPage: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                .frame(width: 180)
             }
         }
 

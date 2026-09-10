@@ -16,3 +16,10 @@ enum Radius {
     static let extraLarge: CGFloat = 20
     static let pill: CGFloat = 999
 }
+
+enum Layout {
+    /// The trailing column a setting's control sits in. Fixed, so a page of mixed
+    /// switches, pickers, values and buttons reads as one column instead of a
+    /// ragged edge that restarts at a different x on every row.
+    static let controlColumn: CGFloat = 200
+}

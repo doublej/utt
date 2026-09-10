@@ -1,7 +1,8 @@
 import Foundation
 
-/// The section of the guide about rewriting transcripts. Its own file only
-/// because the guide is one long string and the size rule is per file.
+/// The guide's overflow sections. Here rather than inline for one reason: the
+/// guide is one long string and the size rule is per file — and a seventh file in
+/// this directory would break the other rule.
 let pluginFilterGuide = #"""
         ## Rewriting transcripts before they land: `filtersTranscripts` and `<id>.filter/`
 
@@ -44,4 +45,43 @@ let pluginFilterGuide = #"""
         This hands you everything dictated on that Mac, the same as
         `wantsTranscripts`, and lets you change it. The person is told so on your
         page. Do not ask for it unless you use it.
+        """#
+
+/// The section of the guide about opting out of the user's text pipeline.
+let pluginTextStagesGuide = #"""
+        ### Skipping the user's text rules
+
+        The text utt hands back has been through the user's own pipeline: their
+        replacement rules, then their formatting. That is tuned for a person
+        writing prose at a cursor, and your clips may want something else — a
+        terminal wants the replacements but not a lowercased line, a note-taker
+        wants the words exactly as spoken.
+
+        Name the stages you do not want and utt skips them **for your clips only**:
+
+        ```json
+        "skipsTextStages": ["formatting"]
+        ```
+
+        `"replacements"` is the user's word rules and the spoken-punctuation tidying
+        that goes with them. `"formatting"` is lowercasing and punctuation
+        stripping. Names utt does not know are ignored, so a manifest written
+        against a later version still loads.
+
+        This never touches what the person dictates, and it is shown on your page
+        under Access — a user editing a rule can see why your plugin ignores it.
+        Ask for it because your clips genuinely want raw text, not to save yourself
+        undoing utt's work afterwards.
+
+        ## Switched off, or removed: `<id>.disabled`
+
+        The person can switch you off from your page. utt writes an empty
+        `<id>.disabled` beside your manifest, and while it is there nothing you
+        declare is acted on: no transcripts, no clips, no filtering, no menu bar.
+        Your page and your values file stay. Respect it — do not act on their
+        behalf while it exists, and do not delete it.
+
+        They can also remove you. Every file utt keeps for you goes to the Trash.
+        You write your manifest at start-up, so your next start-up puts you back;
+        that is expected, and it is why the switch exists.
         """#

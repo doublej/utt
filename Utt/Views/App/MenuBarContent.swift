@@ -101,7 +101,7 @@ struct MenuBarContent: View {
     /// A plugin appears here only if it asked to. One that did gets a submenu
     /// rather than an item of its own — see `PluginMenu`.
     private var menuPlugins: [InstalledPlugin] {
-        store.settings.plugins.filter(\.manifest.showsInMenuBar)
+        store.settings.plugins.filter { $0.enabled && $0.manifest.showsInMenuBar }
     }
 
     private var statusLine: String {

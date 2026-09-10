@@ -14,6 +14,7 @@ struct PluginPage: View {
     let plugin: InstalledPlugin
     @Shared(.uttSettings) private var settings
     @State private var confirming: PluginAction?
+    @State private var removing = false
 
     var body: some View {
         if !plugin.status.isEmpty {
@@ -93,6 +94,11 @@ struct PluginPage: View {
                         Image(systemName: "waveform").foregroundStyle(Palette.textTertiary)
                     }
                 }
+                if !plugin.manifest.skipsTextStages.isEmpty {
+                    SettingRow("Skips some of your text rules", detail: skipNote) {
+                        Image(systemName: "text.badge.minus").foregroundStyle(Palette.textTertiary)
+                    }
+                }
                 if plugin.manifest.wantsTranscripts {
                     SettingRow(
                         "Receives your transcripts",
@@ -112,6 +118,48 @@ struct PluginPage: View {
                     }
                 }
             }
+        }
+
+        management
+        removalConfirmation
+    }
+
+    /// utt's own switch and its own eject button, last on the page: everything
+    /// above is the plugin describing itself; this is what the person can do to it.
+    private var management: some View {
+        SettingsGroup("In utt") {
+            SettingRow(
+                "Enabled",
+                detail: "Off keeps this page and the plugin's settings, but utt stops handing it transcripts and audio, stops waiting for its answers, and takes it out of the menu bar."
+            ) {
+                Toggle("Enabled", isOn: Binding(
+                    get: { plugin.enabled },
+                    set: { store.send(.settings(.pluginEnabledChanged(plugin.id, $0))) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .tint(Palette.accent)
+            }
+            SettingRow(
+                "Remove from utt",
+                detail: "Moves the files utt keeps for \(plugin.manifest.name) to the Trash: this page, its settings and its status. The program itself is not touched, and one that is still running may add itself back."
+            ) {
+                Button("Remove…") { removing = true }
+                    .font(Typography.metadata)
+            }
+        }
+    }
+
+    private var removalConfirmation: some View {
+        EmptyView().alert("Remove \(plugin.manifest.name) from utt?", isPresented: $removing) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) {
+                store.send(.settings(.pluginRemoveTapped(plugin.id)))
+                SettingsRoute.shared.open(.plugins)
+            }
+        } message: {
+            Text("Its files go to the Trash. The program stays installed.")
         }
     }
 
@@ -154,6 +202,15 @@ struct PluginPage: View {
         store.send(.settings(.pluginActionTapped(plugin.id, key: action.key)))
     }
 
+    /// Which stages this plugin opted out of, named the way the pages that own them
+    /// are named. It is on the page rather than silent because the alternative is a
+    /// person editing a replacement rule and watching it not take effect.
+    private var skipNote: String {
+        let stages = plugin.manifest.skipsTextStages.map(\.pageName).sorted()
+        return "\(plugin.manifest.name) asked for its own clips back without \(stages.joined(separator: " or ")). "
+            + "Only the audio it sends itself — what you dictate is untouched."
+    }
+
     /// The token is a credential, and handing one to a plugin is a thing the user
     /// should be able to see having happened — so the page says it plainly rather
     /// than leaving it to whoever reads the values file.
@@ -177,7 +234,6 @@ struct PluginPage: View {
                 TextField(setting.label, text: binding(setting, default: ""))
                     .labelsHidden()
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
             case .number:
                 TextField(setting.label, value: binding(setting, default: 0.0), format: .number)
                     .labelsHidden()
@@ -188,7 +244,6 @@ struct PluginPage: View {
                     ForEach(setting.options, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
-                .fixedSize()
             }
         }
     }

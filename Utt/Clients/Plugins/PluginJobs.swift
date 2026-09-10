@@ -50,7 +50,10 @@ extension DependencyValues {
 }
 
 actor PluginJobs {
-    typealias Transcriber = @Sendable (URL) async throws -> String
+    /// The clip, and the pipeline stages the plugin that sent it asked to skip.
+    /// Passed per job rather than baked into the closure: one transcriber serves
+    /// every plugin, and they do not agree about the text rules.
+    typealias Transcriber = @Sendable (URL, Set<TextStage>) async throws -> String
 
     /// Short enough that dictation does not feel posted into a queue. Reading one
     /// small directory at this rate costs nothing measurable; a directory watch
@@ -94,7 +97,7 @@ actor PluginJobs {
                     name: plugin.manifest.name,
                     rgb: plugin.manifest.rgb
                 ))
-                await run(job, transcribe)
+                await run(job, plugin.manifest.skipsTextStages, transcribe)
                 announce(nil)
             }
             try? await Task.sleep(for: Self.interval)
@@ -106,7 +109,9 @@ actor PluginJobs {
     /// The audio is removed whatever happens. Leaving a clip that failed would mean
     /// retrying it forever at three times a second, and the plugin has the answer
     /// either way.
-    private func run(_ audio: URL, _ transcribe: @escaping Transcriber) async {
+    private func run(
+        _ audio: URL, _ skipping: Set<TextStage>, _ transcribe: @escaping Transcriber
+    ) async {
         defer { try? FileManager.default.removeItem(at: audio) }
         let result: PluginJobResult
         let finishedAt = ISO8601DateFormatter().string(from: Date())
@@ -119,7 +124,7 @@ actor PluginJobs {
                 Self.answer(result, for: audio)
                 return
             }
-            let text = try await transcribe(audio)
+            let text = try await transcribe(audio, skipping)
             result = PluginJobResult(
                 text: TranscriptHints.apply(text, hints: Self.hints(for: audio)),
                 finishedAt: finishedAt
@@ -149,7 +154,7 @@ actor PluginJobs {
     /// sent two clips gets them back in the order it spoke them.
     private static func pending() -> [(InstalledPlugin, URL)] {
         PluginStore.installed()
-            .filter(\.manifest.sendsAudio)
+            .filter { $0.enabled && $0.manifest.sendsAudio }
             .flatMap { plugin in files(in: PluginStore.jobsDirectory(plugin.id)).map { (plugin, $0) } }
             .sorted { created($0.1) < created($1.1) }
     }

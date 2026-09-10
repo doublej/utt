@@ -38,7 +38,9 @@ struct PluginSettingsTests {
                 installed: { [installed] },
                 write: { id, values, _ in writes.recorded.append((id, values)) },
                 deliver: { _, _, _ in },
-                request: { _, _ in }
+                request: { _, _ in },
+                setEnabled: { _, _ in },
+                remove: { _ in }
             )
         }
     }
@@ -116,7 +118,9 @@ struct PluginTranscriptTests {
                 deliver: { text, duration, app in
                     delivered.received.append(Handed(text: text, duration: duration, app: app))
                 },
-                request: { _, _ in }
+                request: { _, _ in },
+                setEnabled: { _, _ in },
+                remove: { _ in }
             )
             $0.pasteboard.frontmostApp = { AppIdentity(bundleID: "com.mitchellh.ghostty", name: "Ghostty") }
             $0.recording = .quiet
