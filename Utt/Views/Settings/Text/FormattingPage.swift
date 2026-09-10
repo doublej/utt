@@ -7,7 +7,7 @@ struct FormattingPage: View {
     @Shared(.uttSettings) private var settings
 
     var body: some View {
-        SettingsGroup("Formatting") {
+        SettingsGroup {
             SettingToggle(
                 "Lowercase everything",
                 detail: "For chat and code, where a capital at the start reads as shouting.",

@@ -8,7 +8,7 @@ struct CleanupPage: View {
     @Shared(.uttSettings) private var settings
 
     var body: some View {
-        SettingsGroup("Cleanup") {
+        SettingsGroup {
             SettingToggle(
                 "Clean up with Apple Intelligence",
                 detail: """
