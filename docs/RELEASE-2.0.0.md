@@ -1,0 +1,114 @@
+Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
+machine.
+
+Plugins are now extensions, and one of them can no longer start working just by
+appearing on disk. Alongside that: utt can tidy a transcript with Apple's
+on-device model, and everything that receives a transcript now also receives
+what was actually heard.
+
+## Plugins are extensions
+
+The word changed everywhere — the settings page, the manifest directory, the
+documentation. "Plugin" suggested something bolted on; these are programs that
+speak to utt, and several of them are the whole reason a transcript leaves the
+app at all.
+
+**This is the breaking part of 2.0**, and it falls on the programs, not on you.
+utt moves your existing `plugins/` folder to `extensions/` once, on first
+launch, so everything installed carries across with its settings and its state
+intact. What does not move is the program on the other side: a companion that
+writes into `plugins/` is now writing into a folder utt no longer reads, and
+needs its author's updated build. The deep link changed with it —
+`utt://show?section=plugin:<id>` is now `section=extension:<id>`.
+
+Nothing about the file formats changed, only where they live.
+
+## An extension asks before it can do anything
+
+Installing an extension has always been dropping a file in a folder — no
+installer, no registry, nothing signed. That is worth keeping, and it is why
+utt now asks.
+
+What it could not stay is *silent*. A manifest that appeared could ask for your
+audio, every transcript you dictate and the API token, and until now it got all
+three the moment it landed. A manifest that appears now lands **pending**: inert,
+with no clips transcribed, no transcripts delivered and no token written, until
+you say yes on its page. The page tells you what it asked for in plain words
+before you decide.
+
+Everything you already had keeps working, and you will not be asked about it.
+Extensions present when you upgrade are carried over as approved — or as
+switched off, if that is what you had already chosen.
+
+An extension that sends a clip before you have ruled on it gets an answer saying
+so, rather than watching a file that never appears.
+
+## You decide whose clips go first
+
+Several extensions can want a transcription at the same time, and until now the
+oldest clip simply won. Each extension that sends audio now has a place in the
+queue you choose: **First**, **In turn**, or **Last**. Its own clips still come
+back in the order it sent them.
+
+It decides who goes next, never who gets interrupted — whatever is being
+transcribed finishes either way.
+
+## utt can tidy what you said
+
+Switch on **Text → Cleanup** and utt runs the transcript through Apple's
+on-device language model before it lands: the "um", the false start, the
+sentence you corrected halfway through, and the punctuation a recogniser does
+not add. It is off by default, and it stays off until you turn it on.
+
+The model is never trusted. Everything it is allowed to do is a deletion or a
+punctuation change, and utt checks that its answer really is your words with
+some taken out — not a summary, not a rewrite, not an answer to a question it
+thought you asked. Anything else and the raw transcript is pasted instead,
+whole. It costs about a second a paragraph, which is why it is a choice rather
+than the default.
+
+`docs/transcript-cleanup.md` has the full account, including what it will not do
+and why the numbers are what they are.
+
+## What was heard, beside what was typed
+
+Once something rewrites your words, "the transcript" stops being one thing. So
+every place a transcript goes now carries both: what the recogniser heard, what
+finally landed, and which stages changed it — your replacement rules, the
+cleanup stage, formatting, a filtering extension, or an API caller's own hints.
+
+That is in the panel after you dictate, in the history, in an extension's file
+and in the API response. A stage that ran and left your words alone is now
+distinguishable from a stage that never ran, which it was not before.
+
+Each of those stages also reports what it cost, in milliseconds, so a dictation
+that felt slow can be attributed rather than guessed at.
+
+## The Text settings are the pipeline, in order
+
+The old Output section had grown into a drawer. Text now has its own group in
+the rail — **Replacements**, **Cleanup**, **Formatting** — listed in the order
+they actually run, and **Output** keeps delivery and saving. Old links to the
+retired pages still land somewhere sensible.
+
+## Fixes
+
+Your clipboard comes back whatever was on it. The restore only ever put back
+plain text, so a clipboard holding an image, a file or styled text got nothing
+back and kept the transcript instead.
+
+utt's own files are created private, 0600 and 0700, rather than inheriting
+whatever the umask happened to be. Your history and your API token live in them.
+
+The menu bar no longer shifts while its menu is open, and a rail taller than the
+window scrolls instead of uncovering it.
+
+## Updating
+
+Everything you have set up carries over. Your extensions move folders by
+themselves and keep working without being approved again.
+
+The one thing to watch is an extension whose own program has not been updated
+for 2.0: utt will show it, because its manifest moved, but the program will be
+writing its clips and its status into the old folder and nothing will happen.
+That needs a new build from whoever wrote it.
