@@ -45,6 +45,8 @@ public struct ExtensionValuesFile: Codable, Equatable, Sendable {
     }
 }
 
+/// What the person has said about an extension.
+///
 /// How an extension reaches utt's HTTP API.
 public struct ExtensionApiAccess: Codable, Equatable, Sendable {
     public let token: String
@@ -175,6 +177,14 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         self.duration = duration
         self.timings = timings
     }
+
+    /// What a clip gets while the extension that sent it is still waiting to be
+    /// approved. An ordinary error rather than silence: an extension polling for an
+    /// answer that will never come cannot otherwise tell "utt is waiting for the
+    /// person" from "utt is broken", and would sit there until it timed out.
+    public static let awaitingApproval =
+        "utt is waiting for you to approve this extension. Open utt, go to Extensions, "
+            + "approve it, and send the clip again."
 
     /// Audio an extension may hand over. The extension is how AVFoundation picks its
     /// reader — a wav named `.m4a` fails to open however correct its bytes are —

@@ -15,11 +15,19 @@ struct InstalledExtension: Equatable, Sendable, Identifiable {
     /// From `<id>.status.json` — read-only, the extension's own words. Empty when the
     /// file is missing, which is what "not running" looks like.
     let status: [String: String]
-    /// Off is the person's decision, kept in `<id>.disabled` beside the manifest:
-    /// the page stays, and nothing the extension declares is acted on.
-    var enabled = true
+    /// What the person has said about it, kept in `<id>.consent.json` beside the
+    /// manifest. No record means they have not been asked yet.
+    var consent: ExtensionConsent = .pending
+    /// Where its clips go when several extensions are waiting. Kept beside the
+    /// consent record for the same reason it is: a fact about this one extension
+    /// that has to outlive a settings reset.
+    var priority: ExtensionPriority = .normal
 
     var id: String { manifest.id }
+    /// The one question every lane asks. Pending answers it the same way off does —
+    /// nothing the extension declared is acted on — which is what makes a manifest
+    /// that appeared out of nowhere inert without a second check in each lane.
+    var enabled: Bool { consent == .approved }
     /// The manifest's settings with the stored choices applied.
     var settings: [ExtensionSetting] { manifest.resolved(stored: values) }
 }
@@ -40,8 +48,11 @@ struct ExtensionClient: Sendable {
     var deliver: @Sendable (_ transcript: ProcessedTranscript, _ duration: Double, _ app: String?) -> Void
     /// Records that the user pressed one of the extension's own buttons.
     var request: @Sendable (_ extensionID: String, _ actionKey: String) -> Void
-    /// Switches the extension off or on without touching what it wrote.
+    /// Records the person's answer: approving one they have not ruled on yet, and
+    /// switching an approved one off or back on. Nothing it wrote is touched.
     var setEnabled: @Sendable (_ extensionID: String, _ enabled: Bool) -> Void
+    /// Moves the extension in the queue its clips wait in.
+    var setPriority: @Sendable (_ extensionID: String, _ priority: ExtensionPriority) -> Void
     /// Moves everything utt keeps for the extension to the Trash.
     var remove: @Sendable (_ extensionID: String) -> Void
 }
@@ -55,6 +66,7 @@ extension ExtensionClient: DependencyKey {
         },
         request: { id, key in ExtensionStore.request(id, action: key) },
         setEnabled: { id, enabled in ExtensionStore.setEnabled(id, enabled) },
+        setPriority: { id, priority in ExtensionStore.prioritise(id, priority) },
         remove: { id in ExtensionStore.remove(id) }
     )
 }
@@ -67,21 +79,26 @@ extension DependencyValues {
 }
 
 enum ExtensionStore {
-    /// `<id>.values.json` and `<id>.status.json` are also `.json`, so the manifest
-    /// scan has to exclude them or an extension would appear three times.
-    private static let reservedSuffixes = [".values.json", ".status.json"]
+    /// `<id>.values.json`, `<id>.status.json` and `<id>.consent.json` are also
+    /// `.json`, so the manifest scan has to exclude them or an extension would
+    /// appear several times — and its own consent record would read as a second
+    /// extension nobody had approved.
+    private static let reservedSuffixes = [".values.json", ".status.json", ".consent.json"]
 
     static func installed() -> [InstalledExtension] {
         guard let directory = try? URL.uttExtensionsDirectory,
               let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path)
         else { return [] }
 
-        return names
+        let manifests = names
             .filter { name in
                 name.hasSuffix(".json") && !reservedSuffixes.contains { name.hasSuffix($0) }
             }
             .sorted()
-            .compactMap { load(directory.appendingPathComponent($0)) }
+        // Before anything is loaded, and therefore before any lane can act on a
+        // consent that has not been carried over yet.
+        grandfather(directory, manifests: manifests)
+        return manifests.compactMap { load(directory.appendingPathComponent($0)) }
     }
 
     /// Reconciles what is on disk with what the manifest and the API settings now
@@ -98,19 +115,10 @@ enum ExtensionStore {
         return directory
     }
 
-    /// An empty file, and its presence is the whole state: a marker survives the
-    /// extension rewriting its manifest, which it does at every start-up.
-    private static func marker(_ id: String) -> URL? {
-        try? URL.uttExtensionsDirectory.appendingPathComponent("\(id).disabled")
-    }
-
+    /// The record survives the extension rewriting its manifest, which it does at
+    /// every start-up — so an extension cannot approve itself by reinstalling.
     static func setEnabled(_ id: String, _ enabled: Bool) {
-        guard ExtensionManifest.isSafeIdentifier(id), let marker = marker(id) else { return }
-        if enabled {
-            try? FileManager.default.removeItem(at: marker)
-        } else {
-            FileManager.default.createFile(atPath: marker.path, contents: nil)
-        }
+        decide(id, enabled ? .approved : .disabled)
     }
 
     /// To the Trash, not deleted: the values file is the person's own choices,
@@ -130,8 +138,15 @@ enum ExtensionStore {
     }
 
     static func reconcile(_ installed: InstalledExtension, api: ExtensionApiAccess?) {
+        // The directories come first and are made whatever the person has said. An
+        // extension has to have somewhere to put a clip before it can be told utt is
+        // waiting for approval, and it has no other way to find out.
         if installed.manifest.sendsAudio { _ = jobsDirectory(installed.id) }
         if installed.manifest.filtersTranscripts { _ = ExtensionFilters.directory(installed.id) }
+        // Nothing is written for one nobody has ruled on. The values file is the
+        // person's own choices and, for an extension that asked, the API token —
+        // neither is anything to hand something they have not seen yet.
+        guard installed.consent != .pending else { return }
         let desired = installed.settings.reduce(into: [String: ExtensionValue]()) { $0[$1.key] = $1.value }
         let wanted = installed.manifest.needsApi ? api : nil
         let current = valuesFile(installed.id)
@@ -177,53 +192,6 @@ enum ExtensionStore {
         }
     }
 
-    /// Writes the transcript to every extension that declared `wantsTranscripts`.
-    ///
-    /// Fire-and-forget and best-effort: an extension that cannot be written to must not
-    /// affect the transcript the person is waiting for. Delivery does not depend on
-    /// the history setting — that governs what utt keeps, not what it hands on.
-    static func deliver(_ transcript: ProcessedTranscript, duration: Double, app: String?) {
-        let wanting = installed().filter { $0.enabled && $0.manifest.wantsTranscripts }
-        guard !wanting.isEmpty else { return }
-        let finishedAt = ISO8601DateFormatter().string(from: Date())
-        for installed in wanting {
-            guard let url = try? URL.uttExtensionsDirectory
-                .appendingPathComponent("\(installed.id).transcript.json")
-            else { continue }
-            let next = ExtensionTranscript(
-                sequence: transcriptFile(installed.id).sequence &+ 1,
-                text: transcript.text,
-                // Both versions, always: an extension cannot tell a mishearing from
-                // something a stage took out, and it has no other copy to compare
-                // against. `stages` is what says which of the two it is.
-                raw: transcript.raw,
-                stages: transcript.stageNames,
-                cleanupSkipped: transcript.cleanupSkipped?.rawValue,
-                finishedAt: finishedAt,
-                duration: duration,
-                timings: transcript.timings,
-                app: app
-            )
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                try encoder.encode(next).writePrivately(to: url)
-            } catch {
-                log.error("could not deliver to \(installed.id, privacy: .public): \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// The sequence is read off disk rather than held in memory, so it survives a
-    /// relaunch without a watcher seeing the number go backwards.
-    private static func transcriptFile(_ id: String) -> ExtensionTranscript {
-        guard let url = try? URL.uttExtensionsDirectory.appendingPathComponent("\(id).transcript.json"),
-              let data = try? Data(contentsOf: url),
-              let file = try? JSONDecoder().decode(ExtensionTranscript.self, from: data)
-        else { return ExtensionTranscript(sequence: 0, text: "", finishedAt: "", duration: 0) }
-        return file
-    }
-
     private static func load(_ url: URL) -> InstalledExtension? {
         guard let data = try? Data(contentsOf: url),
               let manifest = try? JSONDecoder().decode(ExtensionManifest.self, from: data)
@@ -243,11 +211,13 @@ enum ExtensionStore {
         // here is the only way its author finds out.
         refused(manifest.actions.map(\.key), kept: clean.actions.map(\.key), of: clean.id, kind: "action")
         refused(manifest.settings.map(\.key), kept: clean.settings.map(\.key), of: clean.id, kind: "setting")
+        let decided = record(clean.id)
         return InstalledExtension(
             manifest: clean,
             values: valuesFile(clean.id).values,
             status: status(clean.id),
-            enabled: marker(clean.id).map { !FileManager.default.fileExists(atPath: $0.path) } ?? true
+            consent: decided?.decision ?? .pending,
+            priority: decided?.priority ?? .normal
         )
     }
 

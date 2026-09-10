@@ -29,8 +29,10 @@ struct ExtensionSettingsTests {
         var recorded: [(String, [String: ExtensionValue])] = []
     }
 
-    private func makeStore(_ writes: Writes) -> TestStore<SettingsFeature.State, SettingsFeature.Action> {
-        let installed = InstalledExtension(manifest: manifest, values: [:], status: [:])
+    private func makeStore(
+        _ writes: Writes, consent: ExtensionConsent = .approved
+    ) -> TestStore<SettingsFeature.State, SettingsFeature.Action> {
+        let installed = InstalledExtension(manifest: manifest, values: [:], status: [:], consent: consent)
         return TestStore(initialState: SettingsFeature.State(extensions: [installed])) {
             SettingsFeature()
         } withDependencies: {
@@ -40,6 +42,7 @@ struct ExtensionSettingsTests {
                 deliver: { _, _, _ in },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
+                setPriority: { _, _ in },
                 remove: { _ in }
             )
         }
@@ -53,7 +56,8 @@ struct ExtensionSettingsTests {
             $0.extensions[0] = InstalledExtension(
                 manifest: self.manifest,
                 values: ["deliver": .bool(false), "route": .string("auto")],
-                status: [:]
+                status: [:],
+                consent: .approved
             )
         }
         #expect(writes.recorded.count == 1)
@@ -81,6 +85,27 @@ struct ExtensionSettingsTests {
         await store.send(.extensionValueChanged("deckhand", key: "deliver", value: .string("yes")))
         await store.send(.extensionValueChanged("deckhand", key: "route", value: .string("carrier-pigeon")))
         await store.send(.extensionValueChanged("nobody", key: "deliver", value: .bool(false)))
+        #expect(writes.recorded.isEmpty)
+    }
+
+    /// The person moving a band is a write like any other, and the guard against
+    /// the setter firing as the view settles has to hold here too.
+    @Test("choosing the band it already has writes nothing")
+    func ignoresUnchangedPriority() async {
+        let writes = Writes()
+        let store = makeStore(writes)
+        await store.send(.extensionPriorityChanged("deckhand", .normal))
+    }
+
+    /// The values file is the person's own choices, and for an extension that asked
+    /// for one it carries the API token. Neither is written for something they have
+    /// not ruled on — and this is the write path, so it is refused here rather than
+    /// only hidden on the page.
+    @Test("nothing is written for an extension nobody has approved")
+    func refusesPendingExtension() async {
+        let writes = Writes()
+        let store = makeStore(writes, consent: .pending)
+        await store.send(.extensionValueChanged("deckhand", key: "deliver", value: .bool(false)))
         #expect(writes.recorded.isEmpty)
     }
 }
@@ -132,6 +157,7 @@ struct ExtensionTranscriptTests {
                 },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
+                setPriority: { _, _ in },
                 remove: { _ in }
             )
             $0.pasteboard.frontmostApp = { AppIdentity(bundleID: "com.mitchellh.ghostty", name: "Ghostty") }

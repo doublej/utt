@@ -80,6 +80,19 @@ struct MenuBarContent: View {
             }
         }
 
+        // The one place a person finds out without opening anything. An extension
+        // that installed itself is exactly the news that has to reach someone who
+        // never opens utt's window.
+        if !pendingExtensions.isEmpty {
+            Divider()
+            Button(pendingLabel) {
+                // `openWindow` first: the window may be closed rather than behind,
+                // and `SettingsRoute` can only front one that exists.
+                openWindow(id: "main")
+                SettingsRoute.shared.open(.extensions)
+            }
+        }
+
         Divider()
 
         Button("Open utt") {
@@ -102,6 +115,20 @@ struct MenuBarContent: View {
     /// rather than an item of its own — see `ExtensionMenu`.
     private var menuExtensions: [InstalledExtension] {
         store.settings.extensions.filter { $0.enabled && $0.manifest.showsInMenuBar }
+    }
+
+    /// Extensions that turned up and have not been ruled on.
+    private var pendingExtensions: [InstalledExtension] {
+        store.settings.extensions.filter { $0.consent == .pending }
+    }
+
+    /// Named while there is one of them: the name is most of the decision, and a
+    /// person who does not recognise it is the person this whole step is for.
+    private var pendingLabel: String {
+        guard let only = pendingExtensions.first, pendingExtensions.count == 1 else {
+            return "\(pendingExtensions.count) extensions are waiting for you…"
+        }
+        return "\(only.manifest.name) is waiting for you…"
     }
 
     private var statusLine: String {

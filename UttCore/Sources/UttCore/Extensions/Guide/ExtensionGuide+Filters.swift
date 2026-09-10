@@ -3,8 +3,7 @@
 //  UttCore
 //
 //  The guide's overflow sections. Here rather than inline for one reason: the
-//  guide is one long string and the size rule is per file — and a seventh file
-//  in this directory would break the other rule.
+//  guide is one long string and the size rule is per file, not per idea.
 //
 
 import Foundation
@@ -212,17 +211,50 @@ let extensionTextStagesGuide = #"""
         Ask for it because your clips genuinely want raw text, not to save yourself
         undoing utt's work afterwards.
 
-        ## Switched off, or removed: `<id>.disabled`
+        ## Waiting to be approved, switched off, or removed: `<id>.consent.json`
 
-        The person can switch you off from your page. utt writes an empty
-        `<id>.disabled` beside your manifest, and while it is there nothing you
-        declare is acted on: no transcripts, no clips, no filtering, no menu bar.
-        Your page and your values file stay. Respect it — do not act on their
-        behalf while it exists, and do not delete it.
+        Anything that can write into the extensions folder is already running as the
+        person, so this is not a lock — it is the moment they find out you exist. A
+        manifest that appeared and asked for their audio, their transcripts and the
+        API token before they had seen it is not a thing utt is willing to hand over
+        on your word alone.
 
-        They can also remove you. Every file utt keeps for you goes to the Trash.
-        You write your manifest at start-up, so your next start-up puts you back;
-        that is expected, and it is why the switch exists.
+        utt writes one file per extension, and it is the whole state:
+
+        ```json
+        {"decision": "approved", "decidedAt": "2026-09-10T14:22:07Z", "priority": "normal"}
+        ```
+
+        - **No file at all** — you are waiting. Your page shows the person your
+          name, what you say you are, and everything you asked for, with Approve
+          and Remove on it. utt names you in its menu bar and in its window until
+          they answer.
+        - `"approved"` — everything you declared is acted on.
+        - `"disabled"` — they approved you once and have since switched you off from
+          your page. Same effect as waiting, and the file says which.
+
+        `priority` is where the person put your clips in the queue when several
+        extensions are waiting: `"next"` ahead of everything, `"normal"` oldest
+        first, `"last"` behind everything else. It is theirs to set on your page,
+        it never interrupts a clip already being transcribed, and the only thing it
+        changes for you is how long an answer may take.
+
+        Read it if you like; never write it. utt rewrites the file from the person's
+        own answer, so one you put there is overwritten rather than obeyed — and an
+        extension that could approve itself is the hole this closes. Rewriting your
+        manifest does not reset it either: the record is keyed to your id and
+        outlives the manifest.
+
+        While you are waiting or switched off, nothing you declared happens: no
+        transcripts, no filtering, no menu bar, no values file, and no token. Your
+        jobs and filter folders are still made — a clip you drop in is answered with
+        an `error` explaining that utt is waiting for the person, so a program of
+        yours polling for the text can say so instead of hanging.
+
+        They can also remove you. Every file utt keeps for you goes to the Trash,
+        this record included, so a fresh install of you is waiting again. You write
+        your manifest at start-up, so your next start-up puts the page back; that is
+        expected, and it is why Remove and the off switch are different things.
         """#
 
 /// The closing checklist.
@@ -232,8 +264,10 @@ let extensionImplementingGuide = #"""
         1. Write `<id>.json` at start-up, every start-up. It is cheap and it is what
            survives an uninstall, a settings reset, or a user deleting the directory.
         2. Poll `<id>.values.json` (once a second is plenty) and act when `revision`
-           moves. Treat a missing file as "the user has not opened the page yet" and
-           use your manifest's own defaults until it appears.
+           moves. Treat a missing file as "not approved yet, or the page has not been
+           opened" and use your manifest's own defaults until it appears. Read
+           `<id>.consent.json` to tell those apart, and say which one it is rather
+           than reporting a failure.
         3. To transcribe audio, set `sendsAudio` and use the jobs directory. Reach
            for `needsApi` only if you need the HTTP API for something else — talking
            to utt from another device, say. An extension on the same Mac has no reason to

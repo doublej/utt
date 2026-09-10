@@ -14,9 +14,25 @@ struct ExtensionPage: View {
     let installed: InstalledExtension
     @Shared(.uttSettings) private var settings
     @State private var confirming: ExtensionAction?
-    @State private var removing = false
+    @State var removing = false
 
     var body: some View {
+        // Two pages, not one with things greyed out. Until the person has ruled on
+        // it there is nothing here to operate — its settings are not being read, its
+        // buttons reach a program utt is not talking to — so the page is the
+        // decision: what it says it is, what it asked for, yes or no.
+        if installed.consent == .pending {
+            pendingConsent
+            about
+            access
+            removalConfirmation
+        } else {
+            approved
+        }
+    }
+
+    @ViewBuilder
+    private var approved: some View {
         if !installed.status.isEmpty {
             SettingsGroup("Status") {
                 // Alphabetical: a JSON object has no order to preserve, and
@@ -74,53 +90,7 @@ struct ExtensionPage: View {
 
         about
         confirmation
-
-        if installed.manifest.wantsTranscripts || installed.manifest.needsApi || installed.manifest.sendsAudio
-            || installed.manifest.filtersTranscripts {
-            SettingsGroup("Access") {
-                if installed.manifest.filtersTranscripts {
-                    SettingRow(
-                        "Rewrites your transcripts",
-                        detail: "Sees each transcript before it is pasted and can hand back different text. If it does not answer within two seconds, the text goes through as you said it.",
-                        detailTint: Palette.textTertiary
-                    ) {
-                        Image(systemName: "wand.and.sparkles").foregroundStyle(Palette.textTertiary)
-                    }
-                }
-                if installed.manifest.sendsAudio {
-                    SettingRow(
-                        "Sends audio to be transcribed",
-                        detail: "Drops clips in a folder of its own and gets the text back. Transcribed on this Mac, with your engine and your text rules. Nothing goes over the network."
-                    ) {
-                        Image(systemName: "waveform").foregroundStyle(Palette.textTertiary)
-                    }
-                }
-                if !installed.manifest.skipsTextStages.isEmpty {
-                    SettingRow("Skips some of your text rules", detail: skipNote) {
-                        Image(systemName: "text.badge.minus").foregroundStyle(Palette.textTertiary)
-                    }
-                }
-                if installed.manifest.wantsTranscripts {
-                    SettingRow(
-                        "Receives your transcripts",
-                        detail: "Everything you dictate on this Mac is written to this extension's own file as it finishes, whether or not utt keeps it in History.",
-                        detailTint: Palette.textTertiary
-                    ) {
-                        Image(systemName: "text.quote").foregroundStyle(Palette.textTertiary)
-                    }
-                }
-                if installed.manifest.needsApi {
-                    SettingRow(
-                        "Holds the API token",
-                        detail: apiNote,
-                        detailTint: settings.api.enabled ? Palette.textTertiary : Palette.warning
-                    ) {
-                        Image(systemName: "network").foregroundStyle(Palette.textTertiary)
-                    }
-                }
-            }
-        }
-
+        access
         management
         removalConfirmation
     }
@@ -142,6 +112,20 @@ struct ExtensionPage: View {
                 .controlSize(.small)
                 .tint(Palette.accent)
             }
+            // Only for an extension that sends clips. On one that does not there is
+            // no queue for it to have a place in, and the row would be a control
+            // that changes nothing.
+            if installed.manifest.sendsAudio {
+                SettingRow("Its clips are transcribed", detail: priorityNote) {
+                    Picker("Its clips are transcribed", selection: Binding(
+                        get: { installed.priority },
+                        set: { store.send(.settings(.extensionPriorityChanged(installed.id, $0))) }
+                    )) {
+                        ForEach(ExtensionPriority.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                }
+            }
             SettingRow(
                 "Remove from utt",
                 detail: "Moves the files utt keeps for \(installed.manifest.name) to the Trash: this page, its settings and its status. The program itself is not touched, and one that is still running may add itself back."
@@ -152,7 +136,7 @@ struct ExtensionPage: View {
         }
     }
 
-    private var removalConfirmation: some View {
+    var removalConfirmation: some View {
         EmptyView().alert("Remove \(installed.manifest.name) from utt?", isPresented: $removing) {
             Button("Cancel", role: .cancel) {}
             Button("Remove", role: .destructive) {
@@ -206,7 +190,7 @@ struct ExtensionPage: View {
     /// Which stages this extension opted out of, named the way the pages that own them
     /// are named. It is on the page rather than silent because the alternative is a
     /// person editing a replacement rule and watching it not take effect.
-    private var skipNote: String {
+    var skipNote: String {
         let stages = installed.manifest.skipsTextStages.map(\.pageName).sorted()
         return "\(installed.manifest.name) asked for its own clips back without \(stages.joined(separator: " or ")). "
             + "Only the audio it sends itself — what you dictate is untouched."
@@ -215,7 +199,7 @@ struct ExtensionPage: View {
     /// The manifest's own words about itself and where it lives, only when it gave
     /// any. Links are `https` or they were dropped at the trust boundary.
     @ViewBuilder
-    private var about: some View {
+    var about: some View {
         let manifest = installed.manifest
         if manifest.description != nil || manifest.websiteURL != nil || manifest.repositoryURL != nil {
             SettingsGroup("About") {
@@ -245,7 +229,21 @@ struct ExtensionPage: View {
     /// sandboxed and Application Support carries no TCC prompt, so anything the person
     /// runs is already their account — and the mode that makes it true at all is one
     /// utt now sets itself rather than inheriting. Where the file is, they can check.
-    private var apiNote: String {
+    /// Says what the choice does and, in the same breath, what it does not: the
+    /// first thing anyone wonders about a queue is whether jumping it stops what is
+    /// already running.
+    private var priorityNote: String {
+        "Where \(installed.manifest.name)'s clips go when more than one extension is "
+            + "waiting. Whatever utt is transcribing right now finishes either way — "
+            + "this decides what goes next, never what gets interrupted."
+    }
+
+    /// A warning rather than an aside when the extension asked for a token the API
+    /// is not currently minting: it is the one claim on the list that utt is not
+    /// honouring, and the row has to say so rather than read as satisfied.
+    var apiTint: Color { settings.api.enabled ? Palette.textTertiary : Palette.warning }
+
+    var apiNote: String {
         settings.api.enabled
             ? "utt put the token in this extension's own settings file, in Application Support. Any program you run can read it, the same as this one."
             : "utt's API is off, so this extension has no token. Turn it on under Connect › API if the extension needs one."

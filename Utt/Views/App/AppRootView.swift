@@ -54,7 +54,10 @@ struct AppRootView: View {
 
     private var expanded: some View {
         HStack(spacing: 0) {
-            AppRail(store: store, selection: $route.section, notice: banner, fix: bannerAction) {
+            AppRail(
+                store: store, selection: $route.section,
+                notice: banner, fix: bannerAction, fixLabel: bannerActionLabel
+            ) {
                 route.section = .history
                 collapsed = true
             }
@@ -91,15 +94,38 @@ struct AppRootView: View {
         }
         if case let .failed(message) = store.model { return message }
         if case let .failed(message) = store.transcription.status { return message }
+        // Last, because it is the only one that is not something being wrong. A
+        // permission that is off stops utt working; an extension waiting is utt
+        // working exactly as it should and holding something back.
+        if let waiting = pendingExtension {
+            return "\(waiting.manifest.name) installed itself and is waiting for you."
+        }
         return nil
     }
 
-    /// Only the permission banners get a button. A model that failed to load has no
-    /// one-click answer, and the old unconditional `missingPermissions[0]` was a
-    /// crash waiting for the first model failure with every permission granted.
+    /// The first extension nobody has ruled on. Ordered after the permissions for
+    /// the same reason the banner is: one line, and the thing that stops utt working
+    /// comes first.
+    private var pendingExtension: InstalledExtension? {
+        store.settings.extensions.first { $0.consent == .pending }
+    }
+
+    /// Only the permission banners and the consent one get a button. A model that
+    /// failed to load has no one-click answer, and the old unconditional
+    /// `missingPermissions[0]` was a crash waiting for the first model failure with
+    /// every permission granted.
     private var bannerAction: (() -> Void)? {
-        guard store.needsRelaunch || !store.missingPermissions.isEmpty else { return nil }
-        return { showingGuide = true }
+        if store.needsRelaunch || !store.missingPermissions.isEmpty {
+            return { showingGuide = true }
+        }
+        guard let waiting = pendingExtension else { return nil }
+        return { route.open(.extension(waiting.manifest)) }
+    }
+
+    /// "Fix" is wrong for a consent prompt: nothing is broken, and calling it a
+    /// fault would be utt taking a side in a decision that is the person's.
+    private var bannerActionLabel: String {
+        store.needsRelaunch || !store.missingPermissions.isEmpty ? "Fix" : "Review"
     }
 }
 

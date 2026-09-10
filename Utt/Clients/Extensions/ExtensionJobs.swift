@@ -92,16 +92,27 @@ actor ExtensionJobs {
 
     private func watch(_ transcribe: @escaping Transcriber) async {
         while !Task.isCancelled {
-            for (installed, job) in Self.pending() {
-                announce(ExtensionActivity(
-                    extensionID: installed.id,
-                    name: installed.manifest.name,
-                    rgb: installed.manifest.rgb
-                ))
-                await run(job, installed.manifest.skipsTextStages, transcribe)
-                announce(nil)
+            // One clip per look, not the whole batch. Priority is a question about
+            // what goes *next*, and a batch decided before the last transcription
+            // started cannot answer it for a clip that arrived since.
+            guard let (installed, job) = Self.waiting().first else {
+                try? await Task.sleep(for: Self.interval)
+                continue
             }
-            try? await Task.sleep(for: Self.interval)
+            // Inert, but not silent. An extension the person has not ruled on
+            // gets its clip answered with why, rather than watching a file that
+            // is never written and having to guess whether utt is broken.
+            guard installed.consent == .approved else {
+                Self.refuse(job)
+                continue
+            }
+            announce(ExtensionActivity(
+                extensionID: installed.id,
+                name: installed.manifest.name,
+                rgb: installed.manifest.rgb
+            ))
+            await run(job, installed.manifest.skipsTextStages, transcribe)
+            announce(nil)
         }
     }
 
@@ -207,13 +218,40 @@ actor ExtensionJobs {
         return hints
     }
 
-    /// Every audio file waiting in a jobs directory, oldest first so an extension that
-    /// sent two clips gets them back in the order it spoke them.
-    private static func pending() -> [(InstalledExtension, URL)] {
+    /// The clip goes, the same as it does on every other outcome: an answered clip
+    /// left in place is one utt re-answers three times a second, forever. The
+    /// extension resends it once the person has approved it.
+    private static func refuse(_ audio: URL) {
+        answer(
+            ExtensionJobResult(
+                error: ExtensionJobResult.awaitingApproval,
+                finishedAt: ISO8601DateFormatter().string(from: Date())
+            ),
+            for: audio
+        )
+        try? FileManager.default.removeItem(at: audio)
+    }
+
+    /// Every audio file waiting in a jobs directory, in the order utt will take
+    /// them: the person's band for the extension that sent it, then oldest first —
+    /// so an extension that sent two clips still gets them back in the order it
+    /// spoke them, whichever band it is in.
+    ///
+    /// The band decides who goes next and nothing else. A clip already inside the
+    /// engine finishes: moving an extension to the front while one is being
+    /// transcribed does not interrupt it.
+    ///
+    /// One the person has switched off is not scanned at all — being off is a thing
+    /// they chose and the extension was told about. One they have not ruled on yet is,
+    /// so that its clip can be answered with why nothing happened.
+    private static func waiting() -> [(InstalledExtension, URL)] {
         ExtensionStore.installed()
-            .filter { $0.enabled && $0.manifest.sendsAudio }
+            .filter { $0.consent != .disabled && $0.manifest.sendsAudio }
             .flatMap { installed in files(in: ExtensionStore.jobsDirectory(installed.id)).map { (installed, $0) } }
-            .sorted { created($0.1) < created($1.1) }
+            .sorted { left, right in
+                let bands = (left.0.priority.rank, right.0.priority.rank)
+                return bands.0 == bands.1 ? created(left.1) < created(right.1) : bands.0 < bands.1
+            }
     }
 
     private static func files(in directory: URL?) -> [URL] {

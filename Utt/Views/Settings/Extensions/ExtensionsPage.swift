@@ -49,9 +49,21 @@ struct ExtensionsPage: View {
                 }
             } else {
                 ForEach(installed) { installed in
-                    SettingRow(installed.manifest.name, detail: installed.manifest.blurb) {
-                        Button("Open") { SettingsRoute.shared.section = .extension(installed.manifest) }
-                            .font(Typography.metadata)
+                    let waiting = installed.consent == .pending
+                    SettingRow(
+                        installed.manifest.name,
+                        // The blurb is the extension's own sentence about itself, and
+                        // it is not the thing to read first about one that turned up
+                        // and has not been ruled on.
+                        detail: waiting
+                            ? "Waiting for you. utt is handing it nothing until you approve it."
+                            : installed.manifest.blurb,
+                        detailTint: waiting ? Palette.warning : Palette.textTertiary
+                    ) {
+                        Button(waiting ? "Review" : "Open") {
+                            SettingsRoute.shared.section = .extension(installed.manifest)
+                        }
+                        .font(Typography.metadata)
                     }
                 }
             }
