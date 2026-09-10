@@ -16,6 +16,9 @@ extension TranscriptionFeature {
         _ state: inout State, _ result: Result<ProcessedTranscript, Error>
     ) -> Effect<Action> {
         state.recordingStartedAt = nil
+        // The preview's job is over the moment there is a real transcript, right or
+        // wrong: two versions of the same sentence on screen is worse than either.
+        state.liveWords = ""
         switch result {
         case let .success(transcript):
             guard !transcript.text.isEmpty else {

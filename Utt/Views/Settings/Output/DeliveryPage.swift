@@ -37,6 +37,13 @@ struct DeliveryPage: View {
                 isOn: $settings.binding(\.showTranscriptHUD)
             )
             .disabled(reviewing)
+            if settings.showTranscriptHUD {
+                SettingToggle(
+                    "Show words while you speak",
+                    detail: "The panel fills in as you talk, from a second, smaller recogniser. English only, and what you see is a preview — the transcript that lands is still the full model's. Downloads about 100 MB the first time you dictate with this on.",
+                    isOn: $settings.binding(\.liveWords)
+                )
+            }
             // Review's panel is dismissed by answering it, not by waiting.
             if settings.showTranscriptHUD, !reviewing {
                 SettingRow(

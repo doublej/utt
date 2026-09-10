@@ -22,6 +22,9 @@ struct TranscriptionFeature {
         var quietWarning = false
         var recordingStartedAt: Date?
         var meterLevel: Float = 0
+        /// What the live recogniser has heard so far, while the key is down. Cleared
+        /// the moment the real transcript takes over — it is a preview, not a result.
+        var liveWords = ""
         /// How long the clip behind `lastTranscript` ran, for the history entry.
         var lastDuration: TimeInterval = 0
 
@@ -56,6 +59,7 @@ struct TranscriptionFeature {
         case transcriptReady(Result<ProcessedTranscript, Error>)
         case pasteFinished(Bool)
         case meterTicked(Float)
+        case liveWordsHeard(String)
         case deliveryTargetCaptured(AppIdentity?)
         /// ⏎ on the review card.
         case reviewAccepted
@@ -69,10 +73,11 @@ struct TranscriptionFeature {
     /// Cancelling `pipeline` on a new `.startRecording` is what stops a pending
     /// discard from tearing down a recording that has already begun. Not private:
     /// the review half of this reducer lives in its own file.
-    enum CancelID { case pipeline, meter, hud }
+    enum CancelID { case pipeline, meter, hud, live }
 
     @Dependency(\.recording) var recording
     @Dependency(\.transcription) var transcription
+    @Dependency(\.liveTranscription) var liveTranscription
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.sleepManagement) var sleepManagement
     @Dependency(\.mediaControl) var mediaControl
@@ -96,6 +101,7 @@ struct TranscriptionFeature {
             case let .transcriptReady(result): return transcribed(&state, result)
             case let .pasteFinished(pasted): return didPaste(&state, pasted)
             case let .meterTicked(level): state.meterLevel = level; return .none
+            case let .liveWordsHeard(words): state.liveWords = words; return .none
             case let .deliveryTargetCaptured(app): state.deliveryTarget = app; return .none
             case .reviewAccepted: return acceptReview(&state)
             case .reviewDiscarded: return discardReview(&state)
@@ -123,6 +129,7 @@ private extension TranscriptionFeature {
         state.status = .recording
         state.recordingStartedAt = now
         state.quietWarning = false
+        state.liveWords = ""
         // A transcript still waiting on the user is over the moment they start
         // dictating the next one — otherwise ⏎ would paste the old one mid-sentence.
         endReview(&state)
@@ -153,9 +160,53 @@ private extension TranscriptionFeature {
                     await send(.meterTicked(recording.meterLevel()))
                 }
             }
-            .cancellable(id: CancelID.meter)
+            .cancellable(id: CancelID.meter),
+            settings.liveWords ? live() : .none
         )
         .cancellable(id: CancelID.pipeline, cancelInFlight: true)
+    }
+
+    /// The second recogniser, running beside the first for as long as the key is
+    /// held. Its words are a preview on the panel and a line in each watching
+    /// extension's file; nothing it produces reaches the cursor or the history.
+    func live() -> Effect<Action> {
+        .run { send in
+            let partials = await liveTranscription.start()
+            // One stream, one consumer — the same reason the key events have one.
+            // A `Task` per tap block would let chunk 4 reach the decoder before
+            // chunk 3, and the recogniser has no way to notice.
+            //
+            // ponytail: bufferingNewest caps the backlog at ~4s of audio. The
+            // decoder runs an order of magnitude faster than realtime, so this is
+            // a safety valve, not a policy.
+            let (audio, sink) = AsyncStream<[Int16]>.makeStream(bufferingPolicy: .bufferingNewest(64))
+            await recording.tee { sink.yield($0) }
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    for await chunk in audio { await liveTranscription.feed(chunk) }
+                }
+                group.addTask {
+                    for await words in partials {
+                        await send(.liveWordsHeard(words))
+                        ExtensionStore.deliver(partial: words)
+                    }
+                }
+            }
+            sink.finish()
+        }
+        .cancellable(id: CancelID.live, cancelInFlight: true)
+    }
+
+    /// Unhooks the tap first, so no chunk arrives after the session it belonged to.
+    func endLive() -> Effect<Action> {
+        .merge(
+            .cancel(id: CancelID.live),
+            .run { _ in
+                await recording.tee(nil)
+                await liveTranscription.finish()
+                ExtensionStore.deliver(partial: nil)
+            }
+        )
     }
 
     /// Undoes everything `start` did to the rest of the system. Deliberately
@@ -181,6 +232,7 @@ private extension TranscriptionFeature {
         state.meterLevel = 0
         return .merge(
             .cancel(id: CancelID.meter),
+            endLive(),
             play(.stop),
             releaseSystemHolds(),
             .run { send in await send(.deliveryTargetCaptured(pasteboard.frontmostApp())) },
@@ -193,9 +245,11 @@ private extension TranscriptionFeature {
         state.status = .idle
         state.recordingStartedAt = nil
         state.meterLevel = 0
+        state.liveWords = ""
         return .merge(
             .cancel(id: CancelID.meter),
             .cancel(id: CancelID.pipeline),
+            endLive(),
             wasRecording && !silent ? play(.cancel) : .none,
             releaseSystemHolds(),
             .run { _ in await recording.cancel() }

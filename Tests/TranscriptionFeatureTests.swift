@@ -20,6 +20,7 @@ struct TranscriptionFeatureTests {
         } withDependencies: {
             $0.recording = recording
             $0.transcription = .quiet
+            $0.liveTranscription = .quiet
             $0.transcriptCleanup = .quiet
             $0.pasteboard = .quiet
             $0.sleepManagement = .quiet
@@ -32,6 +33,55 @@ struct TranscriptionFeatureTests {
             $0.continuousClock = ImmediateClock()
             $0.date = .constant(Date(timeIntervalSince1970: 0))
         }
+    }
+
+    /// The one thing the live lane must get right: the words on the panel are the
+    /// preview's, and they go away the moment a real transcript exists. Two versions
+    /// of the same sentence on screen is the failure this guards.
+    @Test("live words fill the panel while recording and clear when the transcript lands")
+    func liveWordsAppearAndClear() async {
+        @Shared(.uttSettings) var settings
+        $settings.withLock { $0.liveWords = true }
+        defer { $settings.withLock { $0.liveWords = false } }
+
+        let store = TestStore(initialState: TranscriptionFeature.State()) {
+            TranscriptionFeature()
+        } withDependencies: {
+            $0.recording = .quiet
+            $0.transcription = .quiet
+            $0.liveTranscription = LiveTranscriptionClient(
+                start: {
+                    AsyncStream { continuation in
+                        continuation.yield("the words")
+                        continuation.yield("the words so far")
+                        continuation.finish()
+                    }
+                },
+                feed: { _ in },
+                finish: {},
+                isDownloaded: { true }
+            )
+            $0.transcriptCleanup = .quiet
+            $0.pasteboard = .quiet
+            $0.sleepManagement = .quiet
+            $0.mediaControl = .quiet
+            $0.soundEffects = SoundEffectClient(play: { _, _ in })
+            $0.extensionFilters = ExtensionFiltersClient(apply: { $0 })
+            $0.continuousClock = ImmediateClock()
+            $0.date = .constant(Date(timeIntervalSince1970: 0))
+        }
+        store.exhaustivity = .off
+
+        await store.send(.startRecording)
+        await store.receive(\.liveWordsHeard) { $0.liveWords = "the words" }
+        await store.receive(\.liveWordsHeard) { $0.liveWords = "the words so far" }
+
+        // A transcript — any transcript, right or wrong — ends the preview's job.
+        await store.send(.transcriptReady(.success(ProcessedTranscript(raw: "the words so far", text: "the words so far")))) {
+            $0.liveWords = ""
+        }
+        await store.send(.cancelRecording(silent: true))
+        await store.finish()
     }
 
     @Test("a second start cancels the first recording's pipeline")

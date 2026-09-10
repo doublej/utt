@@ -66,23 +66,48 @@ struct TranscriptHUDView: View {
     // MARK: - States
 
     private var listening: some View {
-        HStack(spacing: Spacing.small) {
-            CompactVuMeter(level: store.transcription.meterLevel, active: true)
-            Text("Listening")
-                .font(Typography.label)
-                .foregroundStyle(Palette.textSecondary)
-            Spacer()
-            ElapsedTimer(startedAt: store.transcription.recordingStartedAt)
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            HStack(spacing: Spacing.small) {
+                CompactVuMeter(level: store.transcription.meterLevel, active: true)
+                Text("Listening")
+                    .font(Typography.label)
+                    .foregroundStyle(Palette.textSecondary)
+                Spacer()
+                ElapsedTimer(startedAt: store.transcription.recordingStartedAt)
+            }
+            live
         }
     }
 
     private var transcribing: some View {
-        HStack(spacing: Spacing.small) {
-            ProgressView().controlSize(.small)
-            Text("Transcribing…")
-                .font(Typography.label)
+        VStack(alignment: .leading, spacing: Spacing.small) {
+            HStack(spacing: Spacing.small) {
+                ProgressView().controlSize(.small)
+                Text("Transcribing…")
+                    .font(Typography.label)
+                    .foregroundStyle(Palette.textSecondary)
+                Spacer()
+            }
+            // Kept up while the real model works: the words the person was just
+            // watching should not blink out and come back rewritten.
+            live
+        }
+    }
+
+    /// The live recogniser's words, drawn as provisional — dimmer than a finished
+    /// transcript, in the same mono face, so the eye reads it as the same text
+    /// arriving rather than as a different thing that will be replaced.
+    @ViewBuilder
+    private var live: some View {
+        let words = store.transcription.liveWords
+        if !words.isEmpty {
+            Text(words)
+                .font(Typography.mono)
                 .foregroundStyle(Palette.textSecondary)
-            Spacer()
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .transition(.opacity)
         }
     }
 

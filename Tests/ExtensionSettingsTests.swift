@@ -162,6 +162,7 @@ struct ExtensionTranscriptTests {
             )
             $0.pasteboard.frontmostApp = { AppIdentity(bundleID: "com.mitchellh.ghostty", name: "Ghostty") }
             $0.recording = .quiet
+            $0.liveTranscription = .quiet
             $0.transcription = .quiet
             $0.date = .constant(Date(timeIntervalSince1970: 0))
             $0.keyEventMonitor.setSuppressed = { _ in }

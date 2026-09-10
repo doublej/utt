@@ -35,6 +35,9 @@ struct RecordingClient: Sendable {
     /// priority list resolves to, and reopening the resolved input would leave the
     /// broken one exactly as it was.
     var reconnect: @Sendable (_ microphoneUID: String) async -> Void
+    /// Sends the converted stream to a second consumer as well as to the file, for
+    /// as long as one is set. Values only — the capture buffer never leaves its type.
+    var tee: @Sendable (_ sink: (@Sendable ([Int16]) -> Void)?) async -> Void
 }
 
 struct RecordingResult: Equatable, Sendable {
@@ -65,7 +68,8 @@ extension RecordingClient: DependencyKey {
             stop: { await recorder.stop() },
             cancel: { await recorder.cancel() },
             meterLevel: { await recorder.meterLevel() },
-            reconnect: { uid in await recorder.reconnect(uid) }
+            reconnect: { uid in await recorder.reconnect(uid) },
+            tee: { sink in await recorder.tee(to: sink) }
         )
     }()
 }
@@ -125,6 +129,8 @@ private actor Recorder {
     }
 
     func meterLevel() -> Float { capture.currentLevel }
+
+    func tee(to sink: (@Sendable ([Int16]) -> Void)?) { capture.tee(to: sink) }
 
     /// Nobody is at the machine, so give the microphone back — and with it the
     /// system indicator that an armed engine otherwise keeps lit indefinitely.

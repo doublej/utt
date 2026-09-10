@@ -126,6 +126,17 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   activates itself there, but a plain `open` activates it for the caller — and the
   frontmost app when a recording *stops* is the app the transcript is pasted into,
   so a foregrounding caller dictates into utt's own window.
+- **Live words are provisional and never reach the cursor.** The streaming
+  recogniser (Parakeet EOU 120M, `LiveTranscriptionClient`) runs beside the real
+  one on its own weights and its own download; the clip on disk is still what
+  becomes the transcript. It is English only, it decodes a quiet or synthetic
+  clip to *nothing at all* rather than to something wrong — the spike proved
+  both — and FluidAudio's custom vocabulary biasing is batch-only, so streaming
+  and a vocabulary list are alternatives rather than a stack.
+- **A capability an extension declares has to survive `sanitized()`.** It rebuilds
+  the manifest field by field, so a new flag that is not passed through there
+  decodes fine, tests fine, and is silently false by the time any lane reads it.
+  `ExtensionCapabilityTests` is what catches it.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going

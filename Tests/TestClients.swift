@@ -12,7 +12,19 @@ extension RecordingClient {
         stop: { nil },
         cancel: {},
         meterLevel: { 0 },
-        reconnect: { _ in }
+        reconnect: { _ in },
+        tee: { _ in }
+    )
+}
+
+extension LiveTranscriptionClient {
+    /// The setting is off by default, so `start` is never reached in the feature
+    /// tests — but a test that turns it on gets a session that hears nothing.
+    static let quiet = LiveTranscriptionClient(
+        start: { .finished },
+        feed: { _ in },
+        finish: {},
+        isDownloaded: { false }
     )
 }
 

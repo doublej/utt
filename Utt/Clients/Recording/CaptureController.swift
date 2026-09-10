@@ -47,6 +47,7 @@ final class CaptureController: @unchecked Sendable {
     private var lastTapAt: UInt64 = 0
     private var tapSession: UUID?
     private var receivedTap = false
+    private var liveSink: (@Sendable ([Int16]) -> Void)?
 
     /// Only touched from the owning actor, never from the tap. The *resolved*
     /// device, not the list that was asked for: an unchanged list resolves to a
@@ -130,6 +131,7 @@ final class CaptureController: @unchecked Sendable {
 
     /// Instantaneous level for the VU meter and the indicator's fill brightness.
     var currentLevel: Float { lock.withLock { meterLevel } }
+    func tee(to sink: (@Sendable ([Int16]) -> Void)?) { lock.withLock { liveSink = sink } }
 
     /// How long to keep capturing after the hotkey comes up, derived from the tap
     /// cadence this device is actually running at.
@@ -267,6 +269,8 @@ final class CaptureController: @unchecked Sendable {
             } catch {
                 log.error("write failed: \(error.localizedDescription)")
             }
+            guard let liveSink, let channel = converted.int16ChannelData?[0] else { return }
+            liveSink(Array(UnsafeBufferPointer(start: channel, count: Int(converted.frameLength))))
         }
     }
 

@@ -112,6 +112,10 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// dismissed by hand.
     public var hudDismissAfter: Double = 6
 
+    /// Words on the panel while the key is still held, from a second, smaller
+    /// recogniser. Off: English only, its own download, and always provisional.
+    public var liveWords: Bool = false
+
     // MARK: - Text pipeline
 
     /// Literal find-and-replace rules, applied in order before the formatting
@@ -224,7 +228,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         case microphonePriority, microphoneNames, microphoneSources
         case muteWhileRecording, preventSystemSleep, keepMicrophoneWarm, showRecordingOverlay
         case transcriptionEngine, selectedModel
-        case useClipboardPaste, copyToClipboard, deliveryMode, showTranscriptHUD, hudDismissAfter
+        case useClipboardPaste, copyToClipboard, deliveryMode, showTranscriptHUD, hudDismissAfter, liveWords
         case wordRemappings, cleanupTranscripts, lowercaseTranscripts, removePunctuation
         case saveTranscriptionHistory, maxHistoryEntries
         case soundEffectsEnabled, soundEffectsVolume
@@ -255,6 +259,7 @@ public struct UttSettings: Codable, Equatable, Sendable {
         copyToClipboard = try container.decodeIfPresent(Bool.self, forKey: .copyToClipboard) ?? copyToClipboard
         deliveryMode = try container.decodeIfPresent(DeliveryMode.self, forKey: .deliveryMode) ?? deliveryMode
         showTranscriptHUD = try container.decodeIfPresent(Bool.self, forKey: .showTranscriptHUD) ?? showTranscriptHUD
+        liveWords = try container.decodeIfPresent(Bool.self, forKey: .liveWords) ?? liveWords
         hudDismissAfter = try container.decodeIfPresent(Double.self, forKey: .hudDismissAfter) ?? hudDismissAfter
     }
 
