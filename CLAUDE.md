@@ -266,6 +266,9 @@ something a script should be inventing.
 
 - [agent.md](agent.md) — verify loop, auto-fix commands, boundaries
 - [docs/api.md](docs/api.md) — the HTTP API: reach, auth, endpoints
+- [docs/transcript-cleanup.md](docs/transcript-cleanup.md) — the on-device cleanup
+  stage: the deletion-only contract, the one setting, and the constants that are
+  measured rather than chosen
 - [docs/hotkey-semantics.md](docs/hotkey-semantics.md) — the press/hold/double-tap
   spec the `HotKeyProcessor` tests are written against
 - [docs/phase0-results.md](docs/phase0-results.md) — what the spike actually
