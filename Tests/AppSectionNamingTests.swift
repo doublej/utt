@@ -14,6 +14,7 @@ struct AppSectionNamingTests {
         #expect(AppSection.named("Sounds & Indicator", extensions: []) == .sounds)
         #expect(AppSection.named("api", extensions: []) == .api)
         #expect(AppSection.named("transcripts", extensions: []) == .history)
+        #expect(AppSection.named("replace", extensions: []) == .replacements)
     }
 
     /// The rail's order is the tie-break, and it is the reason `extensions` cannot
@@ -23,6 +24,18 @@ struct AppSectionNamingTests {
         #expect(AppSection.named("extensions", extensions: [deckhand]) == .extensions)
         #expect(AppSection.named("deckhand", extensions: [deckhand]) == .extension(deckhand))
         #expect(AppSection.named("extension:deckhand", extensions: [deckhand]) == .extension(deckhand))
+    }
+
+    /// The Text page became three stages and the retention page became Saving, so
+    /// both names a caller may already have written are dead as sections. They are
+    /// answered anyway — a script that opened `?section=text` is not rewritten by
+    /// the rail being reorganised.
+    @Test("the names the rail dropped still land somewhere")
+    func retiredNames() {
+        #expect(AppSection.named("text", extensions: []) == .replacements)
+        #expect(AppSection.named("history", extensions: []) == .saving)
+        #expect(AppSection.named("cleanup", extensions: []) == .cleanup)
+        #expect(AppSection.named("saving", extensions: []) == .saving)
     }
 
     @Test("nothing matches nothing")

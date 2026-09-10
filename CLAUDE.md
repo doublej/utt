@@ -30,7 +30,7 @@ Utt/
     App/             # root view, AppSection (the rail's sections), route
     Chrome/          # AppRail, OnboardingRail, PageHeader, the pill
     Settings/        # SettingRow + SettingsGroup, one page per section in
-                     #   Dictation/, Output/, Application/
+                     #   Dictation/, Text/, Output/, Application/
   Resources/         # Info.plist, entitlements
 UttCore/             # SPM package: pure logic + all the tests
 raycast/             # Raycast extension — talks to the app through its JSON files

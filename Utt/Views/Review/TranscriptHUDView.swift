@@ -159,15 +159,15 @@ struct TranscriptHUDView: View {
             .foregroundStyle(Palette.textSecondary)
     }
 
-    /// Appends the blank rule and brings the window up on the Text tab, where the
-    /// bench under it shows what the rule does. Offered on the delivered card only:
+    /// Appends the blank rule and brings the window up on Replacements, where the
+    /// bench above it shows what the rule does. Offered on the delivered card only:
     /// activating utt while a review is armed would repoint the paste at utt itself.
     private func addRule() {
         $settings.withLock {
             $0.wordRemappings.append(WordRemapping(match: "", replacement: ""))
         }
         store.send(.transcription(.hudDismissed))
-        SettingsRoute.shared.open(.text)
+        SettingsRoute.shared.open(.replacements)
     }
 }
 

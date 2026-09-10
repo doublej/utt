@@ -4,9 +4,10 @@ import UttCore
 
 /// Sample in, transcript out — the whole pipeline, live.
 ///
-/// This is what turns the Text tab from a page of checkboxes into a tool: every
-/// toggle above and every rule below rewrites the output the moment it changes,
-/// so "Remove punctuation" stops being a guess about what it might do.
+/// This is what turns the Text sections from pages of checkboxes into a tool: it
+/// runs every stage, so a rule below it and a toggle on Cleanup or Formatting both
+/// rewrite the output the moment they change, and "Remove punctuation" stops being
+/// a guess about what it might do.
 struct RuleBench: View {
     @Binding var sample: String
 

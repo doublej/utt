@@ -11,7 +11,8 @@ import UttCore
 enum AppSection: Hashable, Identifiable {
     case history
     case hotkey, microphone, model
-    case delivery, text, retention
+    case replacements, cleanup, formatting
+    case delivery, saving
     case sounds, permissions, general, about
     case api
     case extensions
@@ -23,13 +24,18 @@ enum AppSection: Hashable, Identifiable {
     }
 
     /// The rail, in reading order: the transcripts, then what starts a recording,
-    /// what comes out of it, the app around both, and how to reach it — and last
-    /// whatever has connected itself to utt.
+    /// what happens to the words, where they end up, the app around all of it, and
+    /// how to reach it — and last whatever has connected itself to utt.
+    ///
+    /// Text is the pipeline in the order it runs. The rail is the only place that
+    /// says a replacement fires before a cleanup and a cleanup before formatting,
+    /// so its order is the documentation: a new stage slots in where it runs.
     static func groups(extensions: [ExtensionManifest]) -> [(title: String, sections: [AppSection])] {
         [
             ("", [.history]),
             ("Dictate", [.hotkey, .microphone, .model]),
-            ("Output", [.delivery, .text, .retention]),
+            ("Text", [.replacements, .cleanup, .formatting]),
+            ("Output", [.delivery, .saving]),
             ("App", [.sounds, .permissions, .general, .about]),
             ("Connect", [.api, .extensions] + extensions.map { .extension($0) })
         ]
@@ -53,7 +59,14 @@ enum AppSection: Hashable, Identifiable {
                 guard case let .extension(manifest) = $0 else { return false }
                 return manifest.id.squashed.hasPrefix(wanted)
             }
+            ?? retired[wanted]
     }
+
+    /// Names the rail no longer has, pointed at the page that inherited them: one
+    /// Text page became three stages, and "History" became "Saving" once the
+    /// transcript list took that word. Last, so a live section always wins — and a
+    /// name a script or an agent has already written keeps working.
+    private static let retired: [String: AppSection] = ["text": .replacements, "history": .saving]
 
     var title: String {
         switch self {
@@ -61,9 +74,11 @@ enum AppSection: Hashable, Identifiable {
         case .hotkey: "Hotkey"
         case .microphone: "Microphone"
         case .model: "Model"
+        case .replacements: "Replacements"
+        case .cleanup: "Cleanup"
+        case .formatting: "Formatting"
         case .delivery: "Delivery"
-        case .text: "Text"
-        case .retention: "History"
+        case .saving: "Saving"
         case .sounds: "Sounds & Indicator"
         case .permissions: "Permissions"
         case .general: "General"
@@ -80,9 +95,11 @@ enum AppSection: Hashable, Identifiable {
         case .hotkey: "keyboard"
         case .microphone: "mic"
         case .model: "cpu"
+        case .replacements: "arrow.left.arrow.right"
+        case .cleanup: "wand.and.sparkles"
+        case .formatting: "textformat"
         case .delivery: "text.cursor"
-        case .text: "textformat"
-        case .retention: "clock.arrow.circlepath"
+        case .saving: "clock.arrow.circlepath"
         case .sounds: "speaker.wave.2"
         case .permissions: "lock.shield"
         case .general: "gearshape"
@@ -101,9 +118,11 @@ enum AppSection: Hashable, Identifiable {
         case .hotkey: "The key you hold to talk, and how a press is read."
         case .microphone: "Which input utt listens to, and what happens around it while it does."
         case .model: "The engine and the model doing the transcribing. Everything runs on this Mac."
+        case .replacements: "Words utt swaps out first, and a bench that shows the whole pipeline working."
+        case .cleanup: "The pass that takes out what you did not mean to say."
+        case .formatting: "The last word on case and punctuation, after everything else has run."
         case .delivery: "Where a transcript goes when you let go of the key."
-        case .text: "How the words are cleaned up before they are pasted."
-        case .retention: "What utt keeps of what you said."
+        case .saving: "What utt keeps of what you said."
         case .sounds: "What you hear and see while a recording is running."
         case .permissions: "What macOS has to allow before utt can hear you and type for you."
         case .general: "How utt sits in the system."

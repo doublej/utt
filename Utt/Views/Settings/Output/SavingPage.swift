@@ -2,7 +2,7 @@ import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-struct HistoryPage: View {
+struct SavingPage: View {
     @Shared(.uttSettings) private var settings
     @Shared(.uttHistory) private var transcripts
 
