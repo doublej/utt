@@ -64,6 +64,31 @@ public struct ExtensionApiAccess: Codable, Equatable, Sendable {
 /// The newest one only, not a log: utt already keeps the history, and a file that
 /// grew forever would be a second copy of everything ever said, in a directory
 /// nothing prunes. An extension that wants a log keeps its own.
+/// What utt writes while the person is still speaking, for an extension that asked
+/// for `wantsPartials`. Rewritten in place as the words grow, and written once more
+/// with `speaking: false` when the key comes up — an extension that only ever sees
+/// growing text has no way to tell a pause from the end.
+public struct ExtensionPartial: Codable, Equatable, Sendable {
+    /// Increments on every write, including the closing one. Poll it, not the
+    /// modification time.
+    public var sequence: Int
+    /// Everything the live recogniser has heard this recording. The whole text
+    /// each time, not a delta: it revises what it already said.
+    public var text: String
+    /// False on the last write of a recording. The real transcript arrives
+    /// separately, in `<id>.transcript.json`, and may differ from this in any way.
+    public var speaking: Bool
+    /// When this was written, ISO 8601.
+    public var writtenAt: String
+
+    public init(sequence: Int, text: String, speaking: Bool, writtenAt: String) {
+        self.sequence = sequence
+        self.text = text
+        self.speaking = speaking
+        self.writtenAt = writtenAt
+    }
+}
+
 public struct ExtensionTranscript: Codable, Equatable, Sendable {
     /// Increments on every transcript. The same bargain as `ExtensionValuesFile`'s
     /// revision — poll this, not the modification time.

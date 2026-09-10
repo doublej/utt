@@ -42,6 +42,16 @@ struct ExtensionGuideTests {
         #expect(documented == written)
     }
 
+    @Test("the partials example names every key utt writes, and no others")
+    func partialExampleMatches() throws {
+        let documented = Set(try example(after: "`<id>.partial.json`").keys)
+        let written = try keys(of: ExtensionPartial(
+            sequence: 41, text: "the words so far", speaking: true,
+            writtenAt: "2026-09-10T22:14:43Z"
+        ))
+        #expect(documented == written)
+    }
+
     @Test("the jobs answer example names every key utt writes, and no others")
     func jobAnswerExampleMatches() throws {
         let documented = Set(try example(after: "writes `clip-1.json` beside it").keys)

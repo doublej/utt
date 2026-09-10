@@ -83,7 +83,9 @@ enum ExtensionStore {
     /// `.json`, so the manifest scan has to exclude them or an extension would
     /// appear several times — and its own consent record would read as a second
     /// extension nobody had approved.
-    private static let reservedSuffixes = [".values.json", ".status.json", ".consent.json"]
+    private static let reservedSuffixes = [
+        ".values.json", ".status.json", ".consent.json", ".transcript.json", ".partial.json"
+    ]
 
     static func installed() -> [InstalledExtension] {
         guard let directory = try? URL.uttExtensionsDirectory,

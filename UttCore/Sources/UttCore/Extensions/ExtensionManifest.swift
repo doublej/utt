@@ -35,6 +35,11 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// directory. utt writes the text back beside it. This is the direct lane: no
     /// listener, no token, and nothing on the network.
     public var sendsAudio = false
+    /// The extension wants the words as they are decoded, while the person is still
+    /// speaking, written to `<id>.partial.json`. Provisional text from a smaller
+    /// recogniser: it is revised as it grows, it is thrown away when the real
+    /// transcript lands, and it only exists while the person has Live words on.
+    public var wantsPartials = false
     /// The extension sees every transcript before it lands and may hand back other
     /// text — a rewrite, a translation, a template filled in. utt writes the
     /// question into `<id>.filter/` and waits briefly for the answer beside it.
@@ -73,7 +78,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         description: String? = nil, repository: String? = nil, website: String? = nil,
         systemImage: String? = nil, settings: [ExtensionSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
+        wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
         tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
         showsInMenuBar: Bool = false
     ) {
@@ -88,6 +93,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.needsApi = needsApi
         self.wantsTranscripts = wantsTranscripts
         self.sendsAudio = sendsAudio
+        self.wantsPartials = wantsPartials
         self.filtersTranscripts = filtersTranscripts
         self.skipsTextStages = skipsTextStages
         self.tint = tint
@@ -98,7 +104,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, description, repository, website, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, filtersTranscripts, skipsTextStages
+        case needsApi, wantsTranscripts, sendsAudio, wantsPartials, filtersTranscripts, skipsTextStages
         case tint, actions, daemon
         case showsInMenuBar
     }
@@ -120,6 +126,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
+        wantsPartials = (try? container.decodeIfPresent(Bool.self, forKey: .wantsPartials)) as? Bool ?? false
         filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
         // Decoded as strings, not as the enum: `Set<TextStage>` throws on the first
         // name it does not know, and `try?` around that would drop every stage the
@@ -166,6 +173,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             needsApi: needsApi,
             wantsTranscripts: wantsTranscripts,
             sendsAudio: sendsAudio,
+            wantsPartials: wantsPartials,
             filtersTranscripts: filtersTranscripts,
             skipsTextStages: skipsTextStages,
             // Dropped rather than corrected: a colour utt cannot read is one the

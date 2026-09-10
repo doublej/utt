@@ -11,6 +11,7 @@ public enum ExtensionGuide {
         extensionGuideTemplate
             .replacingOccurrences(of: "{{jobs}}", with: extensionJobsGuide)
             .replacingOccurrences(of: "{{transcripts}}", with: extensionTranscriptsGuide)
+            .replacingOccurrences(of: "{{partials}}", with: extensionPartialsGuide)
             .replacingOccurrences(of: "{{filters}}", with: extensionFilterGuide)
             .replacingOccurrences(of: "{{implementing}}", with: extensionImplementingGuide)
             .replacingOccurrences(of: "{{stages}}", with: extensionTextStagesGuide)
@@ -61,6 +62,7 @@ private let extensionGuideTemplate = #"""
           "systemImage": "sailboat",
           "needsApi": false,
           "wantsTranscripts": false,
+          "wantsPartials": false,
           "sendsAudio": false,
           "skipsTextStages": [],
           "tint": "#3EAFB4",
@@ -203,6 +205,8 @@ private let extensionGuideTemplate = #"""
         {{jobs}}
 
         {{transcripts}}
+
+        {{partials}}
 
         {{filters}}
 

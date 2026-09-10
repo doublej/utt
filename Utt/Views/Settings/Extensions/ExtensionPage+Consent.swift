@@ -41,7 +41,8 @@ extension ExtensionPage {
     @ViewBuilder
     var access: some View {
         if installed.manifest.wantsTranscripts || installed.manifest.needsApi
-            || installed.manifest.sendsAudio || installed.manifest.filtersTranscripts {
+            || installed.manifest.sendsAudio || installed.manifest.filtersTranscripts
+            || installed.manifest.wantsPartials {
             SettingsGroup("What it asked for") {
                 if installed.manifest.filtersTranscripts {
                     SettingRow(
@@ -70,6 +71,14 @@ extension ExtensionPage {
                         detail: "Everything you dictate on this Mac is written to this extension's own file as it finishes, whether or not utt keeps it in History."
                     ) {
                         Image(systemName: "text.quote").foregroundStyle(Palette.textTertiary)
+                    }
+                }
+                if installed.manifest.wantsPartials {
+                    SettingRow(
+                        "To hear you as you speak",
+                        detail: "Gets the words while you are still talking, before any of your text rules run. Only while Show words while you speak is on."
+                    ) {
+                        Image(systemName: "waveform.badge.mic").foregroundStyle(Palette.textTertiary)
                     }
                 }
                 if installed.manifest.needsApi {
