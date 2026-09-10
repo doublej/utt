@@ -33,6 +33,14 @@ private let extensionGuideTemplate = #"""
         files in `{{dir}}`, which utt creates at launch. Both programs may start and
         restart in any order.
 
+        **Your manifest lands waiting to be approved.** Installing is still dropping
+        a file in that folder — there is no installer, no registry and nothing to
+        sign — but the person has to say yes once before utt acts on any of it. Until
+        they do, you get no clips transcribed, no transcripts, no token and no values
+        file. utt tells them in its menu and in its window, and they approve you on
+        your own page. See "Waiting to be approved" below, and write your program so
+        the first run explains that rather than looking broken.
+
         Write every label, blurb and detail for the person using the page, not for
         yourself: say what happens when they change it, in plain words, and never
         name a key, a file or a process in it. utt's own rows read "Mute other audio
@@ -171,9 +179,10 @@ private let extensionGuideTemplate = #"""
         }
         ```
 
-        - Written when the user changes something, and once after you install the
-          manifest so the file exists before anyone touches the page. Not written
-          when nothing changed.
+        - Written when the user changes something, and once after they approve you
+          so the file exists before anyone touches the page. Not written when
+          nothing changed, and not written at all while you are waiting to be
+          approved — see "Waiting to be approved" below.
         - It holds **every** setting, always — utt does not merge. Read the whole
           `values` object; do not assume a missing key means "unchanged".
         - `revision` increases by one on every write utt makes. Compare it against
@@ -228,6 +237,10 @@ private let extensionGuideTemplate = #"""
            ```
 
            Exactly one of `text` and `error` is present, and the write is atomic.
+           A clip sent before the person has approved you is answered too, with an
+           `error` saying utt is waiting for them — so you can say why rather than
+           poll until you time out. The clip is deleted with the answer; send it
+           again once you are approved.
         4. The audio is deleted either way, and so is the hints file. The answer
            file is yours — read it and delete it; utt never touches it again.
 

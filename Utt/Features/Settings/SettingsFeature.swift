@@ -182,6 +182,10 @@ private extension SettingsFeature {
         extension id: String, key: String, to value: ExtensionValue, in state: inout State
     ) -> Effect<Action> {
         guard let index = state.extensions.firstIndex(where: { $0.id == id }),
+              // The page shows no controls while nobody has ruled on it, and the
+              // values file is not written for one either. Both hold here rather
+              // than only in the view: this is the write path.
+              state.extensions[index].consent != .pending,
               let setting = state.extensions[index].settings.first(where: { $0.key == key }),
               setting.accepts(value),
               // SwiftUI calls a binding's setter as the view settles, not only when
@@ -198,7 +202,7 @@ private extension SettingsFeature {
             manifest: state.extensions[index].manifest,
             values: values,
             status: state.extensions[index].status,
-            enabled: state.extensions[index].enabled
+            consent: state.extensions[index].consent
         )
         let api = state.extensions[index].manifest.needsApi ? apiAccess : nil
         return .run { [values] _ in extensions.write(id, values, api) }

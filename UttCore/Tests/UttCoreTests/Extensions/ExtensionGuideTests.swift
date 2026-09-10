@@ -51,6 +51,25 @@ struct ExtensionGuideTests {
         #expect(documented == written)
     }
 
+    @Test("the consent example names every key utt writes, and no others")
+    func consentExampleMatches() throws {
+        let documented = Set(try example(after: "`<id>.consent.json`").keys)
+        let written = try keys(of: ExtensionConsentFile(
+            decision: .approved, decidedAt: "2026-09-10T14:22:07Z"
+        ))
+        #expect(documented == written)
+    }
+
+    /// The two answers that can be on disk, spelled as utt writes them. An author
+    /// reading the guide has to be able to tell "waiting" from "switched off", and
+    /// `pending` is deliberately not among them — it is the absence of the file.
+    @Test("both decisions utt records are named as they are written")
+    func namesEveryDecision() {
+        for decision in [ExtensionConsent.approved, .disabled] {
+            #expect(guide.contains("`\"\(decision.rawValue)\"`"), "\(decision.rawValue)")
+        }
+    }
+
     /// An extension may be handed any of them, so it has to be told what all of
     /// them mean — a reason it cannot look up is a field it ignores.
     @Test("every cleanup skip reason is explained")

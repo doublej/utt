@@ -45,6 +45,51 @@ public struct ExtensionValuesFile: Codable, Equatable, Sendable {
     }
 }
 
+/// What the person has said about an extension.
+///
+/// Three states rather than two. A manifest is a file any program on this Mac can
+/// write, and the one it appears in is one utt reads three times a second — so
+/// "this turned up" and "the person said yes to this" have to be different
+/// answers. `pending` is the absence of a record.
+public enum ExtensionConsent: String, Codable, Sendable, CaseIterable {
+    /// It appeared and has not been ruled on. Inert: no jobs, no transcripts, no
+    /// token, no values file.
+    case pending
+    /// The person said yes. Everything the manifest declares is acted on.
+    case approved
+    /// The person said yes once and has since switched it off.
+    case disabled
+}
+
+/// `<id>.consent.json` — the person's answer, written when they give it.
+///
+/// Positive rather than inferred. Consent used to be the *absence* of a
+/// `<id>.disabled` marker, which cannot tell "the person approved this" from
+/// "nobody has looked at it yet" — and everything an extension may ask for hangs
+/// on that difference.
+public struct ExtensionConsentFile: Codable, Equatable, Sendable {
+    /// Never `pending` on disk: a record that exists is a decision.
+    public var decision: ExtensionConsent
+    /// When they said it, ISO 8601 — so a person reading the folder can see it.
+    public var decidedAt: String
+
+    public init(decision: ExtensionConsent, decidedAt: String) {
+        self.decision = decision
+        self.decidedAt = decidedAt
+    }
+
+    enum CodingKeys: String, CodingKey { case decision, decidedAt }
+
+    /// Forgiving in one direction only. Every other file utt reads falls back to a
+    /// working default; a consent record utt cannot read falls back to `pending`,
+    /// because the alternative is a truncated file granting access nobody gave.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        decision = (try? container.decode(ExtensionConsent.self, forKey: .decision)) ?? .pending
+        decidedAt = (try? container.decodeIfPresent(String.self, forKey: .decidedAt)) as? String ?? ""
+    }
+}
+
 /// How an extension reaches utt's HTTP API.
 public struct ExtensionApiAccess: Codable, Equatable, Sendable {
     public let token: String
@@ -123,6 +168,14 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         self.error = error
         self.finishedAt = finishedAt
     }
+
+    /// What a clip gets while the extension that sent it is still waiting to be
+    /// approved. An ordinary error rather than silence: an extension polling for an
+    /// answer that will never come cannot otherwise tell "utt is waiting for the
+    /// person" from "utt is broken", and would sit there until it timed out.
+    public static let awaitingApproval =
+        "utt is waiting for you to approve this extension. Open utt, go to Extensions, "
+            + "approve it, and send the clip again."
 
     /// Audio an extension may hand over. The extension is how AVFoundation picks its
     /// reader — a wav named `.m4a` fails to open however correct its bytes are —

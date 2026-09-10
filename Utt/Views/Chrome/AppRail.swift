@@ -17,6 +17,9 @@ struct AppRail: View {
     /// column pushes every page down by its own height the moment it shows up.
     var notice: String?
     var fix: (() -> Void)?
+    /// What the button says. Not every notice is a fault, and one that is not must
+    /// not be offered a "Fix".
+    var fixLabel = "Fix"
     let collapse: () -> Void
 
     private var recorderState: RecorderState { RecorderState(store.transcription.status) }
@@ -37,7 +40,7 @@ struct AppRail: View {
                     RecorderStatePill(state: recorderState)
                 }
                 if let notice {
-                    RailNotice(text: notice, fix: fix)
+                    RailNotice(text: notice, fix: fix, fixLabel: fixLabel)
                 }
             }
             .padding(.bottom, Spacing.large)
@@ -140,6 +143,7 @@ private struct RailRow: View {
 private struct RailNotice: View {
     let text: String
     let fix: (() -> Void)?
+    let fixLabel: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
@@ -154,7 +158,7 @@ private struct RailNotice: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let fix {
-                Button("Fix", action: fix)
+                Button(fixLabel, action: fix)
                     .font(Typography.metadata)
                     .controlSize(.small)
                     .padding(.leading, 15)

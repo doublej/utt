@@ -91,7 +91,14 @@ actor ExtensionJobs {
 
     private func watch(_ transcribe: @escaping Transcriber) async {
         while !Task.isCancelled {
-            for (installed, job) in Self.pending() {
+            for (installed, job) in Self.waiting() {
+                // Inert, but not silent. An extension the person has not ruled on
+                // gets its clip answered with why, rather than watching a file that
+                // is never written and having to guess whether utt is broken.
+                guard installed.consent == .approved else {
+                    Self.refuse(job)
+                    continue
+                }
                 announce(ExtensionActivity(
                     extensionID: installed.id,
                     name: installed.manifest.name,
@@ -150,11 +157,29 @@ actor ExtensionJobs {
         return hints
     }
 
+    /// The clip goes, the same as it does on every other outcome: an answered clip
+    /// left in place is one utt re-answers three times a second, forever. The
+    /// extension resends it once the person has approved it.
+    private static func refuse(_ audio: URL) {
+        answer(
+            ExtensionJobResult(
+                error: ExtensionJobResult.awaitingApproval,
+                finishedAt: ISO8601DateFormatter().string(from: Date())
+            ),
+            for: audio
+        )
+        try? FileManager.default.removeItem(at: audio)
+    }
+
     /// Every audio file waiting in a jobs directory, oldest first so an extension that
     /// sent two clips gets them back in the order it spoke them.
-    private static func pending() -> [(InstalledExtension, URL)] {
+    ///
+    /// One the person has switched off is not scanned at all — being off is a thing
+    /// they chose and the extension was told about. One they have not ruled on yet is,
+    /// so that its clip can be answered with why nothing happened.
+    private static func waiting() -> [(InstalledExtension, URL)] {
         ExtensionStore.installed()
-            .filter { $0.enabled && $0.manifest.sendsAudio }
+            .filter { $0.consent != .disabled && $0.manifest.sendsAudio }
             .flatMap { installed in files(in: ExtensionStore.jobsDirectory(installed.id)).map { (installed, $0) } }
             .sorted { created($0.1) < created($1.1) }
     }

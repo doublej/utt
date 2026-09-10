@@ -238,9 +238,12 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// Everything utt writes or makes for an extension, by the part after `<id>.`.
     /// A fixed list rather than a prefix match: ids may contain dots, so
     /// `deck.` as a prefix would claim `deck.hand.json` for an extension called `deck`.
+    /// `disabled` is the marker consent replaced. It stays on the list because
+    /// removing an extension has to take the old one away too — a stale marker left
+    /// behind would switch off the next install of the same id.
     public static let ownedSuffixes: Set<String> = [
         "json", "values.json", "status.json", "action.json", "transcript.json",
-        "jobs", "filter", "disabled"
+        "consent.json", "jobs", "filter", "disabled"
     ]
 
     /// Whether a name in the extensions directory belongs to this extension.
