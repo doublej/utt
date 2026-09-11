@@ -26,10 +26,15 @@ struct ExtensionMenu: View {
                 Text("\(key.asFieldLabel): \(installed.status[key] ?? "")")
             }
 
-            if installed.manifest.daemon != nil {
+            if let daemon = installed.manifest.daemon {
                 Divider()
                 Text(daemonState.summary)
                 Button("Restart") { store.send(.settings(.extensionDaemonRestartTapped(installed.id))) }
+                // Served by utt itself, so it still works when the daemon behind
+                // every other item in this menu is the thing that is broken.
+                if let url = daemon.logURL {
+                    Button("Reveal its log") { ExtensionDiagnostics.reveal(url) }
+                }
             }
 
             if !installed.manifest.actions.isEmpty {

@@ -36,6 +36,7 @@ extension SettingsFeature {
                 // still reconciled: that is a write nobody is reading.
                 if !menuTracking.isOpen() {
                     await send(.extensionsLoaded(installed))
+                    await send(.extensionLogLoaded(extensions.logEntries()))
                     for item in installed {
                         guard let label = item.manifest.daemon?.label else { continue }
                         await send(.extensionDaemonStateLoaded(item.id, extensionDaemon.state(label)))

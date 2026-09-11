@@ -43,7 +43,8 @@ struct ExtensionSettingsTests {
                 request: { _, _ in },
                 setEnabled: { _, _ in },
                 setPriority: { _, _ in },
-                remove: { _ in }
+                remove: { _ in },
+                logEntries: { [] }
             )
         }
     }
@@ -158,7 +159,8 @@ struct ExtensionTranscriptTests {
                 request: { _, _ in },
                 setEnabled: { _, _ in },
                 setPriority: { _, _ in },
-                remove: { _ in }
+                remove: { _ in },
+                logEntries: { [] }
             )
             $0.pasteboard.frontmostApp = { AppIdentity(bundleID: "com.mitchellh.ghostty", name: "Ghostty") }
             $0.recording = .quiet

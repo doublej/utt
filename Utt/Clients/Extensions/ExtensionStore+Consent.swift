@@ -1,9 +1,6 @@
 import ComposableArchitecture
 import Foundation
 import UttCore
-import os
-
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.consent")
 
 /// Who said yes. Installing an extension is dropping a file in a folder — no
 /// installer, no registry, no signing — and that is worth keeping. What it cannot
@@ -63,7 +60,7 @@ extension ExtensionStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(file).writePrivately(to: url)
         } catch {
-            log.error("could not record consent for \(id, privacy: .public): \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not record what you decided — \(error.localizedDescription)")
         }
     }
 
@@ -98,7 +95,7 @@ extension ExtensionStore {
                 atPath: directory.appendingPathComponent("\(id).disabled").path
             )
             decide(id, wasDisabled ? .disabled : .approved)
-            log.notice("\(id, privacy: .public): carried over as \(wasDisabled ? "disabled" : "approved", privacy: .public)")
+            ExtensionLog.note(id, "carried over as \(wasDisabled ? "disabled" : "approved") — it was installed before utt started asking")
         }
         FileManager.default.createFile(atPath: marker.path, contents: nil)
     }

@@ -251,7 +251,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// behind would switch off the next install of the same id.
     public static let ownedSuffixes: Set<String> = [
         "json", "values.json", "status.json", "action.json", "transcript.json",
-        "consent.json", "jobs", "filter", "disabled"
+        "partial.json", "consent.json", "jobs", "filter", "disabled"
     ]
 
     /// Whether a name in the extensions directory belongs to this extension.

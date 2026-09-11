@@ -50,15 +50,24 @@ struct ExtensionPage: View {
 
         if let daemon = installed.manifest.daemon {
             SettingsGroup("Daemon") {
-                SettingRow(
-                    daemon.label,
-                    detail: daemonDetail,
-                    detailTint: daemonState == .stopped ? Palette.warning : Palette.textTertiary
-                ) {
+                SettingRow(daemon.label, detail: daemonDetail, detailTint: daemonTint) {
                     Button("Restart") {
                         store.send(.settings(.extensionDaemonRestartTapped(installed.id)))
                     }
                     .font(Typography.metadata)
+                }
+                // The one row on this page utt serves itself. Every button above is
+                // answered by the extension's own process, so when that process is
+                // what is broken — crash-looping on a port it cannot have — the page
+                // has nothing left but Restart, which is the wrong advice.
+                if let url = daemon.logURL {
+                    SettingRow(
+                        "Its log",
+                        detail: "\(url.path(percentEncoded: false)). Written by \(installed.manifest.name), shown by the Finder — utt does not open it, and does not need the extension to be running."
+                    ) {
+                        Button("Reveal") { ExtensionDiagnostics.reveal(url) }
+                            .font(Typography.metadata)
+                    }
                 }
             }
         }
@@ -87,6 +96,12 @@ struct ExtensionPage: View {
                 }
             }
         }
+
+        ExtensionLogGroup(
+            title: "Log",
+            entries: store.settings.extensionLog.filter { $0.extensionID == installed.id },
+            empty: "utt has had nothing to say about \(installed.manifest.name) since it started."
+        )
 
         about
         confirmation
@@ -178,7 +193,18 @@ struct ExtensionPage: View {
         switch daemonState {
         case .running: daemonState.summary
         case .stopped: "\(daemonState.summary). launchd has the job but nothing is running. Restart starts it."
+        // Not "Restart starts it": a job dying on something permanent starts and
+        // dies again, and the person presses that button twenty times. The log is
+        // what says why, so the advice is to read it.
+        case .failing: "\(daemonState.summary). launchd started it and it died. Restarting does the same again unless what it is dying of has changed — its own log says what that is."
         case .unknown: "\(daemonState.summary). launchd has no job by this name on this Mac, so Restart cannot help until the extension installs it."
+        }
+    }
+
+    private var daemonTint: Color {
+        switch daemonState {
+        case .stopped, .failing: Palette.warning
+        case .running, .unknown: Palette.textTertiary
         }
     }
 

@@ -2,9 +2,6 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 import UttCore
-import os
-
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.filters")
 
 /// The rewrite lane: an extension that declared `filtersTranscripts` sees each
 /// transcript before it lands and may hand back other text.
@@ -101,7 +98,7 @@ actor ExtensionFilters {
             )
             try JSONEncoder().encode(request).writePrivately(to: question)
         } catch {
-            log.error("could not ask \(id, privacy: .public): \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not be asked to rewrite a transcript — \(error.localizedDescription)")
             return text
         }
         let clock = ContinuousClock()
@@ -109,14 +106,14 @@ actor ExtensionFilters {
         while clock.now < end {
             if let data = try? Data(contentsOf: answer) {
                 guard let replaced = ExtensionFilterReply.text(in: data) else {
-                    log.notice("\(id, privacy: .public): unreadable reply — passed through")
+                    ExtensionLog.problem(id, "answered a transcript with something utt could not read — the text went through as it was")
                     return text
                 }
                 return replaced
             }
             try? await Task.sleep(for: interval)
         }
-        log.notice("\(id, privacy: .public): no reply within \(deadline, privacy: .public) — passed through")
+        ExtensionLog.problem(id, "did not answer within \(deadline) — the text went through as it was")
         return text
     }
 

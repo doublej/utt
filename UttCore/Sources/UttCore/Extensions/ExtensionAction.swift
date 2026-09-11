@@ -67,8 +67,22 @@ public struct ExtensionActionRequest: Codable, Equatable, Sendable {
 /// it on unverified instructions.
 public struct ExtensionDaemon: Codable, Hashable, Sendable {
     public let label: String
+    /// Where the daemon writes its own log. utt offers to reveal it in the Finder,
+    /// which is the one thing about a dead daemon that still works — every button on
+    /// an extension's page is served by the extension's own process, so when it is
+    /// crash-looping the page has nothing left but Restart, and Restart is the wrong
+    /// advice for a job dying on a permanent error.
+    ///
+    /// Revealed, never opened: `NSWorkspace.open` is LaunchServices picking an app by
+    /// extension, so a manifest naming a `.command` would turn "drop a file in a
+    /// folder" into "run this as the user" — the line this type already draws by
+    /// taking a label rather than a plist.
+    public var log: String?
 
-    public init(label: String) { self.label = label }
+    public init(label: String, log: String? = nil) {
+        self.label = label
+        self.log = log
+    }
 
     /// Reverse-DNS characters only, and never Apple's own: an extension may report on
     /// its own daemon, not reach into the system's.
@@ -76,5 +90,34 @@ public struct ExtensionDaemon: Codable, Hashable, Sendable {
         !label.isEmpty && label.count <= 128
             && label.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }
             && !label.lowercased().hasPrefix("com.apple.")
+    }
+
+    /// The log utt will point the Finder at, or nil. An absolute path with no `..`
+    /// in it: a relative one has no meaning here — utt's working directory is not
+    /// the extension's — and `..` is how a bounded path stops being bounded.
+    ///
+    /// Existence is not checked. This is a value with no filesystem in it, and a
+    /// daemon that has not written its log yet still declared where it will be.
+    public var logURL: URL? {
+        guard let log, log.count <= 1024, log.hasPrefix("/"), !log.hasSuffix("/"),
+              !log.contains(".."), log.allSatisfy({ !$0.isNewline })
+        else { return nil }
+        return URL(filePath: log)
+    }
+
+    /// What `launchctl list <label>` says, as the two numbers utt reads off it.
+    ///
+    /// Pure so the crash case can be tested without a daemon to crash — and it needs
+    /// testing: a job crash-looping on a permanent error has a pid for about a second
+    /// in every ten, so whichever the poll catches is luck. The exit status is the
+    /// stable half of the answer.
+    public static func report(fromList output: String) -> (pid: Int?, lastExitStatus: Int?) {
+        func number(_ key: String) -> Int? {
+            guard let line = output.split(separator: "\n").first(where: { $0.contains("\"\(key)\"") }),
+                  let raw = line.split(separator: "=").last
+            else { return nil }
+            return Int(raw.trimmingCharacters(in: CharacterSet(charactersIn: " ;")))
+        }
+        return (number("PID"), number("LastExitStatus"))
     }
 }

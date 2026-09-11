@@ -11,9 +11,6 @@
 import ComposableArchitecture
 import Foundation
 import UttCore
-import os
-
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.transcripts")
 
 extension ExtensionStore {
     /// Writes the transcript to every extension that declared `wantsTranscripts`.
@@ -48,7 +45,7 @@ extension ExtensionStore {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 try encoder.encode(next).writePrivately(to: url)
             } catch {
-                log.error("could not deliver to \(installed.id, privacy: .public): \(error.localizedDescription)")
+                ExtensionLog.problem(installed.id, "could not be handed a transcript — \(error.localizedDescription)")
             }
         }
     }
@@ -83,7 +80,7 @@ extension ExtensionStore {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 try encoder.encode(next).writePrivately(to: url)
             } catch {
-                log.error("could not deliver partial to \(installed.id, privacy: .public): \(error.localizedDescription)")
+                ExtensionLog.problem(installed.id, "could not be handed the words as they were spoken — \(error.localizedDescription)")
             }
         }
     }

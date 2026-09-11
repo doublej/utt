@@ -3,9 +3,6 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 import UttCore
-import os
-
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions")
 
 /// An extension as utt sees it: what it declared, what the user chose, and whatever it
 /// is currently saying about itself.
@@ -55,6 +52,10 @@ struct ExtensionClient: Sendable {
     var setPriority: @Sendable (_ extensionID: String, _ priority: ExtensionPriority) -> Void
     /// Moves everything utt keeps for the extension to the Trash.
     var remove: @Sendable (_ extensionID: String) -> Void
+    /// What utt has done with extensions since it launched, newest first. Read
+    /// rather than pushed: entries are written from the jobs actor, the filter
+    /// actor and the poll, and none of them has a store to send to.
+    var logEntries: @Sendable () -> [ExtensionLogEntry] = { [] }
 }
 
 extension ExtensionClient: DependencyKey {
@@ -67,7 +68,8 @@ extension ExtensionClient: DependencyKey {
         request: { id, key in ExtensionStore.request(id, action: key) },
         setEnabled: { id, enabled in ExtensionStore.setEnabled(id, enabled) },
         setPriority: { id, priority in ExtensionStore.prioritise(id, priority) },
-        remove: { id in ExtensionStore.remove(id) }
+        remove: { id in ExtensionStore.remove(id) },
+        logEntries: { ExtensionLog.entries }
     )
 }
 
@@ -79,13 +81,16 @@ extension DependencyValues {
 }
 
 enum ExtensionStore {
-    /// `<id>.values.json`, `<id>.status.json` and `<id>.consent.json` are also
-    /// `.json`, so the manifest scan has to exclude them or an extension would
-    /// appear several times — and its own consent record would read as a second
-    /// extension nobody had approved.
-    private static let reservedSuffixes = [
-        ".values.json", ".status.json", ".consent.json", ".transcript.json", ".partial.json"
-    ]
+    /// Everything utt writes for an extension is also `.json`, so the manifest scan
+    /// has to exclude it all or an extension would appear several times — and its own
+    /// consent record would read as a second extension nobody had approved.
+    ///
+    /// Read off the one list rather than kept beside it: the hand-kept copy was
+    /// missing `.action.json`, so every button press left a file utt then tried to
+    /// read as a manifest three times a second, forever.
+    private static let reservedSuffixes = ExtensionManifest.ownedSuffixes
+        .filter { $0.hasSuffix(".json") }
+        .map { ".\($0)" }
 
     static func installed() -> [InstalledExtension] {
         guard let directory = try? URL.uttExtensionsDirectory,
@@ -134,7 +139,7 @@ enum ExtensionStore {
             do {
                 try FileManager.default.trashItem(at: directory.appendingPathComponent(name), resultingItemURL: nil)
             } catch {
-                log.error("could not remove \(name, privacy: .public): \(error.localizedDescription)")
+                ExtensionLog.problem(id, "could not remove \(name) — \(error.localizedDescription)")
             }
         }
     }
@@ -168,7 +173,7 @@ enum ExtensionStore {
             // asked for one. See `FilePermissions`.
             try encoder.encode(next).writePrivately(to: url)
         } catch {
-            log.error("could not write values for \(id, privacy: .public): \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not write its settings — \(error.localizedDescription)")
         }
     }
 
@@ -190,7 +195,7 @@ enum ExtensionStore {
         do {
             try JSONEncoder().encode(next).writePrivately(to: url)
         } catch {
-            log.error("could not request \(key, privacy: .public): \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not pass on the \(key) button — \(error.localizedDescription)")
         }
     }
 
@@ -198,14 +203,17 @@ enum ExtensionStore {
         guard let data = try? Data(contentsOf: url),
               let manifest = try? JSONDecoder().decode(ExtensionManifest.self, from: data)
         else {
-            log.debug("unreadable manifest at \(url.lastPathComponent, privacy: .public)")
+            // Unattributed on purpose: utt has no id to blame it on, which is also
+            // why the whole log is on the extensions list page. This is the failure
+            // whose only symptom is that nothing appeared.
+            ExtensionLog.problem(nil, "unreadable manifest at \(url.lastPathComponent)")
             return nil
         }
         // A manifest naming itself something other than its filename would let one
         // extension write another's values file.
         guard let clean = manifest.sanitized(), clean.id == url.deletingPathExtension().lastPathComponent
         else {
-            log.notice("ignoring manifest \(url.lastPathComponent, privacy: .public) — unusable or misnamed")
+            ExtensionLog.problem(nil, "ignoring manifest \(url.lastPathComponent) — unusable or misnamed")
             return nil
         }
         // A key utt refuses is dropped rather than repaired, and from the extension's
@@ -223,17 +231,13 @@ enum ExtensionStore {
         )
     }
 
-    /// Manifests are re-read three times a second, so the same refusal would fill
-    /// the log forever. Said once per manifest, and again only if the extension
-    /// changes what it declares.
-    private static let reported = LockIsolated(Set<String>())
-
+    /// Manifests are re-read three times a second, so the same refusal is said
+    /// again on every pass. The book collapses it into one counted entry — which
+    /// is what the set kept here used to do, for the unified log alone.
     private static func refused(_ declared: [String], kept: [String], of id: String, kind: String) {
         let missing = declared.filter { !kept.contains($0) }
         guard !missing.isEmpty else { return }
-        let keys = missing.joined(separator: ", ")
-        guard reported.withValue({ $0.insert("\(id).\(kind): \(keys)").inserted }) else { return }
-        log.notice("\(id, privacy: .public): \(kind, privacy: .public) refused — \(keys, privacy: .public)")
+        ExtensionLog.problem(id, "\(kind) refused — \(missing.joined(separator: ", "))")
     }
 
     private static func valuesFile(_ id: String) -> ExtensionValuesFile {

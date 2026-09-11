@@ -67,7 +67,8 @@ private let extensionGuideTemplate = #"""
           "skipsTextStages": [],
           "tint": "#3EAFB4",
           "showsInMenuBar": true,
-          "daemon": {"label": "com.example.mydaemon"},
+          "daemon": {"label": "com.example.mydaemon",
+                     "log": "/Users/you/Library/Logs/mydaemon.log"},
           "actions": [
             {"key": "stop", "label": "Stop", "detail": "What it does.", "confirms": true},
             {"key": "openLog", "label": "Open log"}
@@ -107,7 +108,11 @@ private let extensionGuideTemplate = #"""
           mis-click away in utt's menu, which is the bar for declaring one at all.
         - A setting that cannot be rendered honestly is dropped rather than repaired
           into something the user did not ask for. If a row is missing from the page,
-          that is why — and utt names the refused key in its log, once per manifest:
+          that is why — and utt says which key it refused in the **Log** section of
+          your page, and on the Extensions page. That log is the first place to look
+          for anything of yours utt did not do: a manifest it could not read is
+          named there too, and that one has no page of its own. It is also in the
+          unified log, if you would rather watch it happen:
           `log stream --predicate 'subsystem == "dev.jurrejan.utt"' --level debug`.
           Use `stream`, not `show`: `log show` cannot open the local store from an
           ordinary shell and answers with nothing rather than an error.
@@ -155,12 +160,18 @@ private let extensionGuideTemplate = #"""
         `tint` is not drawn here; a submenu has no icon to colour. It is still what
         utt lights its own mark with while it is transcribing your clip.
 
-        ## Daemons: `daemon.label`
+        ## Daemons: `daemon.label` and `daemon.log`
 
         Give the label of your launchd job and utt shows its **live state** — running
-        with a pid, loaded but not running, or not loaded at all — read from launchd
-        rather than from your own status file. This is the one state your status file
-        cannot report: a daemon that crashed leaves its last cheerful file behind.
+        with a pid, loaded but not running, crashed with the exit status launchd
+        reports, or not loaded at all — read from launchd rather than from your own
+        status file. This is the one state your status file cannot report: a daemon
+        that crashed leaves its last cheerful file behind.
+
+        Crashed is its own state and not "not running", because a job dying on
+        something permanent — a port already taken, a file it cannot open — starts
+        and dies again every time it is restarted, and telling the person "Restart
+        starts it" sends them to press that button twenty times.
 
         utt offers one button, **Restart** (`launchctl kickstart -k`), which starts a
         stopped job and restarts a running one. It will not bootstrap or unload a
@@ -171,6 +182,19 @@ private let extensionGuideTemplate = #"""
 
         Labels beginning `com.apple.` are refused: an extension may report on its own
         daemon, not reach into the system's.
+
+        `daemon.log` is where your daemon writes its own log. utt adds a **Reveal**
+        button on your page and in your menu that shows the file in the Finder.
+        Declare it: it is the only thing on your page that still works when your
+        process is the thing that is broken — every button of yours is answered by
+        your own program, so a crash-looping daemon takes them all down with it, and
+        an `openLog` action is the least useful of them at exactly the moment it is
+        needed. Delete that action once you have declared this.
+
+        An absolute path, with no `..` in it, and utt only ever *reveals* it. It is
+        never opened: opening a file is LaunchServices picking an app for it, so a
+        manifest naming a `.command` would turn "drop a file in a folder" into "run
+        this as the user".
 
         ## What utt writes: `<id>.values.json`
 

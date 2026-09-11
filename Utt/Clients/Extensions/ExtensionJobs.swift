@@ -3,9 +3,6 @@ import Dependencies
 import DependenciesMacros
 import Foundation
 import UttCore
-import os
-
-private let log = Logger(subsystem: "dev.jurrejan.utt", category: "extensions.jobs")
 
 /// The direct lane: an extension drops an audio file in its own jobs directory and utt
 /// writes the text back beside it.
@@ -103,7 +100,7 @@ actor ExtensionJobs {
             // gets its clip answered with why, rather than watching a file that
             // is never written and having to guess whether utt is broken.
             guard installed.consent == .approved else {
-                Self.refuse(job)
+                Self.refuse(job, of: installed.id)
                 continue
             }
             announce(ExtensionActivity(
@@ -111,7 +108,7 @@ actor ExtensionJobs {
                 name: installed.manifest.name,
                 rgb: installed.manifest.rgb
             ))
-            await run(job, installed.manifest.skipsTextStages, transcribe)
+            await run(job, of: installed.id, installed.manifest.skipsTextStages, transcribe)
             announce(nil)
         }
     }
@@ -122,7 +119,8 @@ actor ExtensionJobs {
     /// retrying it forever at three times a second, and the extension has the answer
     /// either way.
     private func run(
-        _ audio: URL, _ skipping: Set<TextStage>, _ transcribe: @escaping Transcriber
+        _ audio: URL, of id: String, _ skipping: Set<TextStage>,
+        _ transcribe: @escaping Transcriber
     ) async {
         @Dependency(\.date.now) var now
         defer { try? FileManager.default.removeItem(at: audio) }
@@ -135,29 +133,34 @@ actor ExtensionJobs {
             let size = (try? audio.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             guard size <= Self.maximumBytes else {
                 let megabytes = Self.maximumBytes / 1024 / 1024
+                ExtensionLog.problem(id, "refused a clip larger than \(megabytes) MB")
                 let finished = Self.stamp(now)
                 result = ExtensionJobResult(
                     error: "That clip is larger than \(megabytes) MB.",
                     startedAt: started.iso, finishedAt: finished.iso,
                     startedAtMs: started.ms, finishedAtMs: finished.ms)
-                Self.answer(result, for: audio)
+                Self.answer(result, of: id, for: audio)
                 return
             }
             let piped = try await transcribe(audio, skipping)
             let final = Self.hinted(piped, for: audio)
+            // One counted line rather than one per clip: this is the answer to "is
+            // this extension reaching utt at all", and it is asked of a log, not of
+            // a list of every clip ever sent.
+            ExtensionLog.note(id, "sent a clip, and got the text back")
             // Stamped here, after the work, which is the whole point of the field.
             result = Self.answered(
                 final, seconds: Self.duration(of: audio),
                 started: started, finished: Self.stamp(now))
         } catch {
-            log.error("job \(audio.lastPathComponent, privacy: .public) failed: \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not transcribe a clip — \(error.localizedDescription)")
             let finished = Self.stamp(now)
             result = ExtensionJobResult(
                 error: "Could not transcribe that clip.",
                 startedAt: started.iso, finishedAt: finished.iso,
                 startedAtMs: started.ms, finishedAtMs: finished.ms)
         }
-        Self.answer(result, for: audio)
+        Self.answer(result, of: id, for: audio)
     }
 
     /// The answer for a clip that made it through: the transcript, what each stage
@@ -221,13 +224,14 @@ actor ExtensionJobs {
     /// The clip goes, the same as it does on every other outcome: an answered clip
     /// left in place is one utt re-answers three times a second, forever. The
     /// extension resends it once the person has approved it.
-    private static func refuse(_ audio: URL) {
+    private static func refuse(_ audio: URL, of id: String) {
+        ExtensionLog.note(id, "sent a clip, and was told utt is waiting for you to approve it")
         answer(
             ExtensionJobResult(
                 error: ExtensionJobResult.awaitingApproval,
                 finishedAt: ISO8601DateFormatter().string(from: Date())
             ),
-            for: audio
+            of: id, for: audio
         )
         try? FileManager.default.removeItem(at: audio)
     }
@@ -269,7 +273,7 @@ actor ExtensionJobs {
         (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
     }
 
-    private static func answer(_ result: ExtensionJobResult, for audio: URL) {
+    private static func answer(_ result: ExtensionJobResult, of id: String, for audio: URL) {
         let url = audio.deletingPathExtension().appendingPathExtension("json")
         do {
             let encoder = JSONEncoder()
@@ -277,7 +281,7 @@ actor ExtensionJobs {
             // Atomic, so an extension polling for this file never reads a partial one.
             try encoder.encode(result).writePrivately(to: url)
         } catch {
-            log.error("could not answer \(audio.lastPathComponent, privacy: .public): \(error.localizedDescription)")
+            ExtensionLog.problem(id, "could not answer \(audio.lastPathComponent) — \(error.localizedDescription)")
         }
     }
 }

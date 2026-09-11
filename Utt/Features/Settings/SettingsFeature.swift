@@ -18,6 +18,10 @@ struct SettingsFeature {
         /// live rather than taken from the extension's own status file — a daemon that
         /// crashed leaves its last cheerful status behind.
         var daemonStates: [String: ExtensionDaemonState] = [:]
+        /// What utt has done with extensions since it launched, newest first. Polled
+        /// with them: the lanes that write it are actors and an audio-thread caller,
+        /// and neither has a store to send to.
+        var extensionLog: [ExtensionLogEntry] = []
         var defaultInputName: String?
         /// Set while the hotkey recorder is capturing the next chord.
         var isRecordingHotkey = false
@@ -35,6 +39,7 @@ struct SettingsFeature {
         case extensionPriorityChanged(String, ExtensionPriority)
         case extensionRemoveTapped(String)
         case extensionDaemonStateLoaded(String, ExtensionDaemonState)
+        case extensionLogLoaded([ExtensionLogEntry])
         case hotkeyCaptured(HotKey)
         case hotkeyRecordingToggled
         case engineChanged(TranscriptionEngine)
@@ -97,12 +102,19 @@ struct SettingsFeature {
             case let .extensionDaemonRestartTapped(id):
                 guard let label = state.extensions.first(where: { $0.id == id })?.manifest.daemon?.label
                 else { return .none }
+                // In the log because the question afterwards is always whether
+                // restarting it helped, and that is unanswerable without knowing
+                // when it was restarted.
+                ExtensionLog.note(id, "you asked utt to restart its daemon")
                 return .run { send in
                     await extensionDaemon.restart(label)
                     await send(.extensionDaemonStateLoaded(id, extensionDaemon.state(label)))
                 }
             case let .extensionDaemonStateLoaded(id, daemonState):
                 state.daemonStates[id] = daemonState
+                return .none
+            case let .extensionLogLoaded(entries):
+                state.extensionLog = entries
                 return .none
             case let .hotkeyCaptured(hotkey):
                 state.isRecordingHotkey = false

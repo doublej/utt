@@ -10,7 +10,8 @@ import UttCore
 /// and an empty Connect group with no explanation reads as a broken feature.
 struct ExtensionsPage: View {
     let store: StoreOf<AppFeature>
-    @State private var copied = false
+    /// Which of the two copy buttons has just said yes, if either.
+    @State private var copied: Copied?
 
     private var installed: [InstalledExtension] { store.settings.extensions }
 
@@ -69,12 +70,32 @@ struct ExtensionsPage: View {
             }
         }
 
+        // The whole log, not one extension's: a manifest utt could not read has no
+        // page of its own to be read on, and that is the failure whose only symptom
+        // is that nothing appeared.
+        ExtensionLogGroup(
+            title: "Log",
+            entries: store.settings.extensionLog,
+            namesExtensions: true,
+            empty: "utt has had nothing to say about an extension since it started. A manifest it could not read would be named here."
+        )
+
+        SettingsGroup("Diagnostics") {
+            SettingRow(
+                "Copy diagnostics",
+                detail: "Everything on these pages as text: what each extension asked for, what you decided, what its daemon is doing, and the whole log. For a bug report. Anything you typed into an extension's own settings is counted, never quoted."
+            ) {
+                Button(copied == .report ? "Copied" : "Copy") { copy(report, as: .report) }
+                    .font(Typography.metadata)
+            }
+        }
+
         SettingsGroup("Write one") {
             SettingRow(
                 "Guide for an LLM",
                 detail: "The whole contract: the manifest, the files utt writes back, the audio lane, and what gets a manifest refused. Paste it into an LLM together with your project and ask for an extension."
             ) {
-                Button(copied ? "Copied" : "Copy guide") { copyGuide() }
+                Button(copied == .guide ? "Copied" : "Copy guide") { copy(guide, as: .guide) }
                     .font(Typography.metadata)
             }
             SettingRow("Extensions folder", detail: directory) {
@@ -115,13 +136,26 @@ struct ExtensionsPage: View {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    private func copyGuide() {
+    private enum Copied { case guide, report }
+
+    private var guide: String { ExtensionGuide.markdown(directory: directory) }
+
+    private var report: String {
+        ExtensionDiagnostics.report(
+            extensions: installed,
+            daemons: store.settings.daemonStates,
+            log: store.settings.extensionLog,
+            directory: directory
+        )
+    }
+
+    private func copy(_ text: String, as which: Copied) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ExtensionGuide.markdown(directory: directory), forType: .string)
-        copied = true
+        NSPasteboard.general.setString(text, forType: .string)
+        copied = which
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            copied = false
+            copied = nil
         }
     }
 }
