@@ -42,7 +42,7 @@ extension ExtensionPage {
     var access: some View {
         if installed.manifest.wantsTranscripts || installed.manifest.needsApi
             || installed.manifest.sendsAudio || installed.manifest.filtersTranscripts
-            || installed.manifest.wantsPartials {
+            || installed.manifest.wantsPartials || installed.manifest.wantsWordTimings {
             SettingsGroup("What it asked for") {
                 if installed.manifest.filtersTranscripts {
                     SettingRow(
@@ -63,6 +63,14 @@ extension ExtensionPage {
                 if !installed.manifest.skipsTextStages.isEmpty {
                     SettingRow("To skip some of your text rules", detail: skipNote) {
                         Image(systemName: "text.badge.minus").foregroundStyle(Palette.textTertiary)
+                    }
+                }
+                if installed.manifest.wantsWordTimings {
+                    SettingRow(
+                        "To know where each word was spoken",
+                        detail: "Gets the second each word starts and ends, for the clips it sends itself. Nothing about what you dictate."
+                    ) {
+                        Image(systemName: "waveform.badge.magnifyingglass").foregroundStyle(Palette.textTertiary)
                     }
                 }
                 if installed.manifest.wantsTranscripts {

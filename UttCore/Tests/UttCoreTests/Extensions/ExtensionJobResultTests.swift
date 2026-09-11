@@ -55,6 +55,41 @@ struct ExtensionJobResultTests {
         #expect(result.duration == nil)
     }
 
+    /// The reason `words` is optional rather than an empty array: an extension that
+    /// never asked pays nothing, and the key is absent rather than a `[]` it has to
+    /// tell apart from "no speech in the clip".
+    @Test("word timings are absent unless there are some")
+    func omitsWordTimings() throws {
+        let data = try encoded(ExtensionJobResult(
+            text: "spoken", finishedAt: "2026-09-09T17:04:11Z"
+        ))
+        let parsed = try #require(
+            try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        #expect(parsed["words"] == nil)
+    }
+
+    @Test("word timings round-trip in seconds, in the order they were spoken")
+    func carriesWordTimings() throws {
+        let data = try encoded(ExtensionJobResult(
+            text: "the words", raw: "um the words",
+            finishedAt: "2026-09-09T17:04:11Z",
+            words: [
+                SpokenWord(word: "um", start: 0.24, end: 0.4),
+                SpokenWord(word: "the", start: 0.56, end: 0.72),
+                SpokenWord(word: "words", start: 0.72, end: 1.04)
+            ]
+        ))
+        let result = try JSONDecoder().decode(ExtensionJobResult.self, from: data)
+        let words = try #require(result.words)
+        #expect(words.map(\.word) == ["um", "the", "words"])
+        #expect(words[0].start == 0.24)
+        #expect(words[2].end == 1.04)
+        // They describe `raw`, which is the point: "um" is in the timings and is not
+        // in `text`, so a reader cutting audio has to read `raw`.
+        #expect(result.raw == "um the words")
+    }
+
     @Test("nothing absent is written as null")
     func omitsWhatItHasNothingToSay() throws {
         let data = try encoded(ExtensionJobResult(

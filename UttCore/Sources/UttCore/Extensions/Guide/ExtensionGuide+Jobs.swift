@@ -53,6 +53,33 @@ let extensionJobsGuide = #"""
            }
            ```
 
+        ### Where each word was spoken
+
+        Set `"wantsWordTimings": true` alongside `"sendsAudio"` and the answer carries
+        one more field:
+
+        ```json
+        {
+          "text": "the words that were spoken",
+          "raw": "um the words what were spoken",
+          "words": [
+            {"word": "um", "start": 0.24, "end": 0.40},
+            {"word": "the", "start": 0.56, "end": 0.72}
+          ]
+        }
+        ```
+
+        Seconds from the start of **your clip**, and they describe `raw` — not `text`.
+        The stages after the recogniser delete filler and rewrite near misses, so a
+        number pinned to `text` would name a word at a second where something else was
+        said. Read `raw` when you are cutting audio; read `text` when you are showing
+        prose.
+
+        It is declared rather than always sent because it is the one field that grows
+        with the clip: five minutes of speech is some seven hundred entries. Absent
+        when you did not ask, and absent when the engine has none — WhisperKit gives
+        no word times here, only Parakeet does.
+
            or, when it could not:
 
            ```json

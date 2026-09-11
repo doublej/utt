@@ -176,6 +176,13 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
     /// stage name and by `decode` for the recogniser. Not a subset of `stages`: a
     /// stage that ran and left the words alone is timed all the same.
     public var timings: [String: Double]?
+    /// Where each word sits in the clip, seconds from its start. Present only for an
+    /// extension that declared `wantsWordTimings`, and only when the engine gave them.
+    ///
+    /// These are `raw`'s words. The stages after the recogniser delete filler and
+    /// rewrite near misses, so a timing pinned to `text` would name a word at a
+    /// second where something else was said.
+    public var words: [SpokenWord]?
 
     public init(
         text: String? = nil,
@@ -188,7 +195,8 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         startedAtMs: Int? = nil,
         finishedAtMs: Int? = nil,
         duration: Double? = nil,
-        timings: [String: Double]? = nil
+        timings: [String: Double]? = nil,
+        words: [SpokenWord]? = nil
     ) {
         self.text = text
         self.error = error
@@ -201,6 +209,7 @@ public struct ExtensionJobResult: Codable, Equatable, Sendable {
         self.finishedAtMs = finishedAtMs
         self.duration = duration
         self.timings = timings
+        self.words = words
     }
 
     /// What a clip gets while the extension that sent it is still waiting to be

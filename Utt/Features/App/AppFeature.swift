@@ -283,12 +283,12 @@ private extension AppFeature {
             // is the same caller by another road, so it gets the same closure.
             let transcribe: @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
-                var heard = ""
+                var heard = HeardTranscript(text: "", words: [])
                 let decoding = try await clock.measure {
                     heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)
                 }
-                let piped = await settings.processTranscript(heard, skipping: skipping, cleanup: cleanup)
-                return await extensionFilters.apply(piped.timed(.decode, decoding))
+                let piped = await settings.processTranscript(heard.text, skipping: skipping, cleanup: cleanup)
+                return await extensionFilters.apply(piped.heard(heard.words).timed(.decode, decoding))
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare
             // one in, and the endpoint's promise is the text the hotkey would paste.

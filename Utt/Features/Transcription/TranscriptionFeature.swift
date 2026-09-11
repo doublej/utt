@@ -273,12 +273,13 @@ private extension TranscriptionFeature {
                 // text — so an extension rewrites what the person would have read, not
                 // the raw recogniser output the rules are there to clean up. What was
                 // heard rides along the whole way; nothing downstream can recover it.
-                var heard = ""
+                var heard = HeardTranscript(text: "", words: [])
                 let decoding = try await clock.measure {
                     heard = try await transcription.transcribe(result.url, engine, model)
                 }
                 return await extensionFilters.apply(
-                    settings.processTranscript(heard, cleanup: cleanup).timed(.decode, decoding)
+                    settings.processTranscript(heard.text, cleanup: cleanup)
+                        .heard(heard.words).timed(.decode, decoding)
                 )
             }
             await send(.transcriptReady(transcript))

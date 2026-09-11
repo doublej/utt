@@ -15,6 +15,16 @@ enum ModelPreparation: Equatable, Sendable {
     case loading
 }
 
+/// What an engine heard: the words, and where they were spoken when it knows.
+///
+/// A struct rather than a second closure because the two are one decode — asking an
+/// engine for the timings afterwards would mean running it twice, and an engine that
+/// has none (WhisperKit) is honestly an empty list rather than a missing method.
+struct HeardTranscript: Sendable {
+    let text: String
+    let words: [SpokenWord]
+}
+
 /// Dispatches to whichever engine the user selected. Parakeet is the default and
 /// the only one that needs to be fast; WhisperKit is there for languages and clips
 /// Parakeet handles poorly.
@@ -25,7 +35,7 @@ struct TranscriptionClient: Sendable {
     /// a mode they have to be *told* about drifts out of step with the setting.
     var transcribe: @Sendable (
         _ url: URL, _ engine: TranscriptionEngine, _ model: String
-    ) async throws -> String
+    ) async throws -> HeardTranscript
     /// Download + load, so the first hotkey press is not a 26-second stall. The
     /// stream reports phases and finishes when the model is loaded — or when it
     /// gave up, which `isReady` is there to tell apart.
@@ -57,9 +67,14 @@ extension TranscriptionClient: DependencyKey {
                         rtfx \(result.realtimeFactor, format: .fixed(precision: 1))x, \
                         confidence \(result.confidence, format: .fixed(precision: 2))
                         """)
-                    return result.text
+                    return HeardTranscript(text: result.text, words: result.words)
                 case .whisper:
-                    return try await whisper.transcribe(url, model: model)
+                    // WhisperKit's own segment timestamps are not wired up here, so an
+                    // extension asking for word times on the Whisper engine gets none
+                    // rather than approximate ones.
+                    return HeardTranscript(
+                        text: try await whisper.transcribe(url, model: model), words: []
+                    )
                 }
             },
             // The engines report progress through a callback on an unspecified

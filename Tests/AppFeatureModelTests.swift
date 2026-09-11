@@ -19,7 +19,7 @@ struct AppFeatureModelTests {
             AppFeature()
         } withDependencies: {
             $0.transcription = TranscriptionClient(
-                transcribe: { _, _, _ in "" },
+                transcribe: { _, _, _ in HeardTranscript(text: "", words: []) },
                 prepare: { _, _ in
                     AsyncStream { continuation in
                         for step in steps { continuation.yield(step) }

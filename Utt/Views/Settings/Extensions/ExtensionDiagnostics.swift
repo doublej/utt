@@ -140,6 +140,7 @@ enum ExtensionDiagnostics {
             manifest.sendsAudio ? "audio" : nil,
             manifest.wantsTranscripts ? "transcripts" : nil,
             manifest.wantsPartials ? "partials" : nil,
+            manifest.wantsWordTimings ? "word timings" : nil,
             manifest.filtersTranscripts ? "rewrites" : nil,
             manifest.needsApi ? "API token" : nil,
             manifest.showsInMenuBar ? "menu bar" : nil

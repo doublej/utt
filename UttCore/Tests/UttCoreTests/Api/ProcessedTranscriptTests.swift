@@ -114,4 +114,21 @@ struct ProcessedTranscriptTimingTests {
         let timings = try #require((body as? [String: Any])?["timings"] as? [String: Double])
         #expect(timings == ["decode": 1800])
     }
+
+    /// The API body is a shape other people parse, and word timings are hundreds of
+    /// numbers nobody on that road asked for. They ride along in memory for the jobs
+    /// lane to copy out; they are not part of the encoded transcript.
+    @Test("word timings survive the pipeline and stay out of the encoded body")
+    func wordsRideAlongUnencoded() async throws {
+        let heard = [SpokenWord(word: "heard", start: 0.1, end: 0.4)]
+        let output = await UttSettings().processTranscript("heard", cleanup: nil)
+            .heard(heard)
+            .timed(.decode, .milliseconds(1800))
+            .applying(.filter, text: "rewritten", took: .milliseconds(20))
+        // Every derived copy keeps them — nothing downstream can recover them once
+        // dropped, so `applying` and `timed` have to carry them.
+        #expect(output.words == heard)
+        let body = try JSONSerialization.jsonObject(with: JSONEncoder().encode(output))
+        #expect((body as? [String: Any])?["words"] == nil)
+    }
 }

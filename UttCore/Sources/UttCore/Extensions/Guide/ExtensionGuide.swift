@@ -64,6 +64,7 @@ private let extensionGuideTemplate = #"""
           "wantsTranscripts": false,
           "wantsPartials": false,
           "sendsAudio": false,
+          "wantsWordTimings": false,
           "skipsTextStages": [],
           "tint": "#3EAFB4",
           "showsInMenuBar": true,

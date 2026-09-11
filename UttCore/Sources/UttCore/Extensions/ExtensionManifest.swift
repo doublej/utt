@@ -35,6 +35,10 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// directory. utt writes the text back beside it. This is the direct lane: no
     /// listener, no token, and nothing on the network.
     public var sendsAudio = false
+    /// The extension wants to know where each word was spoken, as `words` on the
+    /// answer to a clip it sent. Declared rather than always sent: a five-minute clip
+    /// is some seven hundred entries, parsed by every extension that never reads them.
+    public var wantsWordTimings = false
     /// The extension wants the words as they are decoded, while the person is still
     /// speaking, written to `<id>.partial.json`. Provisional text from a smaller
     /// recogniser: it is revised as it grows, it is thrown away when the real
@@ -78,7 +82,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         description: String? = nil, repository: String? = nil, website: String? = nil,
         systemImage: String? = nil, settings: [ExtensionSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
+        wantsWordTimings: Bool = false, wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
         tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
         showsInMenuBar: Bool = false
     ) {
@@ -93,6 +97,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.needsApi = needsApi
         self.wantsTranscripts = wantsTranscripts
         self.sendsAudio = sendsAudio
+        self.wantsWordTimings = wantsWordTimings
         self.wantsPartials = wantsPartials
         self.filtersTranscripts = filtersTranscripts
         self.skipsTextStages = skipsTextStages
@@ -104,7 +109,8 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, description, repository, website, systemImage, settings
-        case needsApi, wantsTranscripts, sendsAudio, wantsPartials, filtersTranscripts, skipsTextStages
+        case needsApi, wantsTranscripts, sendsAudio, wantsWordTimings
+        case wantsPartials, filtersTranscripts, skipsTextStages
         case tint, actions, daemon
         case showsInMenuBar
     }
@@ -126,6 +132,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         needsApi = (try? container.decodeIfPresent(Bool.self, forKey: .needsApi)) as? Bool ?? false
         wantsTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .wantsTranscripts)) as? Bool ?? false
         sendsAudio = (try? container.decodeIfPresent(Bool.self, forKey: .sendsAudio)) as? Bool ?? false
+        wantsWordTimings = (try? container.decodeIfPresent(Bool.self, forKey: .wantsWordTimings)) ?? false
         wantsPartials = (try? container.decodeIfPresent(Bool.self, forKey: .wantsPartials)) as? Bool ?? false
         filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
         // Decoded as strings, not as the enum: `Set<TextStage>` throws on the first
@@ -173,6 +180,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             needsApi: needsApi,
             wantsTranscripts: wantsTranscripts,
             sendsAudio: sendsAudio,
+            wantsWordTimings: wantsWordTimings,
             wantsPartials: wantsPartials,
             filtersTranscripts: filtersTranscripts,
             skipsTextStages: skipsTextStages,

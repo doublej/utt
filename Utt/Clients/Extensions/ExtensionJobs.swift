@@ -108,7 +108,7 @@ actor ExtensionJobs {
                 name: installed.manifest.name,
                 rgb: installed.manifest.rgb
             ))
-            await run(job, of: installed.id, installed.manifest.skipsTextStages, transcribe)
+            await run(job, of: installed.id, installed.manifest, transcribe)
             announce(nil)
         }
     }
@@ -119,7 +119,7 @@ actor ExtensionJobs {
     /// retrying it forever at three times a second, and the extension has the answer
     /// either way.
     private func run(
-        _ audio: URL, of id: String, _ skipping: Set<TextStage>,
+        _ audio: URL, of id: String, _ manifest: ExtensionManifest,
         _ transcribe: @escaping Transcriber
     ) async {
         @Dependency(\.date.now) var now
@@ -142,7 +142,7 @@ actor ExtensionJobs {
                 Self.answer(result, of: id, for: audio)
                 return
             }
-            let piped = try await transcribe(audio, skipping)
+            let piped = try await transcribe(audio, manifest.skipsTextStages)
             let final = Self.hinted(piped, for: audio)
             // One counted line rather than one per clip: this is the answer to "is
             // this extension reaching utt at all", and it is asked of a log, not of
@@ -151,7 +151,8 @@ actor ExtensionJobs {
             // Stamped here, after the work, which is the whole point of the field.
             result = Self.answered(
                 final, seconds: Self.duration(of: audio),
-                started: started, finished: Self.stamp(now))
+                started: started, finished: Self.stamp(now),
+                words: manifest.wantsWordTimings)
         } catch {
             ExtensionLog.problem(id, "could not transcribe a clip — \(error.localizedDescription)")
             let finished = Self.stamp(now)
@@ -167,14 +168,18 @@ actor ExtensionJobs {
     /// of it cost, and both ends of utt's own stretch.
     private static func answered(
         _ final: ProcessedTranscript, seconds: Double?,
-        started: (iso: String, ms: Int), finished: (iso: String, ms: Int)
+        started: (iso: String, ms: Int), finished: (iso: String, ms: Int),
+        words wanted: Bool
     ) -> ExtensionJobResult {
         ExtensionJobResult(
             text: final.text, raw: final.raw, stages: final.stageNames,
             cleanupSkipped: final.cleanupSkipped?.rawValue,
             startedAt: started.iso, finishedAt: finished.iso,
             startedAtMs: started.ms, finishedAtMs: finished.ms,
-            duration: seconds, timings: final.timings
+            duration: seconds, timings: final.timings,
+            // Absent rather than empty for an extension that did not ask, and for an
+            // engine with nothing to say: a `[]` reads as "no speech in the clip".
+            words: wanted && !final.words.isEmpty ? final.words : nil
         )
     }
 

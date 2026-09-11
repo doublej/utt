@@ -225,9 +225,8 @@ struct ExtensionCapabilityTests {
     {
       "id": "deckhand", "name": "Deckhand",
       "needsApi": true, "wantsTranscripts": true, "sendsAudio": true, "wantsPartials": true,
-      "showsInMenuBar": true, "tint": "#3EAFB4",
-      "daemon": {"label": "com.jurrejan.deckhand"},
-      "actions": [{"key": "openLog", "label": "Open log"}]
+      "wantsWordTimings": true, "showsInMenuBar": true, "tint": "#3EAFB4",
+      "daemon": {"label": "com.jurrejan.deckhand"}, "actions": [{"key": "openLog", "label": "Open log"}]
     }
     """.utf8)
 
@@ -238,6 +237,7 @@ struct ExtensionCapabilityTests {
         #expect(manifest.wantsTranscripts)
         #expect(manifest.sendsAudio)
         #expect(manifest.wantsPartials)
+        #expect(manifest.wantsWordTimings)
         #expect(manifest.showsInMenuBar)
         #expect(manifest.daemon?.label == "com.jurrejan.deckhand")
         #expect(manifest.actions.map(\.key) == ["openLog"])
@@ -253,6 +253,7 @@ struct ExtensionCapabilityTests {
         #expect(!manifest.wantsTranscripts)
         #expect(!manifest.sendsAudio)
         #expect(!manifest.wantsPartials)
+        #expect(!manifest.wantsWordTimings)
         #expect(!manifest.showsInMenuBar)
         #expect(manifest.daemon == nil)
         #expect(manifest.actions.isEmpty)

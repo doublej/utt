@@ -1,6 +1,7 @@
 import Dependencies
 import FluidAudio
 import Foundation
+import UttCore
 import os
 
 private let log = Logger(subsystem: "dev.jurrejan.utt", category: "parakeet")
@@ -111,6 +112,9 @@ actor ParakeetClient {
         let duration: TimeInterval
         /// Realtime factor — 23× on a 3 s clip, 51× on a 6.6 s clip, measured.
         let realtimeFactor: Float
+        /// Where each word was spoken, seconds into the clip. Empty when the decoder
+        /// returned no token timings, which a clip it heard nothing in does.
+        let words: [SpokenWord]
     }
 
     func transcribe(_ url: URL, model: String) async throws -> Transcript {
@@ -128,7 +132,14 @@ actor ParakeetClient {
             text: result.text,
             confidence: result.confidence,
             duration: result.duration,
-            realtimeFactor: result.rtfx
+            realtimeFactor: result.rtfx,
+            // TDT emits a duration beside every token, so the positions are a
+            // by-product of the decode rather than a second pass — and FluidAudio
+            // already groups tokens on the SentencePiece boundary. Deriving words
+            // from `▁` here would be re-implementing that, one frame off.
+            words: buildWordTimings(from: result.tokenTimings ?? []).map {
+                SpokenWord(word: $0.word, start: $0.startTime, end: $0.endTime)
+            }
         )
     }
 }
