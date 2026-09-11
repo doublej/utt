@@ -42,6 +42,10 @@ targets:
         excludes:
           - "Resources/Info.plist"
           - "Resources/utt.entitlements"
+          # The per-folder notes are for whoever is reading the code, not for the
+          # bundle. Every one of them would be copied to Resources/CLAUDE.md, and
+          # the second one to arrive is a build error, not an overwrite.
+          - "**/CLAUDE.md"
     dependencies:
       - package: UttCore
         product: UttCore
