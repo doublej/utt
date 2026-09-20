@@ -43,7 +43,8 @@ The runtime path is: event tap → `KeyEventMonitorClient` (one serial
 
 ## Invariants
 
-These are load-bearing. Each one exists because breaking it produced a real bug.
+Folder-specific invariants live next to the code they govern — see Context
+boundaries below. Two stay here because nothing owns them alone:
 
 - **The signing identity is fixed.** `CODE_SIGN_IDENTITY` in `project.yml` is a
   hardcoded SHA-1, not a name — the Developer ID Application cert, in Debug and
@@ -54,114 +55,24 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   — that is the one thing the old self-signed cert could not do. `just dr` prints
   the current requirement; `just verify-identity` refuses to build without the
   right cert.
-- **One key event stream, one consumer.** A `Task` per key event can deliver
-  release before press — independent tasks have no ordering guarantee.
-- **`CaptureController` is not actor-isolated.** The audio tap runs on a
-  real-time thread; inheriting main-actor isolation traps in
-  `_swift_task_checkIsolatedSwift` on the first buffer.
-- **`AVAudioPCMBuffer` and `CGEvent` never cross an isolation boundary.**
-  Snapshot to values (peak, frame counts, keycode, flags) first.
-- **Permission preflights lie on the first call.** `CGPreflight*Access` starts an
-  asynchronous TCC lookup and answers "denied" until it lands. `AppFeature`
-  requires two consecutive observations before reporting a permission missing.
-  Warming the call up front does *not* help.
-- **A tap created before Input Monitoring was granted stays dead forever.**
-  `tapEnable` does nothing; only a full recreate revives it. Same after sleep.
-- **Time enters through `@Dependency(\.date.now)`**, so hotkey tests scrub the
-  clock instead of sleeping.
-- **No App Sandbox.** Turning it on now would change the designated requirement
-  and reset every TCC grant, and `StoragePaths` would start resolving into a
-  container. Hardened Runtime is on, and
-  `com.apple.security.device.audio-input` is required independently of the
-  sandbox — without it the mic is denied outright, with no prompt and no TCC
-  record.
-- **No `LSUIElement`.** It made every launch start as an accessory, so
-  double-clicking utt opened its window *behind* whatever was already on screen.
-  The Dock icon is a runtime `setActivationPolicy` decision, and the login-item
-  launch the key used to cover is detected through `launchIsDefaultUserInfoKey`
-  instead.
-- **Fronting the app goes through `AppActivation.front()`.** macOS 14 made
-  activation cooperative: a bare `NSApp.activate()` only works if the active app
-  yielded, which nothing does for a menu bar app, so it is a silent no-op and the
-  window opens behind everything. `AppActivation` takes `ignoringOtherApps:` and
-  falls back to LaunchServices; a SwiftLint rule fails the build on the bare call.
-- **A model is named, never assumed.** `selectedModel` is a stored string read
-  through `ModelCatalog.resolve(id:engine:)`, which falls back to the engine's
-  recommendation — a settings file can name a model from an older build or from
-  the *other* engine, and the alternative to falling back is an app that cannot
-  transcribe until you edit JSON. The engine actors track what they loaded, or
-  switching model keeps transcribing on the old weights.
-- **Raycast talks to the app through Application Support, not a bridge.** The
-  extension in `raycast/` reads `history.json` and `devices.json` and writes
-  `microphonePriority` into `settings.json`; `@Shared(.fileStorage)` watches that
-  file, so an external write reaches a running app with no relaunch. `devices.json`
-  exists because a CoreAudio UID — the only stable way to name an input — cannot be
-  obtained outside a CoreAudio client, and `SettingsFeature` already enumerates
-  devices every 3 s.
-- **The API's reach is enforced twice.** `ApiAccess` decides both what the
-  listener binds to and which peers are accepted; "This Mac only" binds loopback
-  so the port never appears on an interface, and the peer filter still runs.
-  "Local network" means a subnet `getifaddrs` says this Mac is on, not a private
-  address range — a VPN peer is private and elsewhere, and a phone on the same
-  Wi-Fi is very often globally addressed over IPv6. Peer addresses parse through
-  `inet_pton` or not at all: a split-on-the-separator reader lets `127.0.0.1.extra`
-  through as loopback, which is the access filter failing *open*.
-  Everything, `/health` included, needs the bearer token, and an enabled API with
-  an empty token yields no `ApiConfiguration` and therefore no listener. `/docs`
-  is the one endpoint that also takes the token from the query string — a browser
-  address bar cannot set a header — and it is the reason the `Host` header is
-  sanitised before `ApiDocs` interpolates it into a `<script>`.
-- **A failed listener takes its configuration with it.** `NWListener` reports a
-  failed bind asynchronously and documents it as terminal. Leaving
-  `configuration` set means the next apply matches, does nothing, and the port
-  stays dead while the settings still read "on" — so `.failed` tears down and
-  `AppFeature.apiState` puts the reason in the card.
-- **The API card binds through the store, not `@Shared`.** Every other settings
-  control writes the shared file directly, which reaches no reducer — fine for a
-  value something reads later, useless for one that has to start a listener now.
-  `SettingsFeature.apiChanged` is the only write path, and it is what mints the
-  token on first switch-on.
-- **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel` reach
-  `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt never
-  activates itself there, but a plain `open` activates it for the caller — and the
-  frontmost app when a recording *stops* is the app the transcript is pasted into,
-  so a foregrounding caller dictates into utt's own window.
-- **Live words are provisional and never reach the cursor.** The streaming
-  recogniser (Parakeet EOU 120M, `LiveTranscriptionClient`) runs beside the real
-  one on its own weights and its own download; the clip on disk is still what
-  becomes the transcript. It is English only, it decodes a quiet or synthetic
-  clip to *nothing at all* rather than to something wrong — the spike proved
-  both — and FluidAudio's custom vocabulary biasing is batch-only, so streaming
-  and a vocabulary list are alternatives rather than a stack.
-- **A capability an extension declares has to survive `sanitized()`.** It rebuilds
-  the manifest field by field, so a new flag that is not passed through there
-  decodes fine, tests fine, and is silently false by the time any lane reads it.
-  `ExtensionCapabilityTests` is what catches it.
-- **Everything utt decides about an extension goes through `ExtensionLog`.** A
-  refused key, a clip that failed, a filter that never answered: in `os_log` alone
-  they were invisible — `log show` cannot open the store from an ordinary shell —
-  so an extension that did nothing looked the same as one utt had thrown out. The
-  book keeps them in memory, newest first, and the pages read it. A line said again
-  is the same entry counted rather than a new one, and only the first of them is
-  mirrored to the unified log: the manifest scan runs three times a second. Nothing
-  is persisted — a standing problem says itself again within three seconds of the
-  next launch.
-- **A path a manifest names is revealed, never opened.** `daemon.log` reaches the
-  Finder through `activateFileViewerSelecting`. `NSWorkspace.open` is
-  LaunchServices picking an app by extension, so a manifest naming a `.command`
-  would turn "drop a file in a folder" into "run this as the user".
-- **A crash-looping daemon is not a stopped one.** `launchctl list` reports
-  `LastExitStatus` beside the pid, and a job dying on something permanent has a pid
-  for about a second in every ten — so the pid a poll catches is luck and the exit
-  status is the stable half. `.stopped` says "Restart starts it"; `.failing` says
-  read the log, because Restart is the button that gets pressed twenty times.
-- **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
-  swallow ⌘V system-wide.
-- **A release is any part of the chord coming up**, not the whole keyboard going
-  quiet. Ctrl+P ends when either Ctrl or P is released. Something *extra* — a
-  different key, a modifier the hotkey does not name — is an interruption, not a
-  release, which is what keeps typing-while-dictating working.
 - **`just check` must be green before a commit.** Zero warnings, `--strict` lint.
+
+## Context boundaries
+
+Before editing, read the local `CLAUDE.md`:
+
+- `Utt/Clients/Api/CLAUDE.md` (+ `UttCore/Sources/UttCore/Api/CLAUDE.md`) — the
+  listener, its reach, its token
+- `Utt/Clients/Input/CLAUDE.md` — the event tap and the hotkey stream
+- `Utt/Clients/Recording/CLAUDE.md` — capture, devices, the real-time boundary
+- `Utt/Clients/System/CLAUDE.md` — permissions, sandbox, TCC timing
+- `Utt/Clients/Transcription/CLAUDE.md` — model selection, live words
+- `Utt/Clients/Extensions/CLAUDE.md` (+
+  `UttCore/Sources/UttCore/Extensions/CLAUDE.md`) — capability negotiation, the
+  log
+- `Utt/App/CLAUDE.md` — activation, the `utt://` scheme
+- `.claude/rules/isolation-boundaries.md` — applies across Recording, Input,
+  Transcription
 
 ## Common change patterns
 
@@ -179,25 +90,15 @@ These are load-bearing. Each one exists because breaking it produced a real bug.
   on the page it belongs to (`$settings.binding(\.key)` is the binding). The
   explanation goes in `detail:`, on the page, not in a `.help` tooltip. Every key
   decodes independently so an old file never fails to load.
-- **Say something about an extension** → `ExtensionLog.note` or `.problem`, with
-  the extension's id, or nil for a manifest utt could not attribute — that one has
-  no page of its own and is read on the Extensions page. Never a bare `Logger` in
-  `Utt/Clients/Extensions/`.
+- **Say something about an extension** → see `Utt/Clients/Extensions/CLAUDE.md`.
 - **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
   `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
   to be a file in Application Support first (`raycast/src/utt.ts` is the only place
-  that touches disk); anything it needs the app to *do* is a `utt://` verb.
-- **Add an API endpoint** → one `case` in `ApiRoutes.respond`, one path in
-  `ApiDocs.paths`, one section in `docs/api.md`. Anything parsed before the token
-  is checked belongs in `UttCore/Api/` with tests — that is the part a stranger
-  can reach. The OpenAPI document is a hand-escaped string, so it is parsed in a
-  test: a bad escape renders a blank reference rather than failing to build.
-- **Add a `utt://` verb** → one `case` in `AppDelegate.action(for:)` and one line in
-  the `CFBundleURLTypes` comment in `Info.plist`.
-- **Add a model** → one entry in `ModelCatalog` (`UttCore`), plus the matching
-  case in `ParakeetClient.version(for:)` if it is a Parakeet one. Whisper ids are
-  folder names in `argmaxinc/whisperkit-coreml` and are passed through verbatim,
-  so a typo fails at download time, not at compile time.
+  that touches disk); anything it needs the app to *do* is a `utt://` verb. See
+  `raycast/README.md` for the file contract.
+- **Add an API endpoint** → see `Utt/Clients/Api/CLAUDE.md`.
+- **Add a `utt://` verb** → see `Utt/App/CLAUDE.md`.
+- **Add a model** → see `Utt/Clients/Transcription/CLAUDE.md`.
 - **Redraw the app icon** → `just icon`. `tools/make-app-icon.py` draws
   `DotMatrix.patterns[0]` on `Palette.lcdGround` with `DotMatrix.rect`'s geometry
   and writes `Utt/Resources/AppIcon.icon`, an Icon Composer document — commit it,
