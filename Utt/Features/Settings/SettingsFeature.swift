@@ -45,6 +45,7 @@ struct SettingsFeature {
         case engineChanged(TranscriptionEngine)
         case modelChanged(String)
         case apiChanged(ApiSettings)
+        case dictationChanged(Bool)
         case reconnectMicrophoneTapped(String)
         case resetToDefaultsTapped
     }
@@ -126,6 +127,11 @@ struct SettingsFeature {
             case let .engineChanged(engine): return change(to: engine)
             case let .modelChanged(model): return change(toModel: model)
             case let .apiChanged(api): return change(toApi: api)
+            // Written here, acted on in `AppFeature`: closing the microphone is
+            // the recorder's job, and a plain `@Shared` write would reach no reducer.
+            case let .dictationChanged(enabled):
+                $settings.withLock { $0.dictationEnabled = enabled }
+                return .none
             // Handled in `AppFeature` — reopening the input is the recorder's, and
             // nothing about it belongs in settings state.
             case .reconnectMicrophoneTapped: return .none

@@ -125,6 +125,12 @@ private extension TranscriptionFeature {
     }
 
     func start(_ state: inout State) -> Effect<Action> {
+        // Every road to the microphone ends here — the hotkey, `utt://start`, the
+        // panel — so unarmed is one guard rather than one per caller.
+        guard settings.dictationEnabled else {
+            log.notice("ignoring a start request: utt is running unarmed")
+            return .none
+        }
         guard !state.isRecording else { return .none }
         state.status = .recording
         state.recordingStartedAt = now

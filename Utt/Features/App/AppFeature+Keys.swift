@@ -91,7 +91,9 @@ extension AppFeature {
     /// is rebuilt from `pendingReview` after every transcription action, Return
     /// stops being swallowed the instant review ends. Nothing toggles it.
     func applySuppression(_ state: State) {
-        var chords = [settings.hotkey, Self.pasteLastHotKey]
+        // The hotkey only while dictation is armed: swallowing a chord that now
+        // starts nothing would take it away from whatever else the user has bound it to.
+        var chords = settings.dictationEnabled ? [settings.hotkey, Self.pasteLastHotKey] : [Self.pasteLastHotKey]
         if state.transcription.pendingReview != nil { chords += Self.reviewChords }
         keyEventMonitor.setSuppressed(chords)
     }

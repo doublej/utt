@@ -111,6 +111,27 @@ struct TranscriptionFeatureTests {
         #expect(store.state.lastTranscript == nil)
     }
 
+    /// Unarmed, utt is a backend for other tools and nothing else. The hotkey and
+    /// `utt://start` both end in `.startRecording`, so this is the one place that
+    /// has to refuse — and refusing means the microphone is never opened at all.
+    @Test("an unarmed utt never opens the microphone")
+    func unarmedIgnoresStart() async {
+        @Shared(.uttSettings) var settings
+        $settings.withLock { $0.dictationEnabled = false }
+        defer { $settings.withLock { $0.dictationEnabled = true } }
+
+        let opened = LockIsolated(false)
+        var recording = RecordingClient.quiet
+        recording.start = { _ in opened.setValue(true) }
+        let store = makeStore(recording: recording)
+
+        await store.send(.startRecording)
+        await store.finish()
+
+        #expect(store.state.status == .idle)
+        #expect(opened.value == false)
+    }
+
     /// Parakeet returns an empty string for audio it cannot hear, rather than
     /// failing — so an empty result plus a quiet clip has to be reported, or the
     /// app looks like it silently did nothing.

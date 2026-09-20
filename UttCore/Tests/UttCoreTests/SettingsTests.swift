@@ -134,6 +134,15 @@ struct SettingsTests {
         #expect(newer.cleanupTranscripts)
     }
 
+    /// Unarmed is a deliberate choice, so it has to survive the file it was
+    /// written to — while a file from before the key existed still dictates.
+    @Test
+    func dictationIsArmedByDefaultAndUnarmedSurvivesAnOlderFile() throws {
+        #expect(UttSettings().dictationEnabled)
+        #expect(try decodeSettings(#"{"preRollEnabled": true}"#).dictationEnabled)
+        #expect(try decodeSettings(#"{"dictationEnabled": false}"#).dictationEnabled == false)
+    }
+
     @Test
     func preRollEnabledByDefault() {
         #expect(UttSettings().preRollEnabled)

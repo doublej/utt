@@ -7,6 +7,19 @@ struct HotkeyPage: View {
     @Shared(.uttSettings) private var settings
 
     var body: some View {
+        SettingsGroup("Dictation") {
+            SettingToggle(
+                "Listen for the hotkey",
+                detail: "Off runs utt unarmed: the microphone is never opened and the hotkey is left alone. The API, extensions and pasting the last transcript keep working.",
+                // Through the store, not `$settings.binding`: closing the microphone
+                // is something a reducer has to do, not a value read later.
+                isOn: Binding(
+                    get: { settings.dictationEnabled },
+                    set: { store.send(.settings(.dictationChanged($0))) }
+                )
+            )
+        }
+
         SettingsGroup("Shortcuts") {
             HotkeyRow(store: store)
             SettingRow("Paste the last transcript again", detail: "Wherever the cursor is now.") {

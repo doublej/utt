@@ -62,6 +62,7 @@ struct MenuBarContent: View {
     let store: StoreOf<AppFeature>
     @Environment(\.openWindow) private var openWindow
     @Shared(.uttHistory) private var transcripts
+    @Shared(.uttSettings) private var settings
 
     var body: some View {
         Text(statusLine)
@@ -72,6 +73,10 @@ struct MenuBarContent: View {
             .disabled(transcripts.history.isEmpty)
         Button("Copy last transcript") { store.send(.copyLastTapped) }
             .disabled(transcripts.history.isEmpty)
+
+        Button(settings.dictationEnabled ? "Run unarmed" : "Listen for the hotkey") {
+            store.send(.settings(.dictationChanged(!settings.dictationEnabled)))
+        }
 
         if !menuExtensions.isEmpty {
             Divider()
@@ -138,6 +143,9 @@ struct MenuBarContent: View {
             // The window has both, so it names the permissions and this points there.
             return "Not ready — open utt to finish setup"
         }
+        // Ahead of the model readout: a person who cannot make utt type is owed
+        // the reason, and "Ready" would be a lie about the hotkey.
+        if !settings.dictationEnabled { return "Unarmed — not listening for the hotkey" }
         switch store.transcription.status {
         case .idle:
             switch store.model {
