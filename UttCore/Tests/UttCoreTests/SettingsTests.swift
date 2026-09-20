@@ -143,6 +143,15 @@ struct SettingsTests {
         #expect(try decodeSettings(#"{"dictationEnabled": false}"#).dictationEnabled == false)
     }
 
+    /// The one setting whose default is a promise: utt says nothing leaves the
+    /// machine, so analytics has to be something a person switched on.
+    @Test
+    func analyticsAreOffUntilSwitchedOn() throws {
+        #expect(UttSettings().usageAnalytics == false)
+        #expect(try decodeSettings(#"{"showDockIcon": true}"#).usageAnalytics == false)
+        #expect(try decodeSettings(#"{"usageAnalytics": true}"#).usageAnalytics)
+    }
+
     @Test
     func preRollEnabledByDefault() {
         #expect(UttSettings().preRollEnabled)

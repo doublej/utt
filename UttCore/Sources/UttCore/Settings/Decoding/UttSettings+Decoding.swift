@@ -67,7 +67,7 @@ extension UttSettings {
         case wordRemappings, cleanupTranscripts, lowercaseTranscripts, removePunctuation
         case saveTranscriptionHistory, maxHistoryEntries
         case soundEffectsEnabled, soundEffectsVolume
-        case openOnLogin, showDockIcon, api, hasCompletedOnboarding
+        case openOnLogin, showDockIcon, usageAnalytics, api, hasCompletedOnboarding
     }
 
     // Decoding is split by section only to keep each function body short.
@@ -113,6 +113,7 @@ extension UttSettings {
         soundEffectsVolume = try container.decodeIfPresent(Double.self, forKey: .soundEffectsVolume) ?? soundEffectsVolume
         openOnLogin = try container.decodeIfPresent(Bool.self, forKey: .openOnLogin) ?? openOnLogin
         showDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? showDockIcon
+        usageAnalytics = try container.decodeIfPresent(Bool.self, forKey: .usageAnalytics) ?? usageAnalytics
         api = try container.decodeIfPresent(ApiSettings.self, forKey: .api) ?? api
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? hasCompletedOnboarding
     }

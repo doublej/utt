@@ -168,6 +168,13 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// microphone should be findable.
     public var showDockIcon: Bool = true
 
+    /// Send counts of what utt is used for to its own Umami instance. **Off**, and
+    /// off is the only default this could have had: utt's whole claim is that
+    /// nothing leaves the machine, so this has to be something a person switched on
+    /// knowing what it does. What it may carry is fixed in `UmamiEvent` — never a
+    /// transcript, never audio, never which app received the text.
+    public var usageAnalytics: Bool = false
+
     /// The local transcription API — off, and loopback-only when switched on.
     /// See `ApiSettings`; nested so the whole feature is one object in the file.
     public var api = ApiSettings()

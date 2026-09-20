@@ -73,6 +73,7 @@ struct AppFeature {
     @Dependency(\.extensionJobs) var extensionJobs
     @Dependency(\.extensionFilters) var extensionFilters
     @Dependency(\.transcriptCleanup) var transcriptCleanup
+    @Dependency(\.analytics) var analytics
     @Dependency(\.pasteboard) var pasteboard
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -214,6 +215,7 @@ private extension AppFeature {
 
             .send(.prepareModelTapped),
             .send(.settings(.task)),
+            trackLaunch(),
             applySystemPreferences(),
             // Starting the updater is what schedules the daily check; nothing else
             // touches it until the button is pressed.
@@ -271,6 +273,17 @@ private extension AppFeature {
             // through the history reducer: retention governs what utt keeps, not
             // what an extension the user installed is handed.
             extensions.deliver(transcript, duration, app?.name ?? nil)
+            // Counts only, and only if asked for: how long, on which engine, and
+            // whether it arrived — never the words, and never the app above.
+            analytics.send(
+                .dictation(
+                    engine: settings.transcriptionEngine.rawValue,
+                    model: ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id,
+                    seconds: Int(duration.rounded()),
+                    cleanup: settings.cleanupTranscripts,
+                    delivered: pasted
+                )
+            )
         }
     }
 

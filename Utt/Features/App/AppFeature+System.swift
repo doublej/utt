@@ -13,7 +13,7 @@ extension AppFeature {
     /// have to reach the recorder — a ring filled from the old microphone would
     /// prepend half a second of the wrong room.
     func applySystemPreferences() -> Effect<Action> {
-        .run { [settings, transcription, transcriptCleanup, clock] _ in
+        .run { [settings, transcription, transcriptCleanup, clock, analytics] _ in
             // No panel on this road: a skipped reason travels in the transcript
             // itself, which is what an API caller and an extension read it off.
             let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
@@ -40,8 +40,37 @@ extension AppFeature {
             }
             // The API skips nothing: a stranger over HTTP has no manifest to declare
             // one in, and the endpoint's promise is the text the hotkey would paste.
-            await apiServer.apply(settings.api.configuration, { try await transcribe($0, []) })
-            await extensionJobs.apply(transcribe)
+            let engine = settings.transcriptionEngine
+            let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
+            await apiServer.apply(settings.api.configuration) { url in
+                let transcript = try await transcribe(url, [])
+                analytics.send(.backend(source: .api, engine: engine.rawValue, model: model))
+                return transcript
+            }
+            await extensionJobs.apply { url, skipping in
+                let transcript = try await transcribe(url, skipping)
+                // Which road, never which extension: an installed extension names a
+                // person's tools, and counting the road answers the question anyway.
+                analytics.send(.backend(source: .extensionJob, engine: engine.rawValue, model: model))
+                return transcript
+            }
+        }
+    }
+
+    /// Once per launch, which is what makes it a version count: how much of the
+    /// installed base an update has reached is the one thing a released app cannot
+    /// find out any other way.
+    func trackLaunch() -> Effect<Action> {
+        .run { [settings, analytics] _ in
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+            let engine = settings.transcriptionEngine
+            analytics.send(
+                .launch(
+                    version: version,
+                    engine: engine.rawValue,
+                    model: ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
+                )
+            )
         }
     }
 }

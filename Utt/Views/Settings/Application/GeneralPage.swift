@@ -21,6 +21,14 @@ struct GeneralPage: View {
             )
         }
 
+        SettingsGroup("Usage") {
+            SettingToggle(
+                "Send anonymous usage counts",
+                detail: "Off. On, utt reports that it launched and that a dictation finished — the engine, the model, how many seconds it ran, and whether the text arrived. Never the words, never the audio, never which app received them.",
+                isOn: $settings.binding(\.usageAnalytics)
+            )
+        }
+
         SettingsGroup("Walkthrough") {
             SettingRow(
                 "Show the walkthrough again",
