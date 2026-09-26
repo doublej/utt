@@ -14,6 +14,33 @@ public struct ExtensionRGB: Equatable, Hashable, Sendable {
     }
 }
 
+extension ExtensionManifest {
+    /// The tint as three 0...1 components, or nil when it is not a colour.
+    ///
+    /// Kept here rather than in the view layer because it is an extension-supplied
+    /// string, which makes it the same kind of thing as every other field on this
+    /// type: parsed strictly, refused rather than repaired.
+    public var rgb: ExtensionRGB? { tint.flatMap { Self.rgb(from: $0) } }
+
+    /// `#RGB` or `#RRGGBB`, with or without the hash. Anything else is not a colour.
+    static func rgb(from hex: String) -> ExtensionRGB? {
+        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        guard digits.allSatisfy(\.isHexDigit) else { return nil }
+        let pairs: [String]
+        switch digits.count {
+        // #RGB is shorthand for #RRGGBB — "f0a" is "ff00aa", not "0f0a00".
+        case 3: pairs = digits.map { "\($0)\($0)" }
+        case 6: pairs = stride(from: 0, to: 6, by: 2).map {
+            String(digits[digits.index(digits.startIndex, offsetBy: $0)...].prefix(2))
+        }
+        default: return nil
+        }
+        let values = pairs.compactMap { UInt8($0, radix: 16).map { Double($0) / 255 } }
+        guard values.count == 3 else { return nil }
+        return ExtensionRGB(red: values[0], green: values[1], blue: values[2])
+    }
+}
+
 /// One control on an extension's page.
 public struct ExtensionSetting: Codable, Hashable, Sendable, Identifiable {
     public enum Kind: String, Codable, Hashable, Sendable {

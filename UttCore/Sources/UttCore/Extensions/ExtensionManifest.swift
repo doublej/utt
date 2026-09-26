@@ -76,6 +76,9 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// A launchd job utt may report on. Its state is read live, so a daemon that
     /// died still reads as stopped however cheerful its own status file is.
     public var daemon: ExtensionDaemon?
+    /// Text for the person to paste somewhere else. utt shows it whole and copies it
+    /// itself, so it works whether or not the extension is running.
+    public var snippets: [ExtensionSnippet] = []
 
     public init(
         id: String, name: String, blurb: String? = nil,
@@ -84,7 +87,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
         wantsWordTimings: Bool = false, wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
         tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
-        showsInMenuBar: Bool = false
+        showsInMenuBar: Bool = false, snippets: [ExtensionSnippet] = []
     ) {
         self.id = id
         self.name = name
@@ -105,6 +108,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.actions = actions
         self.daemon = daemon
         self.showsInMenuBar = showsInMenuBar
+        self.snippets = snippets
     }
 
     enum CodingKeys: String, CodingKey {
@@ -112,7 +116,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         case needsApi, wantsTranscripts, sendsAudio, wantsWordTimings
         case wantsPartials, filtersTranscripts, skipsTextStages
         case tint, actions, daemon
-        case showsInMenuBar
+        case showsInMenuBar, snippets
     }
 
     /// Forgiving, like `UttSettings`: an extension writing only the keys it cares about
@@ -144,6 +148,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         actions = (try? container.decodeIfPresent([ExtensionAction].self, forKey: .actions)) as? [ExtensionAction] ?? []
         daemon = try? container.decodeIfPresent(ExtensionDaemon.self, forKey: .daemon)
         showsInMenuBar = (try? container.decodeIfPresent(Bool.self, forKey: .showsInMenuBar)) ?? false
+        snippets = (try? container.decodeIfPresent([ExtensionSnippet].self, forKey: .snippets)) ?? []
     }
 
     /// At most this many rows on an extension's page. An extension asking for more has a
@@ -190,33 +195,9 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             tint: tint.flatMap { Self.rgb(from: $0) == nil ? nil : $0 },
             actions: Array(actionsSeen),
             daemon: daemon.flatMap { $0.isUsable ? $0 : nil },
-            showsInMenuBar: showsInMenuBar
+            showsInMenuBar: showsInMenuBar,
+            snippets: ExtensionSnippet.kept(snippets)
         )
-    }
-
-    /// The tint as three 0...1 components, or nil when it is not a colour.
-    ///
-    /// Kept here rather than in the view layer because it is an extension-supplied
-    /// string, which makes it the same kind of thing as every other field on this
-    /// type: parsed strictly, refused rather than repaired.
-    public var rgb: ExtensionRGB? { tint.flatMap { Self.rgb(from: $0) } }
-
-    /// `#RGB` or `#RRGGBB`, with or without the hash. Anything else is not a colour.
-    static func rgb(from hex: String) -> ExtensionRGB? {
-        let digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
-        guard digits.allSatisfy(\.isHexDigit) else { return nil }
-        let pairs: [String]
-        switch digits.count {
-        // #RGB is shorthand for #RRGGBB — "f0a" is "ff00aa", not "0f0a00".
-        case 3: pairs = digits.map { "\($0)\($0)" }
-        case 6: pairs = stride(from: 0, to: 6, by: 2).map {
-            String(digits[digits.index(digits.startIndex, offsetBy: $0)...].prefix(2))
-        }
-        default: return nil
-        }
-        let values = pairs.compactMap { UInt8($0, radix: 16).map { Double($0) / 255 } }
-        guard values.count == 3 else { return nil }
-        return ExtensionRGB(red: values[0], green: values[1], blue: values[2])
     }
 
     /// The settings this manifest asks for, with the stored choices applied.

@@ -29,7 +29,7 @@ private let extensionGuideTemplate = #"""
         daemon, a menu bar app, a script. utt renders the page; your program keeps
         running on its own and reads what the user chose. An extension can also send
         utt audio to transcribe, receive every transcript as it finishes, show its
-        daemon's live state, and offer buttons.
+        daemon's live state, and offer buttons and text to copy.
 
         There is no API to call and nothing to register. Everything happens through
         files in `{{dir}}`, which utt creates at launch. Both programs may start and
@@ -73,6 +73,10 @@ private let extensionGuideTemplate = #"""
           "actions": [
             {"key": "stop", "label": "Stop", "detail": "What it does.", "confirms": true},
             {"key": "openLog", "label": "Open log"}
+          ],
+          "snippets": [
+            {"label": "Add to Claude Code", "detail": "Paste it into a terminal.",
+             "text": "claude mcp add deckhand -- /usr/local/bin/deckhand"}
           ],
           "settings": [
             {"key": "route", "kind": "choice", "label": "Route",
@@ -137,6 +141,24 @@ private let extensionGuideTemplate = #"""
         program decides what it means. A manifest is a file any process on this Mac
         can write, so one that could name a command to execute would turn "drop a
         file in a folder" into "run this as the user".
+
+        ## Text to copy: `snippets`
+
+        Each entry is a block of text on your page with a **Copy** button beside it:
+        a config block, a command to paste into a terminal. utt shows the whole text
+        in a fixed-width font and puts exactly that on the clipboard. It never runs
+        it, and your program does not have to be running for the button to work,
+        because utt serves it itself. That makes it the place for whatever the person
+        needs to set you up, such as the config another program uses to start yours.
+
+        - `label` and `detail` follow the same rules as a setting's. `text` is the one
+          place on your page that may name a command, a file or a path: it is written
+          for another program, not for the person.
+        - `text` keeps its line breaks and tabs. Every other invisible character is
+          removed, so what the person reads is what they paste. At most 2000
+          characters; a longer one is dropped rather than cut, because half a config
+          pastes as a broken one.
+        - At most 4, and the first of any label. A dropped one is named in your **Log**.
 
         ## A place in utt's menu: `showsInMenuBar`
 

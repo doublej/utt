@@ -1,10 +1,11 @@
+import AppKit
 import ComposableArchitecture
 import SwiftUI
 import UttCore
 
-/// The control behind each row of an extension's settings. Its own file only
-/// because the page is at the size limit; nothing here is reachable from anywhere
-/// else.
+/// The control behind each row of an extension's settings, and the text it offers
+/// to copy. Its own file only because the page is at the size limit; nothing here
+/// is reachable from anywhere else.
 extension ExtensionPage {
     @ViewBuilder
     func row(_ setting: ExtensionSetting) -> some View {
@@ -80,5 +81,44 @@ extension String {
         }
         guard let first = spaced.first else { return spaced }
         return first.uppercased() + spaced.dropFirst().lowercased()
+    }
+}
+
+/// An extension's snippets. The text is on the page in full and selectable, so the
+/// person reads what they are about to paste before the button puts it on the
+/// clipboard: another process wrote it. utt serves the button itself, which is why
+/// it still works when the extension is not running.
+struct ExtensionSnippets: View {
+    let snippets: [ExtensionSnippet]
+    @State private var copied: String?
+
+    var body: some View {
+        SettingsGroup("Copy") {
+            ForEach(snippets) { snippet in
+                VStack(alignment: .leading, spacing: Spacing.extraSmall) {
+                    SettingRow(snippet.label, detail: snippet.detail) {
+                        Button(copied == snippet.id ? "Copied" : "Copy") { copy(snippet) }
+                            .font(Typography.metadata)
+                    }
+                    Text(snippet.text)
+                        .font(Typography.monoSmall)
+                        .foregroundStyle(Palette.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    /// The same beat as the copy buttons on the Extensions page.
+    private func copy(_ snippet: ExtensionSnippet) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(snippet.text, forType: .string)
+        copied = snippet.id
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            copied = nil
+        }
     }
 }

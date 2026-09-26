@@ -44,6 +44,53 @@ public struct ExtensionAction: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// Text on an extension's page for the person to paste somewhere else: a config
+/// block, a command. utt shows all of it and puts it on the clipboard itself — it
+/// never runs it, and the extension does not have to be running for it to work.
+public struct ExtensionSnippet: Codable, Hashable, Sendable, Identifiable {
+    public var id: String { label }
+    public let label: String
+    public var detail: String?
+    public let text: String
+
+    public init(label: String, detail: String? = nil, text: String) {
+        self.label = label
+        self.detail = detail
+        self.text = text
+    }
+
+    /// A few blocks to paste, not a document.
+    public static let maximum = 4
+    public static let maximumLength = 2000
+
+    /// Usable ones only, the first of any label, at most `maximum`.
+    static func kept(_ snippets: [ExtensionSnippet]) -> [ExtensionSnippet] {
+        var seen = Set<String>()
+        return Array(snippets.compactMap { $0.sanitized() }.filter { seen.insert($0.label).inserted }.prefix(maximum))
+    }
+
+    /// The text keeps its lines, since it is a block and not a label, but loses every
+    /// invisible character. What the person reads on the page has to be exactly what
+    /// lands on their clipboard, and a bidi override or a zero-width space makes the
+    /// two differ. Too long is dropped rather than cut: half a config pastes as a broken one.
+    public func sanitized() -> ExtensionSnippet? {
+        let visible = text.unicodeScalars.filter { scalar in
+            switch scalar.properties.generalCategory {
+            case .control: scalar == "\n" || scalar == "\t"
+            case .format: false
+            default: true
+            }
+        }
+        let body = String(visible).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let label = ExtensionManifest.text(label, limit: 40), !body.isEmpty,
+              body.count <= Self.maximumLength
+        else { return nil }
+        return ExtensionSnippet(
+            label: label, detail: detail.flatMap { ExtensionManifest.text($0, limit: 160) }, text: body
+        )
+    }
+}
+
 /// A request utt has written for the extension to carry out, at `<id>.action.json`.
 public struct ExtensionActionRequest: Codable, Equatable, Sendable {
     /// Increments per request. Poll it; do not act on the key alone, or pressing

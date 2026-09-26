@@ -221,6 +221,7 @@ enum ExtensionStore {
         // here is the only way its author finds out.
         refused(manifest.actions.map(\.key), kept: clean.actions.map(\.key), of: clean.id, kind: "action")
         refused(manifest.settings.map(\.key), kept: clean.settings.map(\.key), of: clean.id, kind: "setting")
+        refused(manifest.snippets.map(\.label), kept: clean.snippets.map(\.label), of: clean.id, kind: "snippet")
         let decided = record(clean.id)
         return InstalledExtension(
             manifest: clean,

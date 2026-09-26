@@ -97,6 +97,10 @@ struct ExtensionPage: View {
             }
         }
 
+        if !installed.manifest.snippets.isEmpty {
+            ExtensionSnippets(snippets: installed.manifest.snippets)
+        }
+
         ExtensionLogGroup(
             title: "Log",
             entries: store.settings.extensionLog.filter { $0.extensionID == installed.id },
