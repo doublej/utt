@@ -143,7 +143,8 @@ enum ExtensionDiagnostics {
             manifest.wantsWordTimings ? "word timings" : nil,
             manifest.filtersTranscripts ? "rewrites" : nil,
             manifest.needsApi ? "API token" : nil,
-            manifest.showsInMenuBar ? "menu bar" : nil
+            manifest.showsInMenuBar ? "menu bar" : nil,
+            manifest.cover != nil ? "cover" : nil
         ].compactMap { $0 }
     }
 

@@ -12,6 +12,7 @@ public enum ExtensionGuide {
             .replacingOccurrences(of: "{{jobs}}", with: extensionJobsGuide)
             .replacingOccurrences(of: "{{transcripts}}", with: extensionTranscriptsGuide)
             .replacingOccurrences(of: "{{partials}}", with: extensionPartialsGuide)
+            .replacingOccurrences(of: "{{cover}}", with: extensionCoverGuide)
             .replacingOccurrences(of: "{{filters}}", with: extensionFilterGuide)
             .replacingOccurrences(of: "{{implementing}}", with: extensionImplementingGuide)
             .replacingOccurrences(of: "{{stages}}", with: extensionTextStagesGuide)
@@ -70,6 +71,7 @@ private let extensionGuideTemplate = #"""
           "showsInMenuBar": true,
           "daemon": {"label": "com.example.mydaemon",
                      "log": "/Users/you/Library/Logs/mydaemon.log"},
+          "cover": {"url": "http://127.0.0.1:4180/health"},
           "actions": [
             {"key": "stop", "label": "Stop", "detail": "What it does.", "confirms": true},
             {"key": "openLog", "label": "Open log"}
@@ -218,6 +220,8 @@ private let extensionGuideTemplate = #"""
         never opened: opening a file is LaunchServices picking an app for it, so a
         manifest naming a `.command` would turn "drop a file in a folder" into "run
         this as the user".
+
+        {{cover}}
 
         ## What utt writes: `<id>.values.json`
 

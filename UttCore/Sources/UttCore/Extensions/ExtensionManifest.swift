@@ -76,6 +76,10 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// A launchd job utt may report on. Its state is read live, so a daemon that
     /// died still reads as stopped however cheerful its own status file is.
     public var daemon: ExtensionDaemon?
+    /// A full-screen sign utt raises while the address named here says so — see
+    /// `ExtensionCover`. Polled by utt rather than pushed by the extension, so a dead
+    /// extension takes its sign down with it.
+    public var cover: ExtensionCover?
     /// Text for the person to paste somewhere else. utt shows it whole and copies it
     /// itself, so it works whether or not the extension is running.
     public var snippets: [ExtensionSnippet] = []
@@ -87,7 +91,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
         wantsWordTimings: Bool = false, wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
         tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
-        showsInMenuBar: Bool = false, snippets: [ExtensionSnippet] = []
+        showsInMenuBar: Bool = false, snippets: [ExtensionSnippet] = [], cover: ExtensionCover? = nil
     ) {
         self.id = id
         self.name = name
@@ -109,6 +113,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.daemon = daemon
         self.showsInMenuBar = showsInMenuBar
         self.snippets = snippets
+        self.cover = cover
     }
 
     enum CodingKeys: String, CodingKey {
@@ -116,7 +121,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         case needsApi, wantsTranscripts, sendsAudio, wantsWordTimings
         case wantsPartials, filtersTranscripts, skipsTextStages
         case tint, actions, daemon
-        case showsInMenuBar, snippets
+        case showsInMenuBar, snippets, cover
     }
 
     /// Forgiving, like `UttSettings`: an extension writing only the keys it cares about
@@ -149,6 +154,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         daemon = try? container.decodeIfPresent(ExtensionDaemon.self, forKey: .daemon)
         showsInMenuBar = (try? container.decodeIfPresent(Bool.self, forKey: .showsInMenuBar)) ?? false
         snippets = (try? container.decodeIfPresent([ExtensionSnippet].self, forKey: .snippets)) ?? []
+        cover = try? container.decodeIfPresent(ExtensionCover.self, forKey: .cover)
     }
 
     /// At most this many rows on an extension's page. An extension asking for more has a
@@ -196,7 +202,8 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             actions: Array(actionsSeen),
             daemon: daemon.flatMap { $0.isUsable ? $0 : nil },
             showsInMenuBar: showsInMenuBar,
-            snippets: ExtensionSnippet.kept(snippets)
+            snippets: ExtensionSnippet.kept(snippets),
+            cover: cover.flatMap { $0.isUsable ? $0 : nil }
         )
     }
 

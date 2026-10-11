@@ -222,6 +222,7 @@ enum ExtensionStore {
         refused(manifest.actions.map(\.key), kept: clean.actions.map(\.key), of: clean.id, kind: "action")
         refused(manifest.settings.map(\.key), kept: clean.settings.map(\.key), of: clean.id, kind: "setting")
         refused(manifest.snippets.map(\.label), kept: clean.snippets.map(\.label), of: clean.id, kind: "snippet")
+        refused(manifest.cover.map { [$0.url] } ?? [], kept: clean.cover.map { [$0.url] } ?? [], of: clean.id, kind: "cover")
         let decided = record(clean.id)
         return InstalledExtension(
             manifest: clean,
