@@ -12,4 +12,7 @@ enum Typography {
     static let monoSmall = Font.system(size: 11, weight: .regular, design: .monospaced)
     static let hint = Font.system(size: 11, weight: .regular)
     static let timer = Font.system(size: 13, weight: .semibold, design: .monospaced)
+    /// The extension cover is read from standing distance, across a room.
+    static let coverTitle = Font.system(size: 56, weight: .semibold)
+    static let coverDetail = Font.system(size: 26, weight: .regular)
 }

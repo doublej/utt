@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Held for the app's lifetime — the panels go away with it.
     private var overlay: RecordingOverlay?
     private var hud: TranscriptHUD?
+    private var cover: ExtensionCoverWindows?
 
     /// False until the launch has settled — see `presentWindowUnlessLaunchedQuietly`.
     private var presentsWindowOnActivation = false
@@ -34,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // main — a borderless panel cannot, so the overlay survives it.
         overlay = RecordingOverlay(store: UttApp.store)
         hud = TranscriptHUD(store: UttApp.store)
+        cover = ExtensionCoverWindows(store: UttApp.store)
         presentWindowUnlessLaunchedQuietly(notification)
 
         // Bootstrap belongs to the app, not to a view: on a login-item launch the
