@@ -27,6 +27,22 @@ struct BenchOutput: Codable, Equatable {
     }
 }
 
+/// One distinct output and how many runs produced it. Cleanup runs a language
+/// model, so a fixture can have more than one; a change is suspect when it
+/// produces one the run before never did.
+struct BenchVariant: Codable, Equatable {
+    let runs: Int
+    let output: BenchOutput
+
+    static func of(_ outputs: [BenchOutput]) -> [BenchVariant] {
+        var distinct: [BenchOutput] = []
+        for output in outputs where !distinct.contains(output) { distinct.append(output) }
+        return distinct
+            .map { variant in BenchVariant(runs: outputs.filter { $0 == variant }.count, output: variant) }
+            .sorted { $0.runs > $1.runs }
+    }
+}
+
 struct BenchSummary: Codable {
     let median: Double
     let p90: Double
@@ -93,7 +109,7 @@ enum BenchReport {
     static func write(_ result: BenchResult, outputs: [String: [BenchOutput]], to directory: URL) throws {
         let prior = rotate(directory.appending(path: "latest.json"), to: directory.appending(path: "previous.json"))
         let priorOutputs = rotate(directory.appending(path: "outputs.json"), to: directory.appending(path: "outputs-previous.json"))
-        let firsts = outputs.compactMapValues(\.first)
+        let variants = outputs.mapValues(BenchVariant.of)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -103,14 +119,14 @@ enum BenchReport {
         let runs = directory.appending(path: "runs", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: runs, withIntermediateDirectories: true)
         try data.write(to: runs.appending(path: "\(ISO8601DateFormatter().string(from: result.date))-\(result.label).json"))
-        try encoder.encode(firsts).write(to: directory.appending(path: "outputs.json"))
+        try encoder.encode(variants).write(to: directory.appending(path: "outputs.json"))
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let report = render(
             result,
             against: prior.flatMap { try? decoder.decode(BenchResult.self, from: $0) },
-            outputs: outputsLine(firsts, all: outputs, prior: priorOutputs.flatMap { try? decoder.decode([String: BenchOutput].self, from: $0) })
+            outputs: outputsLine(variants, prior: priorOutputs.flatMap { try? decoder.decode([String: [BenchVariant]].self, from: $0) })
         )
         try report.write(to: directory.appending(path: "report.txt"), atomically: true, encoding: .utf8)
     }
@@ -131,16 +147,18 @@ enum BenchReport {
         return data
     }
 
-    private static func outputsLine(
-        _ firsts: [String: BenchOutput], all: [String: [BenchOutput]], prior: [String: BenchOutput]?
-    ) -> String {
-        let varied = all.filter { _, runs in runs.contains { $0 != runs.first } }.keys.sorted()
-        let consistency = varied.isEmpty ? "every run produced the same outputs" : "outputs VARIED between runs: \(varied)"
+    private static func outputsLine(_ variants: [String: [BenchVariant]], prior: [String: [BenchVariant]]?) -> String {
+        let varied = variants.filter { $0.value.count > 1 }.sorted { $0.key < $1.key }
+            .map { "\($0.key) \($0.value.map { String($0.runs) }.joined(separator: "+"))" }
+        let consistency = varied.isEmpty ? "every run produced the same outputs" : "outputs varied within this run: \(varied)"
         guard let prior else { return "outputs: no previous run to compare; \(consistency)" }
-        let changed = firsts.filter { prior[$0.key] != $0.value }.keys.sorted()
-        return changed.isEmpty
-            ? "outputs: identical to the previous run; \(consistency)"
-            : "outputs: DIFFER from the previous run in \(changed); \(consistency)"
+        let new = variants.filter { scenario, mine in
+            let theirs = prior[scenario]?.map(\.output) ?? []
+            return mine.contains { !theirs.contains($0.output) }
+        }.keys.sorted()
+        return new.isEmpty
+            ? "outputs: nothing the previous run did not also produce; \(consistency)"
+            : "outputs: NEW, never produced by the previous run, in \(new); \(consistency)"
     }
 
     private static func render(_ result: BenchResult, against prior: BenchResult?, outputs: String) -> String {
