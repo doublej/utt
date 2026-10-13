@@ -124,8 +124,8 @@ final class BenchSession {
         try await feed(fixture.samples)
         marks.mark(.release)
         store.send(.transcription(.hotKey(.stopRecording)))
-        try await marks.wait(for: [.handoff, .liveFinished])
-        return (stages(), try output())
+        try await marks.wait(for: [.handoff, .saved, .liveFinished])
+        return (stages(), try await output())
     }
 
     /// Tap-sized blocks into the live-words sink while the key is down. The clip
@@ -172,16 +172,16 @@ final class BenchSession {
             "filter": timings["filter"],
             "paste": marks.ms(.ready, .pasted),
             "restore": marks.ms(.pasted, .delivered),
-            "frontmost": marks.ms(.delivered, .recorded),
+            "frontmost": marks.ms(.delivered, .located),
             "history": marks.ms(.recorded, .saved),
-            "transcriptJson": marks.ms(.saved, .handoff),
+            "transcriptJson": marks.ms(.handing, .handoff),
             "liveFinish": marks.ms(.release, .liveFinished)
         ]
         return spans.compactMapValues { $0 }
     }
 
     /// Everything a dictation produced that an optimization must leave alone.
-    private func output() throws -> BenchOutput {
+    private func output() async throws -> BenchOutput {
         let file = try URL.uttExtensionsDirectory.appending(path: "\(BenchWorld.watchID).transcript.json")
         return BenchOutput(
             delivered: marks.delivered.value,
@@ -191,8 +191,18 @@ final class BenchSession {
                 BenchOutput.stripped($0, dropping: ["timings", "finishedAt", "sequence", "app"])
             },
             history: history.history.first.map { "\($0.text)\n--- raw ---\n\($0.raw ?? "")" },
-            clipboardRestored: board.string(forType: .string) == Self.clipboard
+            clipboardRestored: try await restored()
         )
+    }
+
+    /// The restore lands on its own half a second after ⌘V, so wait for it. One
+    /// that never comes still reads as `false` once the wait runs out.
+    private func restored(within timeout: Duration = .seconds(2)) async throws -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while board.string(forType: .string) != Self.clipboard, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        return board.string(forType: .string) == Self.clipboard
     }
 
     /// Deckhand's lane: a clip renamed into the jobs directory, timed until the

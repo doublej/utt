@@ -28,7 +28,7 @@ struct BenchConfig: Sendable {
 
 /// Where in the round trip a moment was taken.
 enum BenchPoint: Hashable, Sendable {
-    case release, finished, ready, pasted, delivered, recorded, saved, handoff, liveFinished
+    case release, finished, ready, pasted, delivered, located, recorded, saved, handing, handoff, liveFinished
 }
 
 /// Moments from every thread the round trip runs on, on one monotonic clock.

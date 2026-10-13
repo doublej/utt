@@ -111,17 +111,25 @@ actor PasteboardActor {
         // clipboard" mean it, rather than meaning it for half a second.
         guard !keepOnClipboard else { return true }
 
-        try? await Task.sleep(for: Self.restoreDelay)
+        // The text is on its way once ⌘V is posted, so the caller is not kept for
+        // the restore: history, extensions and the panel would all wait half a
+        // second on a clipboard they never read.
+        Task {
+            try? await Task.sleep(for: Self.restoreDelay)
+            restore(previous, over: ourChange)
+        }
+        return true
+    }
 
-        // Only restore if nobody else wrote to the pasteboard in the meantime —
-        // otherwise we would clobber whatever the user copied during the window.
+    /// Only restore if nobody else wrote to the pasteboard in the meantime —
+    /// otherwise we would clobber whatever the user copied during the window.
+    private func restore(_ previous: [NSPasteboardItem], over ourChange: Int) {
         guard board.changeCount == ourChange else {
             log.debug("pasteboard changed under us (\(self.board.changeCount) != \(ourChange)); not restoring")
-            return true
+            return
         }
         board.clearContents()
         _ = board.writeObjects(previous)
-        return true
     }
 
     /// A detached copy of everything on the pasteboard. The items themselves go

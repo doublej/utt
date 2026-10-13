@@ -69,13 +69,18 @@ extension BenchSession {
             },
             copy: { await paster.copy($0) },
             undo: { await paster.undo() },
-            frontmostApp: PasteboardClient.liveValue.frontmostApp
+            frontmostApp: {
+                let app = await PasteboardClient.liveValue.frontmostApp()
+                marks.mark(.located)
+                return app
+            }
         )
     }
 
     private static func extensions(_ marks: BenchMarks) -> ExtensionClient {
         var client = ExtensionClient.liveValue
         client.deliver = { transcript, duration, app in
+            marks.mark(.handing)
             ExtensionClient.liveValue.deliver(transcript, duration, app)
             marks.mark(.handoff)
         }

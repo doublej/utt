@@ -268,14 +268,16 @@ private extension AppFeature {
             // Nil when the paste failed: the text never reached an app, so claiming
             // one received it would be a lie in the history list.
             let app = pasted ? await pasteboard.frontmostApp() : nil
-            await UttLog.perf.interval("history") {
-                await send(.history(.record(transcript: transcript, duration: duration, app: app)))
-            }
             // The same moment, to any extension that asked for transcripts. Not routed
             // through the history reducer: retention governs what utt keeps, not
-            // what an extension the user installed is handed.
+            // what an extension the user installed is handed. Ahead of the history
+            // save, which writes the whole file on the main actor and is nothing
+            // the extension needs to wait for.
             UttLog.perf.withIntervalSignpost("handoff", id: UttLog.perf.makeSignpostID()) {
                 extensions.deliver(transcript, duration, app?.name ?? nil)
+            }
+            await UttLog.perf.interval("history") {
+                await send(.history(.record(transcript: transcript, duration: duration, app: app)))
             }
             // Counts only, and only if asked for: how long, on which engine, and
             // whether it arrived — never the words, and never the app above.
