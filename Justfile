@@ -147,7 +147,7 @@ bench runs="20": verify-identity generate
     started=$(date +%s)
     TEST_RUNNER_UTT_BENCH="$out" TEST_RUNNER_UTT_APPLICATION_SUPPORT="$support" \
         TEST_RUNNER_UTT_BENCH_RUNS="{{ runs }}" TEST_RUNNER_UTT_BENCH_LABEL="$label" \
-        xcodebuild {{ xcflags }} -scheme Utt -configuration Release ENABLE_TESTABILITY=YES \
+        xcodebuild {{ xcflags }} -scheme Utt -configuration Release ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES \
         test -only-testing:UttTests/RoundTripBench 2>&1 \
         | { command -v xcbeautify >/dev/null && xcbeautify --quiet || cat }
     if [[ ! -f "$out/report.txt" ]] || (( $(stat -f %m "$out/report.txt") < started )); then

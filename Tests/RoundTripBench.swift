@@ -33,8 +33,12 @@ final class BenchSession {
     static let jobs = "jobs-11s"
     static let clipboard = "the clipboard before the paste"
     static let boardName = NSPasteboard.Name("dev.jurrejan.utt.bench")
-    /// 1024 frames at 48 kHz, resampled to 16 kHz: what one tap block hands the sink.
+    /// 1024 frames at 48 kHz, resampled to 16 kHz: what one tap block hands the sink,
+    /// once every 21.3 ms.
     static let block = 341
+    static let blockPeriod = Duration.seconds(1024.0 / 48_000)
+    /// Three seconds of blocks, the stretch before release that runs in real time.
+    static let pacedBlocks = 141
 
     let config: BenchConfig
     let marks: BenchMarks
@@ -117,22 +121,20 @@ final class BenchSession {
         let clip = try fixture.copy(to: scratch)
         recorder.clip.setValue(RecordingResult(url: clip, duration: fixture.duration, peak: 0.5))
         store.send(.transcription(.hotKey(.startRecording)))
-        let pressed = ContinuousClock.now
         try await feed(fixture.samples)
-        // Held for the clip's length up to three seconds, so what the press started —
-        // the cleanup prewarm, the live recogniser's first chunks — has had the time
-        // a person speaking gives it. Longer clips stream faster than they were spoken.
-        try await Task.sleep(until: pressed + .seconds(min(fixture.duration, 3)), clock: .continuous)
         marks.mark(.release)
         store.send(.transcription(.hotKey(.stopRecording)))
         try await marks.wait(for: [.handoff, .liveFinished])
         return (stages(), try output())
     }
 
-    /// Tap-sized blocks into the live-words sink while the key is down: as fast as
-    /// the streaming recogniser takes them, but never so far ahead that its 64-block
-    /// buffer drops audio the real tap would have delivered. Release then finds it
-    /// where it is in a real dictation — caught up, with under 320 ms left over.
+    /// Tap-sized blocks into the live-words sink while the key is down. The clip
+    /// goes as fast as the streaming recogniser takes it — never so far ahead that
+    /// its 64-block buffer drops audio the real tap would have delivered — except the
+    /// last three seconds, which go at the tap's own pace. Release then finds the
+    /// recogniser mid-stream and the cleanup prewarm seconds old, as a person speaking
+    /// leaves them; an idle pause before release measured 20 ms slower on stop and
+    /// 35 ms on the live finish.
     private func feed(_ samples: [Int16]) async throws {
         var sink = recorder.sink.value
         while sink == nil {
@@ -143,11 +145,17 @@ final class BenchSession {
         let blocks = stride(from: 0, to: samples.count, by: Self.block).map {
             Array(samples[$0..<min($0 + Self.block, samples.count)])
         }
-        for (index, block) in blocks.enumerated() {
+        let paced = blocks.count - min(blocks.count, Self.pacedBlocks)
+        for (index, block) in blocks[..<paced].enumerated() {
             sink?(block)
             while index + 1 - marks.fed.value >= 32 { try await Task.sleep(for: .milliseconds(1)) }
         }
-        while marks.fed.value < blocks.count { try await Task.sleep(for: .milliseconds(2)) }
+        while marks.fed.value < paced { try await Task.sleep(for: .milliseconds(2)) }
+        let start = ContinuousClock.now
+        for (index, block) in blocks[paced...].enumerated() {
+            try await Task.sleep(until: start + Self.blockPeriod * (index + 1), clock: .continuous)
+            sink?(block)
+        }
     }
 
     private func stages() -> [String: Double] {
