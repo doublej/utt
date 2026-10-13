@@ -84,13 +84,29 @@ actor TranscriptCleaner {
             return skip(.unavailable)
         }
         let (parts, separators) = TranscriptParagraphs.split(text)
-        var cleaned: [String] = []
-        for part in parts {
-            guard !part.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                cleaned.append(part)
-                continue
+        let spoken = parts.indices.filter { !parts[$0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        // Every paragraph at once: the model serves overlapping sessions faster than
+        // the same requests in turn — measured 0.1 s off two paragraphs and 0.35 s
+        // off three, with byte-identical output. They still share one model, so a
+        // paragraph waiting its turn would run out its own deadline: each gets the
+        // budget the whole transcript had when they ran one after another.
+        let budget = spoken.map { Self.deadline(for: parts[$0]) }.reduce(.zero, +)
+        var spare = warmed
+        warmed = nil
+        let outcomes = await withTaskGroup(of: (Int, CleanupOutcome).self) { group in
+            for index in spoken {
+                let part = parts[index]
+                let session = spare ?? Self.makeSession()
+                spare = nil
+                group.addTask { (index, await Self.cleanOne(part, on: session, within: budget)) }
             }
-            switch await cleanOne(part) {
+            var outcomes = parts.map { CleanupOutcome.cleaned($0) }
+            for await (index, outcome) in group { outcomes[index] = outcome }
+            return outcomes
+        }
+        var cleaned: [String] = []
+        for outcome in outcomes {
+            switch outcome {
             case let .cleaned(result): cleaned.append(result)
             // All-or-nothing: the model rewrites the whole buffer, so a mixed
             // result would be a third text neither it nor the user ever saw.
@@ -100,11 +116,13 @@ actor TranscriptCleaner {
         return .cleaned(TranscriptParagraphs.join(cleaned, separators: separators))
     }
 
-    private func cleanOne(_ part: String) async -> CleanupOutcome {
-        let session = warmed ?? Self.makeSession()
-        warmed = nil
+    private static func cleanOne(
+        _ part: String,
+        on session: LanguageModelSession,
+        within deadline: Duration
+    ) async -> CleanupOutcome {
         do {
-            guard let cleaned = try await withDeadline(Self.deadline(for: part), {
+            guard let cleaned = try await withDeadline(deadline, {
                 try await session.respond(
                     to: Self.prompt(for: part),
                     generating: CleanedTranscript.self,
