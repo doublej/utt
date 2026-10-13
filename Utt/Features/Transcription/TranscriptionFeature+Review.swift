@@ -15,6 +15,7 @@ extension TranscriptionFeature {
     func transcribed(
         _ state: inout State, _ result: Result<ProcessedTranscript, Error>
     ) -> Effect<Action> {
+        UttLog.perf.emitEvent("transcriptReady")
         state.recordingStartedAt = nil
         // The preview's job is over the moment there is a real transcript, right or
         // wrong: two versions of the same sentence on screen is worse than either.
@@ -62,11 +63,12 @@ extension TranscriptionFeature {
         }
         let keepOnClipboard = settings.copyToClipboard
         return .run { send in
-            await send(.pasteFinished(pasteboard.paste(text, keepOnClipboard)))
+            await send(.pasteFinished(UttLog.perf.interval("deliver") { await pasteboard.paste(text, keepOnClipboard) }))
         }
     }
 
     func didPaste(_ state: inout State, _ pasted: Bool) -> Effect<Action> {
+        UttLog.perf.emitEvent("pasteFinished")
         guard pasted else {
             state.status = .failed("Could not paste — the text is on your clipboard")
             return .none

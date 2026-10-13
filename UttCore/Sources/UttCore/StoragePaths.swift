@@ -3,16 +3,21 @@ import Foundation
 public extension URL {
     /// `~/Library/Application Support/dev.jurrejan.utt`, created on first access.
     /// utt is not sandboxed, so this is the real path, not a container.
+    ///
+    /// `UTT_APPLICATION_SUPPORT` moves it, for `just bench`: the bench runs the real
+    /// pipeline in a test host beside the installed app, and every file it writes —
+    /// settings, history, the extension lanes — has to land somewhere else.
     static var uttApplicationSupport: URL {
         get throws {
             let fileManager = FileManager.default
-            let appSupport = try fileManager.url(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask,
-                appropriateFor: nil,
-                create: true
-            )
-            let directory = appSupport.appendingPathComponent(UttLog.subsystem, isDirectory: true)
+            let directory = try ProcessInfo.processInfo.environment["UTT_APPLICATION_SUPPORT"]
+                .map { URL(filePath: $0, directoryHint: .isDirectory) }
+                ?? fileManager.url(
+                    for: .applicationSupportDirectory,
+                    in: .userDomainMask,
+                    appropriateFor: nil,
+                    create: true
+                ).appendingPathComponent(UttLog.subsystem, isDirectory: true)
             try fileManager.createDirectory(
                 at: directory,
                 withIntermediateDirectories: true,

@@ -234,6 +234,7 @@ private extension TranscriptionFeature {
 
     func stop(_ state: inout State) -> Effect<Action> {
         guard state.isRecording else { return .none }
+        UttLog.perf.emitEvent("stop")
         state.status = .transcribing
         state.meterLevel = 0
         return .merge(
@@ -242,7 +243,7 @@ private extension TranscriptionFeature {
             play(.stop),
             releaseSystemHolds(),
             .run { send in await send(.deliveryTargetCaptured(pasteboard.frontmostApp())) },
-            .run { send in await send(.recordingFinished(recording.stop())) }
+            .run { send in await send(.recordingFinished(UttLog.perf.interval("stop") { await recording.stop() })) }
         )
     }
 
@@ -281,7 +282,7 @@ private extension TranscriptionFeature {
                 // heard rides along the whole way; nothing downstream can recover it.
                 var heard = HeardTranscript(text: "", words: [])
                 let decoding = try await clock.measure {
-                    heard = try await transcription.transcribe(result.url, engine, model)
+                    heard = try await UttLog.perf.interval("decode") { try await transcription.transcribe(result.url, engine, model) }
                 }
                 return await extensionFilters.apply(
                     settings.processTranscript(heard.text, cleanup: cleanup)

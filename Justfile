@@ -118,6 +118,44 @@ test-app:
     xcodebuild {{ xcflags }} -scheme Utt -configuration Debug test 2>&1 \
         | { command -v xcbeautify >/dev/null && xcbeautify --quiet || cat }
 
+# The round trip from key release to the extension hand-off, timed through the
+# real reducers and engines in a Release test host beside the installed app. The
+# microphone is the only stage replaced, and nothing touches the general
+# pasteboard, the real settings or history, or :8756 — Tests/RoundTripBench.swift.
+# The run before becomes .build/bench/previous.json, which is what the Δ column
+# and the outputs check compare against.
+
+# Time release → text → extension hand-off; prints .build/bench/report.txt.
+[group('quality')]
+bench runs="20": verify-identity generate
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    out="$PWD/.build/bench"
+    mkdir -p "$out/fixtures"
+    # Generated once and kept, so every run hears the same audio. Samantha, so the
+    # voice is English whatever the system's is; "new paragraph" gives cleanup two.
+    typeset -A speech=(
+        hotkey-3s "Um, ship it now. New paragraph. Thanks."
+        hotkey-11s "So, um, I was I was thinking we should move the review to Thursday. The client wants the numbers first. New paragraph. Can you send the draft tonight, actually tomorrow, and copy Sarah?"
+        hotkey-30s "Okay so, um, quick update on the launch plan. We finished the onboarding flow last week and the, uh, the numbers look good. Retention is up about four percent. New paragraph. The main risk is still the payment provider. They said the migration would be done on Wednesday, so, uh, I want a backup plan before then. I mean, we can't ship without it. New paragraph. Can you book thirty minutes with the design team tomorrow? Um, ask them to bring the latest screens. Thanks."
+    )
+    for name text in "${(@kv)speech}"; do
+        [[ -f "$out/fixtures/$name.wav" ]] || say -v Samantha -o "$out/fixtures/$name.wav" --data-format=LEI16@16000 "$text"
+    done
+    support="$(mktemp -d "${TMPDIR:-/tmp}/utt-bench.XXXXXX")"
+    label="$(git rev-parse --short HEAD)$(git diff --quiet HEAD || echo '-dirty')"
+    started=$(date +%s)
+    TEST_RUNNER_UTT_BENCH="$out" TEST_RUNNER_UTT_APPLICATION_SUPPORT="$support" \
+        TEST_RUNNER_UTT_BENCH_RUNS="{{ runs }}" TEST_RUNNER_UTT_BENCH_LABEL="$label" \
+        xcodebuild {{ xcflags }} -scheme Utt -configuration Release ENABLE_TESTABILITY=YES \
+        test -only-testing:UttTests/RoundTripBench 2>&1 \
+        | { command -v xcbeautify >/dev/null && xcbeautify --quiet || cat }
+    if [[ ! -f "$out/report.txt" ]] || (( $(stat -f %m "$out/report.txt") < started )); then
+        echo "error: the bench did not run — no fresh $out/report.txt" >&2
+        exit 1
+    fi
+    cat "$out/report.txt"
+
 [group('quality')]
 lint:
     swiftlint lint --strict

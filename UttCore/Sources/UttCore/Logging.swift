@@ -1,4 +1,4 @@
-import os.log
+import os
 
 /// Shared `os.Logger` factory so every subsystem string in the app and in
 /// UttCore is the same one — a single `log stream --subsystem dev.jurrejan.utt`
@@ -43,4 +43,24 @@ public enum UttLog {
     public static let settings = logger(.settings)
     public static let sound = logger(.sound)
     public static let transcription = logger(.transcription)
+
+    /// The round trip from key release to the extension hand-off, as signpost
+    /// intervals and events for Instruments (`xctrace` with the os_signpost
+    /// instrument). Free while nothing is tracing, so it stays in.
+    public static let perf = OSSignposter(subsystem: subsystem, category: "perf")
+}
+
+public extension OSSignposter {
+    /// `withIntervalSignpost` for async work, which the system only offers for
+    /// synchronous closures. A fresh id per call, so two overlapping transcripts
+    /// draw two intervals rather than one that ends early.
+    func interval<T>(
+        _ name: StaticString,
+        isolation: isolated (any Actor)? = #isolation,
+        _ work: () async throws -> T
+    ) async rethrows -> T {
+        let state = beginInterval(name, id: makeSignpostID())
+        defer { endInterval(name, state) }
+        return try await work()
+    }
 }

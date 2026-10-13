@@ -2,6 +2,7 @@ import AppKit
 import Dependencies
 import DependenciesMacros
 import Foundation
+import UttCore
 import os
 
 private let log = Logger(subsystem: "dev.jurrejan.utt", category: "pasteboard")
@@ -61,8 +62,22 @@ extension DependencyValues {
     }
 }
 
-private actor PasteboardActor {
+/// Not private: `just bench` runs this real paste against a named pasteboard of its
+/// own with nothing posted, so the timing it reports is this code's.
+actor PasteboardActor {
     static let shared = PasteboardActor()
+
+    private let board: NSPasteboard
+    /// Posts a ⌘-chord to whoever has focus. Replaced only by the bench.
+    private let post: @Sendable (CGKeyCode) -> Void
+
+    init(
+        board name: NSPasteboard.Name = .general,
+        post: @escaping @Sendable (CGKeyCode) -> Void = PasteboardActor.postCommand
+    ) {
+        board = NSPasteboard(name: name)
+        self.post = post
+    }
 
     /// How long to leave our text on the pasteboard before restoring the user's.
     /// Long enough for the target app to service the paste, short enough that the
@@ -70,7 +85,6 @@ private actor PasteboardActor {
     private static let restoreDelay = Duration.milliseconds(500)
 
     func copy(_ text: String) {
-        let board = NSPasteboard.general
         board.clearContents()
         board.setString(text, forType: .string)
     }
@@ -82,7 +96,6 @@ private actor PasteboardActor {
             return false
         }
 
-        let board = NSPasteboard.general
         let previous = Self.snapshot(board)
 
         // clearContents() is what bumps changeCount; setString does not bump it again.
@@ -90,7 +103,8 @@ private actor PasteboardActor {
         let ourChange = board.clearContents()
         board.setString(text, forType: .string)
 
-        postCommand(Self.vKey)
+        post(Self.vKey)
+        UttLog.perf.emitEvent("cmd-V posted")
 
         // Asked to leave it there, so there is nothing to wait for and nothing to
         // put back — returning here is also what makes "leave the transcript on the
@@ -102,7 +116,7 @@ private actor PasteboardActor {
         // Only restore if nobody else wrote to the pasteboard in the meantime —
         // otherwise we would clobber whatever the user copied during the window.
         guard board.changeCount == ourChange else {
-            log.debug("pasteboard changed under us (\(board.changeCount) != \(ourChange)); not restoring")
+            log.debug("pasteboard changed under us (\(self.board.changeCount) != \(ourChange)); not restoring")
             return true
         }
         board.clearContents()
@@ -135,13 +149,13 @@ private actor PasteboardActor {
             log.error("PostEvent access missing — cannot undo")
             return
         }
-        postCommand(Self.zKey)
+        post(Self.zKey)
     }
 
     private static let vKey: CGKeyCode = 9
     private static let zKey: CGKeyCode = 6
 
-    private func postCommand(_ keyCode: CGKeyCode) {
+    static func postCommand(_ keyCode: CGKeyCode) {
         let source = CGEventSource(stateID: .hidSystemState)
         for down in [true, false] {
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: down)

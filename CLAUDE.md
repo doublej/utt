@@ -124,6 +124,12 @@ Before editing, read the local `CLAUDE.md`:
 - `just loc-check` / `dir-check` — thresholds from `.quality.json` (300 warn /
   400 error lines, 6 files per directory)
 - `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`
+- `just bench` — the round trip from key release to the extension hand-off,
+  timed through the real reducers and engines in a Release test host; prints
+  `.build/bench/report.txt` with a Δ against the run before. Safe beside the
+  installed app: its own Application Support (`UTT_APPLICATION_SUPPORT`), a
+  private pasteboard, no ⌘V, no tap, no listener. `os_signpost` category `perf`
+  marks the same stages for Instruments.
 - `just raycast-dev` — loads the extension into Raycast, reloads on save
 
 Release: `just bump` → `just publish`, which runs `archive` → `export-app` →
