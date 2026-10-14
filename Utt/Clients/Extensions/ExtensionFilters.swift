@@ -41,7 +41,10 @@ actor ExtensionFilters {
     /// answer, short enough that a dead one reads as a hiccup rather than a hang.
     /// ponytail: one fixed budget; a manifest field if a filter ever needs longer.
     private static let deadline = Duration.seconds(2)
+    /// The fallback rather than the pickup: `wake` ends the wait as soon as the
+    /// answer lands beside the question.
     private static let interval = Duration.milliseconds(50)
+    private static let wake = DirectoryWake()
 
     /// Where the questions go. Created for any extension that declared
     /// `filtersTranscripts`, for the same reason the jobs directory is: the extension
@@ -77,6 +80,7 @@ actor ExtensionFilters {
         _ id: String, in directory: URL, transcript: ProcessedTranscript
     ) async -> String {
         let text = transcript.text
+        wake.observe(directory)
         sweep(directory)
         let name = UUID().uuidString
         let question = directory.appendingPathComponent("\(name).in.json")
@@ -111,7 +115,7 @@ actor ExtensionFilters {
                 }
                 return replaced
             }
-            try? await Task.sleep(for: interval)
+            await wake.pause(for: interval)
         }
         ExtensionLog.problem(id, "did not answer within \(deadline) — the text went through as it was")
         return text
