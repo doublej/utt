@@ -1,0 +1,68 @@
+Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
+machine.
+
+This one is mostly about time. Text reaches the cursor sooner, and everything
+that happens after it, from the history entry to the panel to the extensions
+that asked for your transcript, no longer waits for a step it never needed. An
+extension can also put a sign over your screens now, and offer you text to copy.
+
+## Text arrives sooner
+
+With cleanup on, utt tidies each paragraph on the on-device model before it
+pastes. It used to do them one after another. It now does them all at once, and
+the model gets through overlapping requests faster than the same requests in
+turn. The text is exactly what it was. Only when it arrives has changed.
+
+An 11-second dictation now reaches the cursor in about 1.8 s instead of 2.0 s,
+and a 30-second one in 3.4 s instead of 3.8 s.
+
+## Nothing waits for the clipboard any more
+
+After pasting, utt puts back whatever was on your clipboard. To be sure the app
+you were in had read the text first, it waited half a second, and the history
+entry, the panel and every extension waited with it. The clipboard is still put
+back after the same half second, but nothing else waits for it.
+
+Extensions that receive your transcripts hear about it about 0.7 s sooner.
+
+## Extensions are answered as soon as they speak
+
+utt used to check an extension's folder on a timer: every 300 ms for audio it
+had been sent, every 50 ms for a filter's answer. It now watches those folders
+and reacts the moment a file lands, and the timer is kept only as a safety net.
+A clip an extension hands utt starts transcribing about 90 ms sooner, and a
+filter that answers at once now costs a millisecond instead of fifty.
+
+Audio that arrives without a key press, from an extension or over the API, now
+also gets the cleanup model ready while it is being transcribed, as a dictation
+already did. Together these take an 11-second extension clip from 2.3 s to 1.9 s.
+
+## An extension can put a sign over your screens
+
+An extension can name a local address in its manifest, and utt will ask it every
+two seconds whether there is something to show. If there is, utt draws it across
+every screen, just below the Dock, without taking the mouse or the keyboard. Any
+touch of either takes it down at once: your own input always comes first.
+
+Only an address on this Mac is accepted. Anything else is ignored, and the
+extension's log says why.
+
+## An extension can offer text to copy
+
+An extension can list snippets in its manifest. Its page shows each one in full,
+selectable, with a **Copy** button that utt serves itself, so it works even when
+the extension is not running. Invisible characters are stripped, so what you see
+is what you paste.
+
+## Usage counts, if you want them
+
+**General → Send anonymous usage counts** is off, and stays off unless you
+switch it on. When it is on, utt reports that it launched and that a
+transcription finished, whether you dictated it or an extension or the API
+handed it in: the engine, the model, how many seconds it ran, and whether the
+text arrived. It never sends the words, never the audio, and never which app received
+them. There is no field for any of that to travel in.
+
+## Updating
+
+Nothing you have set up needs redoing.
