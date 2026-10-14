@@ -42,7 +42,7 @@ actor WhisperClient {
     /// asked, because the type that knows it lives in the `ArgmaxCore` module and
     /// we depend on the `WhisperKit` product; the layout is stable and checked
     /// against a real download.
-    private static func localFolder(_ model: String) -> URL? {
+    static func localFolder(_ model: String) -> URL? {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?
             .appending(path: "huggingface/models/argmaxinc/whisperkit-coreml/\(model)")
     }

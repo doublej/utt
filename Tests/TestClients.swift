@@ -34,7 +34,8 @@ extension TranscriptionClient {
         prepare: { _, _ in .finished },
         isDownloaded: { _, _ in true },
         isReady: { _, _ in true },
-        unload: {}
+        unload: {},
+        delete: { _, _ in }
     )
 }
 

@@ -5,6 +5,9 @@ import UttCore
 /// The model page: which engine, which model, and — the part a menu could never
 /// show — the state of every model at once.
 ///
+/// Split in two — what is on this Mac, and what would have to be downloaded — so
+/// the cost of a choice shows before it is made.
+///
 /// A `Picker` was the wrong control here. It hides three of the four choices
 /// behind a click, and the two facts that decide the choice are per-model: is it
 /// already on this disk, and is it the one currently in memory. Rows show both
@@ -29,22 +32,46 @@ struct ModelPage: View {
             }
         }
 
-        SettingsGroup("Models") {
-            ForEach(ModelCatalog.models(for: settings.transcriptionEngine)) { model in
-                ModelRow(
-                    model: model,
-                    selected: model.id == selectedModel.id,
-                    downloaded: store.downloadedModels.contains(model.id),
-                    state: store.model,
-                    select: { store.send(.settings(.modelChanged(model.id))) }
-                )
-            }
+        SettingsGroup("On this Mac") {
+            ForEach(models.filter(isLocal)) { row($0) }
 
             if case .failed = store.model {
                 Button("Try again") { store.send(.prepareModelTapped) }
                     .font(Typography.metadata)
             }
         }
+
+        let remote = models.filter { !isLocal($0) }
+        if !remote.isEmpty {
+            SettingsGroup("Available to download") {
+                ForEach(remote) { row($0) }
+            }
+        }
+    }
+
+    private var models: [TranscriptionModel] {
+        ModelCatalog.models(for: settings.transcriptionEngine)
+    }
+
+    /// The selected model counts as local even mid-download, so a row does not
+    /// jump between the lists while its bar fills.
+    private func isLocal(_ model: TranscriptionModel) -> Bool {
+        model.id == selectedModel.id || store.downloadedModels.contains(model.id)
+    }
+
+    private func row(_ model: TranscriptionModel) -> some View {
+        let selected = model.id == selectedModel.id
+        return ModelRow(
+            model: model,
+            selected: selected,
+            downloaded: store.downloadedModels.contains(model.id),
+            state: store.model,
+            select: { store.send(.settings(.modelChanged(model.id))) },
+            // Never the selected model: its weights are the ones in memory.
+            delete: !selected && store.downloadedModels.contains(model.id)
+                ? { store.send(.deleteModelTapped(model)) }
+                : nil
+        )
     }
 
     /// Resolved, not read raw — a stored id from an older build or the other engine
@@ -110,8 +137,25 @@ private struct ModelRow: View {
     let downloaded: Bool
     let state: AppFeature.ModelState
     let select: () -> Void
+    let delete: (() -> Void)?
 
     var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.small) {
+            selectButton
+            // Beside the row's button rather than inside its label: a button in a
+            // button's label never gets the click.
+            if let delete {
+                Button(action: delete) {
+                    Image(systemName: "trash").foregroundStyle(Palette.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Move \(model.name) to the Trash")
+                .accessibilityLabel("Delete \(model.name)")
+            }
+        }
+    }
+
+    private var selectButton: some View {
         Button {
             if !selected { select() }
         } label: {
@@ -180,8 +224,6 @@ private struct ModelRow: View {
             case .idle:
                 caption(downloaded ? "Downloaded" : "Not downloaded", Palette.textTertiary)
             }
-        } else {
-            caption(downloaded ? "Downloaded" : "Not downloaded", Palette.textTertiary)
         }
     }
 

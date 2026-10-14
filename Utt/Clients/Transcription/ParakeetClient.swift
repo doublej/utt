@@ -49,6 +49,11 @@ actor ParakeetClient {
         }
     }
 
+    /// One folder per version, so trashing it takes no other model's weights along.
+    static func folder(_ model: String) -> URL? {
+        AsrModels.defaultCacheDirectory(for: version(for: model))
+    }
+
     /// Whether the weights are already in FluidAudio's cache. Its own check, not a
     /// folder test: an interrupted download leaves the directory behind with half
     /// the files in it, and `modelsExist` looks for every one this version needs.

@@ -48,6 +48,7 @@ struct AppFeature {
         case apiStateChanged(ApiServerState)
         case extensionActivityChanged(ExtensionActivity?)
         case prepareModelTapped
+        case deleteModelTapped(TranscriptionModel)
         case grantTapped(Permission)
         case relaunchTapped
         /// ⌥⇧V, or the menu bar item — put the last transcript back where the
@@ -105,6 +106,7 @@ struct AppFeature {
                 state.extensionActivity = activity
                 return .none
             case .prepareModelTapped: return prepareModel(&state)
+            case let .deleteModelTapped(model): return deleteModel(model, &state)
             case let .grantTapped(permission): return grant(permission)
             case .relaunchTapped: return .run { _ in permissions.relaunch() }
             case .pasteLastTapped:

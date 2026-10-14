@@ -1,6 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import Testing
+import UttCore
 @testable import utt
 
 /// What the model card reads off. The bug this pins down is the one that made the
@@ -28,7 +29,8 @@ struct AppFeatureModelTests {
                 },
                 isDownloaded: { _, _ in downloaded },
                 isReady: { _, _ in true },
-                unload: {}
+                unload: {},
+                delete: { _, _ in }
             )
             $0.date = .constant(Self.epoch)
         }
@@ -68,5 +70,23 @@ struct AppFeatureModelTests {
         await store.send(.prepareModelTapped)
         #expect(store.state.model == .ready)
         await store.finish()
+    }
+
+    /// The row has to leave "On this Mac" in the same frame as the click.
+    @Test("deleting a model takes it off the downloaded list")
+    func deletingRefreshesTheList() async {
+        let onDisk = LockIsolated(true)
+        var initial = AppFeature.State()
+        initial.downloadedModels = ["parakeet-v2"]
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.transcription = .quiet
+            $0.transcription.isDownloaded = { _, _ in onDisk.value }
+            $0.transcription.delete = { _, _ in onDisk.setValue(false) }
+        }
+
+        let model = ModelCatalog.resolve(id: "parakeet-v2", engine: .parakeet)
+        await store.send(.deleteModelTapped(model)) { $0.downloadedModels = [] }
     }
 }

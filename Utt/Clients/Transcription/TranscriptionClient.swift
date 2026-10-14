@@ -51,6 +51,9 @@ struct TranscriptionClient: Sendable {
         _ engine: TranscriptionEngine, _ model: String
     ) async -> Bool = { _, _ in false }
     var unload: @Sendable () async -> Void
+    /// Moves a model's weights to the Trash — recoverable, unlike `removeItem`.
+    /// Never the loaded one: the page only offers it on rows that are not selected.
+    var delete: @Sendable (_ engine: TranscriptionEngine, _ model: String) throws -> Void
 }
 
 extension TranscriptionClient: DependencyKey {
@@ -113,6 +116,14 @@ extension TranscriptionClient: DependencyKey {
             unload: {
                 await parakeet.unload()
                 await whisper.unload()
+            },
+            delete: { engine, model in
+                let folder = switch engine {
+                case .parakeet: ParakeetClient.folder(model)
+                case .whisper: WhisperClient.localFolder(model)
+                }
+                guard let folder else { return }
+                try FileManager.default.trashItem(at: folder, resultingItemURL: nil)
             }
         )
     }()

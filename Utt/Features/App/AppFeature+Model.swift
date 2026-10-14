@@ -1,6 +1,9 @@
 import ComposableArchitecture
 import Foundation
 import UttCore
+import os
+
+private let log = Logger(subsystem: "dev.jurrejan.utt", category: "feature.app")
 
 /// Everything the app knows about the weights: which model is on disk, which one
 /// is in memory, and how far along the one in between has got.
@@ -57,6 +60,18 @@ extension AppFeature {
                 return
             }
         }
+    }
+
+    /// Synchronous, so the row moves lists in the same frame as the click. A
+    /// failure leaves the files where they are, and the row with them.
+    func deleteModel(_ model: TranscriptionModel, _ state: inout State) -> Effect<Action> {
+        do {
+            try transcription.delete(model.engine, model.id)
+        } catch {
+            log.error("delete \(model.id, privacy: .public): \(error.localizedDescription)")
+        }
+        refreshDownloaded(&state)
+        return .none
     }
 
     /// Eight `fileExists` calls, run when a download could have changed the answer.
