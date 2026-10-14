@@ -31,10 +31,14 @@ extension AppFeature {
             // is the same caller by another road, so it gets the same closure.
             let transcribe: @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript = { url, skipping in
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
+                // The hotkey prewarms cleanup at key press. A clip that arrives whole
+                // has no press, so the decode is the stretch to overlap it with.
+                async let warmed: Void = cleanup == nil || skipping.contains(.cleanup) ? () : transcriptCleanup.prewarm()
                 var heard = HeardTranscript(text: "", words: [])
                 let decoding = try await clock.measure {
                     heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)
                 }
+                await warmed
                 let piped = await settings.processTranscript(heard.text, skipping: skipping, cleanup: cleanup)
                 return await extensionFilters.apply(piped.heard(heard.words).timed(.decode, decoding))
             }
