@@ -116,23 +116,32 @@ final class BenchRecorder: Sendable {
     }
 }
 
-/// A clip `say` wrote, 16 kHz Int16 — the format the capture tap writes.
+/// A clip `say` wrote, 16 kHz Int16 — the format the capture tap writes — ending
+/// `pause` after the last word, written to `directory` as `<name>.wav`.
 struct BenchFixture: Sendable {
     let name: String
     let url: URL
     let duration: TimeInterval
     let samples: [Int16]
 
-    init(_ name: String, in directory: URL) throws {
+    init(_ name: String, from source: URL, pause: Duration, in directory: URL) throws {
         self.name = name
-        url = directory.appending(path: "\(name).wav")
-        let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatInt16, interleaved: false)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length))
+        let file = try AVAudioFile(forReading: source, commonFormat: .pcmFormatInt16, interleaved: false)
+        let format = file.processingFormat
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)),
+              (try? file.read(into: buffer)) != nil,
+              let channel = buffer.int16ChannelData?[0]
         else { throw BenchError.unreadable(name) }
-        try file.read(into: buffer)
-        guard let channel = buffer.int16ChannelData?[0] else { throw BenchError.unreadable(name) }
-        samples = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
-        duration = Double(file.length) / file.fileFormat.sampleRate
+        let said = UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength))
+        // `say` ends every clip on 0.1–0.15 s below −60 dBFS. Cut it, so the pause
+        // before release is the one the scenario names and not the voice's own.
+        let end = (said.lastIndex { abs(Int($0)) > 32 } ?? said.count - 1) + 1
+        let silence = [Int16](repeating: 0, count: Int(pause.inMilliseconds * format.sampleRate / 1000))
+        samples = Array(said[..<end]) + silence
+        duration = Double(samples.count) / format.sampleRate
+        url = directory.appending(path: "\(name).wav")
+        let target = try AVAudioFile(forWriting: url, settings: format.settings, commonFormat: .pcmFormatInt16, interleaved: false)
+        guard writePreRoll(samples, to: target, format: format) == samples.count else { throw BenchError.unreadable(name) }
     }
 
     /// A fresh copy per run: the pipeline deletes the clip once it is transcribed.

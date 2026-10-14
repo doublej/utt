@@ -78,7 +78,7 @@ enum BenchReport {
         "filter", "paste", "restore", "frontmost", "history", "transcriptJson", "liveFinish",
         "total", "pickup", "work", "answer"
     ]
-    static let scenarioOrder = ["hotkey-3s", "hotkey-11s", "hotkey-30s", "jobs-11s", "cold"]
+    static let scenarioOrder = ["hotkey-3s", "hotkey-11s", "hotkey-30s", "hotkey-11s-nopause", "jobs-11s", "cold"]
 
     /// What the brief promises about this process, checked rather than assumed: no
     /// event tap of its own, nothing listening (8756 least of all), and every file

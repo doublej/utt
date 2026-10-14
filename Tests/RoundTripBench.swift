@@ -29,7 +29,10 @@ struct RoundTripBench {
 
 @MainActor
 final class BenchSession {
-    static let hotkeys = ["hotkey-3s", "hotkey-11s", "hotkey-30s"]
+    /// Each releases `pause` after the last word: a conservative stand-in for the
+    /// moment a person leaves before letting go. `-nopause` releases on the word.
+    static let hotkeys = ["hotkey-3s", "hotkey-11s", "hotkey-30s", "hotkey-11s-nopause"]
+    static let pause = Duration.milliseconds(250)
     static let jobs = "jobs-11s"
     static let clipboard = "the clipboard before the paste"
     static let boardName = NSPasteboard.Name("dev.jurrejan.utt.bench")
@@ -54,10 +57,15 @@ final class BenchSession {
         self.config = config
         let marks = BenchMarks()
         self.marks = marks
-        scratch = config.support.appending(path: "scratch", directoryHint: .isDirectory)
+        let scratch = config.support.appending(path: "scratch", directoryHint: .isDirectory)
+        self.scratch = scratch
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let directory = config.output.appending(path: "fixtures")
-        fixtures = try Dictionary(uniqueKeysWithValues: Self.hotkeys.map { ($0, try BenchFixture($0, in: directory)) })
+        fixtures = try Dictionary(uniqueKeysWithValues: Self.hotkeys.map { name in
+            let said = name.replacingOccurrences(of: "-nopause", with: "")
+            let pause = said == name ? Self.pause : .zero
+            return (name, try BenchFixture(name, from: directory.appending(path: "\(said).wav"), pause: pause, in: scratch))
+        })
         guard let questions = ExtensionFilters.directory(BenchWorld.filterID)
         else { throw BenchError.unreadable(BenchWorld.filterID) }
         filter = EchoFilter(watching: questions)
