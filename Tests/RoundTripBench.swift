@@ -31,8 +31,11 @@ struct RoundTripBench {
 final class BenchSession {
     /// Each releases `pause` after the last word: a conservative stand-in for the
     /// moment a person leaves before letting go. `-nopause` releases on the word.
-    static let hotkeys = ["hotkey-3s", "hotkey-11s", "hotkey-30s", "hotkey-11s-nopause"]
+    /// `-idle` presses after `idle` with no model activity and speaks the whole clip
+    /// in real time: a dictation as a person makes one, a while after the last.
+    static let hotkeys = ["hotkey-3s", "hotkey-11s", "hotkey-30s", "hotkey-11s-nopause", "hotkey-11s-idle"]
     static let pause = Duration.milliseconds(250)
+    static let idle = Duration.seconds(30)
     static let jobs = "jobs-11s"
     static let clipboard = "the clipboard before the paste"
     static let boardName = NSPasteboard.Name("dev.jurrejan.utt.bench")
@@ -62,8 +65,8 @@ final class BenchSession {
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         let directory = config.output.appending(path: "fixtures")
         fixtures = try Dictionary(uniqueKeysWithValues: Self.hotkeys.map { name in
-            let said = name.replacingOccurrences(of: "-nopause", with: "")
-            let pause = said == name ? Self.pause : .zero
+            let said = name.replacingOccurrences(of: "-nopause", with: "").replacingOccurrences(of: "-idle", with: "")
+            let pause = name.hasSuffix("-nopause") ? .zero : Self.pause
             return (name, try BenchFixture(name, from: directory.appending(path: "\(said).wav"), pause: pause, in: scratch))
         })
         guard let questions = ExtensionFilters.directory(BenchWorld.filterID)
@@ -83,9 +86,11 @@ final class BenchSession {
         // or background load lands on every scenario alike.
         for round in 0..<(config.warmups + config.runs) {
             for name in Self.hotkeys + [Self.jobs] {
+                let idle = name.hasSuffix("-idle")
+                if idle { try await Task.sleep(for: Self.idle) }
                 let (stages, output) = name == Self.jobs
                     ? try await job(fixture("hotkey-11s"))
-                    : try await roundTrip(fixture(name))
+                    : try await roundTrip(fixture(name), realTime: idle)
                 if round >= config.warmups {
                     samples[name, default: []].append(stages)
                     outputs[name, default: []].append(output)
@@ -121,7 +126,7 @@ final class BenchSession {
 
     /// One dictation: key down, the clip streamed to the live recogniser, key up,
     /// and everything after it until the extension has its transcript.
-    private func roundTrip(_ fixture: BenchFixture) async throws -> ([String: Double], BenchOutput) {
+    private func roundTrip(_ fixture: BenchFixture, realTime: Bool = false) async throws -> ([String: Double], BenchOutput) {
         marks.reset()
         filter.asked.setValue(nil)
         board.clearContents()
@@ -129,7 +134,7 @@ final class BenchSession {
         let clip = try fixture.copy(to: scratch)
         recorder.clip.setValue(RecordingResult(url: clip, duration: fixture.duration, peak: 0.5))
         store.send(.transcription(.hotKey(.startRecording)))
-        try await feed(fixture.samples)
+        try await feed(fixture.samples, pacing: realTime ? .max : Self.pacedBlocks)
         marks.mark(.release)
         store.send(.transcription(.hotKey(.stopRecording)))
         try await marks.wait(for: [.handoff, .saved, .liveFinished])
@@ -139,11 +144,11 @@ final class BenchSession {
     /// Tap-sized blocks into the live-words sink while the key is down. The clip
     /// goes as fast as the streaming recogniser takes it — never so far ahead that
     /// its 64-block buffer drops audio the real tap would have delivered — except the
-    /// last three seconds, which go at the tap's own pace. Release then finds the
+    /// last `pacing` blocks, which go at the tap's own pace. Release then finds the
     /// recogniser mid-stream and the cleanup prewarm seconds old, as a person speaking
     /// leaves them; an idle pause before release measured 20 ms slower on stop and
     /// 35 ms on the live finish.
-    private func feed(_ samples: [Int16]) async throws {
+    private func feed(_ samples: [Int16], pacing: Int) async throws {
         var sink = recorder.sink.value
         while sink == nil {
             try await Task.sleep(for: .milliseconds(5))
@@ -153,7 +158,7 @@ final class BenchSession {
         let blocks = stride(from: 0, to: samples.count, by: Self.block).map {
             Array(samples[$0..<min($0 + Self.block, samples.count)])
         }
-        let paced = blocks.count - min(blocks.count, Self.pacedBlocks)
+        let paced = blocks.count - min(blocks.count, pacing)
         for (index, block) in blocks[..<paced].enumerated() {
             sink?(block)
             while index + 1 - marks.fed.value >= 32 { try await Task.sleep(for: .milliseconds(1)) }
