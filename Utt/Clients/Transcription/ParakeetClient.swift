@@ -39,6 +39,9 @@ actor ParakeetClient {
     /// throwing, matching how the catalog resolves an unknown stored setting.
     private static func version(for model: String) -> AsrModelVersion {
         switch model {
+        case "parakeet-ultra": .ultra
+        case "parakeet-redux": .redux
+        case "parakeet-phonon2": .phonon2
         case "parakeet-v2": .v2
         case "parakeet-tdt-ctc-110m": .tdtCtc110m
         case "parakeet-ja": .tdtJa

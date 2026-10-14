@@ -19,7 +19,7 @@ packages:
     exactVersion: 1.14.1
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
-    exactVersion: 0.15.5
+    exactVersion: 0.17.7
   # Renamed from argmaxinc/WhisperKit; module is still `WhisperKit`.
   ArgmaxOSS:
     url: https://github.com/argmaxinc/argmax-oss-swift

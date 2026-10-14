@@ -69,6 +69,27 @@ public enum ModelCatalog {
             approximateBytes: 461_000_000
         ),
         TranscriptionModel(
+            id: "parakeet-ultra",
+            engine: .parakeet,
+            name: "Parakeet Ultra",
+            languages: "Multilingual, most accurate",
+            approximateBytes: 632_000_000
+        ),
+        TranscriptionModel(
+            id: "parakeet-redux",
+            engine: .parakeet,
+            name: "Parakeet Redux",
+            languages: "Multilingual, smallest",
+            approximateBytes: 220_000_000
+        ),
+        TranscriptionModel(
+            id: "parakeet-phonon2",
+            engine: .parakeet,
+            name: "Phonon-2",
+            languages: "English",
+            approximateBytes: 360_000_000
+        ),
+        TranscriptionModel(
             id: "parakeet-v2",
             engine: .parakeet,
             name: "Parakeet TDT 0.6B v2",
