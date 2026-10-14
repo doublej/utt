@@ -5,6 +5,12 @@ set unstable := true
 
 identity := "72B6E55BE646D0664EF83C986B55B8F6D58BC2B6"
 team := "KA6433FU8U"
+
+# notarytool's credentials: the `utt-notary` keychain profile, or, run as
+# `onenv export utt -- just publish`, the Apple ID and app-specific password from
+# 1Password, for a shell that cannot raise a keychain dialog (dark wake, an agent).
+
+notary_auth := if env("APPLE_APP_SPECIFIC_PASSWORD", "") == "" { "--keychain-profile utt-notary" } else { "--apple-id \"$APPLE_APPLEID\" --team-id " + team + " --password \"$APPLE_APP_SPECIFIC_PASSWORD\"" }
 built := ".build/Build/Products/Debug/utt.app"
 built_release := ".build/Build/Products/Release/utt.app"
 archive_path := "release/utt.xcarchive"
@@ -301,14 +307,14 @@ export-app: archive
 
 # Requires `xcrun notarytool store-credentials utt-notary` once, with an
 
-# app-specific password from appleid.apple.com.
+# app-specific password from appleid.apple.com, or onenv: see `notary_auth`.
 [group('release')]
 notarize: export-app
     #!/usr/bin/env zsh
     set -o pipefail
     ditto -c -k --keepParent "{{ export_dir }}/utt.app" "{{ zip_path }}"
     xcrun notarytool submit "{{ zip_path }}" \
-        --keychain-profile utt-notary --wait
+        {{ notary_auth }} --wait
     xcrun stapler staple "{{ export_dir }}/utt.app"
     xcrun stapler validate "{{ export_dir }}/utt.app"
     # Zipped twice on purpose. The first zip is what goes to Apple, and the ticket
@@ -335,7 +341,7 @@ dmg: notarize
     rm -f "{{ dmg_path }}"
     hdiutil create -volname utt -srcfolder "$staging" -ov -format UDZO -quiet "{{ dmg_path }}"
     codesign --force --sign {{ identity }} --timestamp "{{ dmg_path }}"
-    xcrun notarytool submit "{{ dmg_path }}" --keychain-profile utt-notary --wait
+    xcrun notarytool submit "{{ dmg_path }}" {{ notary_auth }} --wait
     xcrun stapler staple "{{ dmg_path }}"
     xcrun stapler validate "{{ dmg_path }}"
     echo "→ {{ dmg_path }}  $(du -h "{{ dmg_path }}" | cut -f1)"

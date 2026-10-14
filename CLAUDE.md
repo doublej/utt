@@ -140,7 +140,9 @@ drag-to-Applications image, signed and notarized itself, because Gatekeeper
 checks the container before anything is copied out of it.
 `export-app` writes `release/ExportOptions.plist` itself; `notarize` needs the
 `utt-notary` keychain profile, stored once with `xcrun notarytool
-store-credentials` and an app-specific password.
+store-credentials` and an app-specific password, or `onenv export utt -- just
+publish`, which takes the same credentials from 1Password. Use the onenv form
+where no keychain dialog can appear: an agent shell, or a Mac in dark wake.
 `just sparkle-keys` once, and **back the private key up** — losing it means
 installed copies can never be updated again.
 
