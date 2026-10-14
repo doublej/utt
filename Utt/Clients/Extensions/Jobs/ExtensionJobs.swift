@@ -53,10 +53,10 @@ actor ExtensionJobs {
     /// every extension, and they do not agree about the text rules.
     typealias Transcriber = @Sendable (URL, Set<TextStage>) async throws -> ProcessedTranscript
 
-    /// Short enough that dictation does not feel posted into a queue. Reading one
-    /// small directory at this rate costs nothing measurable; a directory watch
-    /// would be the upgrade if it ever showed up in a profile.
+    /// The fallback rather than the pickup: `wake` ends the wait as soon as a clip
+    /// lands in a directory it watches.
     private static let interval = Duration.milliseconds(300)
+    private static let wake = DirectoryWake()
     /// The API's cap, for the same reason: a clip past it is a mistake, and holding
     /// the engine on one blocks every other extension behind it.
     private static let maximumBytes = ApiConfiguration.maximumBodyBytes
@@ -93,7 +93,7 @@ actor ExtensionJobs {
             // what goes *next*, and a batch decided before the last transcription
             // started cannot answer it for a clip that arrived since.
             guard let (installed, job) = Self.waiting().first else {
-                try? await Task.sleep(for: Self.interval)
+                await Self.wake.pause(for: Self.interval)
                 continue
             }
             // Inert, but not silent. An extension the person has not ruled on
@@ -256,7 +256,11 @@ actor ExtensionJobs {
     private static func waiting() -> [(InstalledExtension, URL)] {
         ExtensionStore.installed()
             .filter { $0.consent != .disabled && $0.manifest.sendsAudio }
-            .flatMap { installed in files(in: ExtensionStore.jobsDirectory(installed.id)).map { (installed, $0) } }
+            .flatMap { installed in
+                let directory = ExtensionStore.jobsDirectory(installed.id)
+                wake.observe(directory)
+                return files(in: directory).map { (installed, $0) }
+            }
             .sorted { left, right in
                 let bands = (left.0.priority.rank, right.0.priority.rank)
                 return bands.0 == bands.1 ? created(left.1) < created(right.1) : bands.0 < bands.1
