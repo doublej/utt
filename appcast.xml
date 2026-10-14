@@ -3,83 +3,68 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>2.2.0</title>
-            <pubDate>Wed, 14 Oct 2026 11:47:31 +0200</pubDate>
+            <title>2.3.0</title>
+            <pubDate>Wed, 14 Oct 2026 23:35:16 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>13</sparkle:version>
-            <sparkle:shortVersionString>2.2.0</sparkle:shortVersionString>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-This one is mostly about time. Text reaches the cursor sooner, and everything
-that happens after it, from the history entry to the panel to the extensions
-that asked for your transcript, no longer waits for a step it never needed. An
-extension can also put a sign over your screens now, and offer you text to copy.
+This one is about choice. There are three new Parakeet models, the Model page
+now tells you what each one is good at before you download it, and a model you
+no longer use can be removed from the same page.
 
-## Text arrives sooner
+## Three new models
 
-With cleanup on, utt tidies each paragraph on the on-device model before it
-pastes. It used to do them one after another. It now does them all at once, and
-the model gets through overlapping requests faster than the same requests in
-turn. The text is exactly what it was. Only when it arrives has changed.
+All three are versions of Parakeet v3, the model utt has used from the start,
+retrained by people outside NVIDIA. They run on the Neural Engine like the rest.
 
-An 11-second dictation now reaches the cursor in about 1.8 s instead of 2.0 s,
-and a 30-second one in 3.4 s instead of 3.8 s.
+- **Parakeet Accurate** (Moondream's Parakeet Ultra) makes fewer mistakes than
+  v3 in every language it knows, at the same speed. It is about 630 MB, the
+  largest Parakeet.
+- **Parakeet Compact** (Moondream's Parakeet Redux) is v3 at a third of the
+  size, about 220 MB. It is slower and does worse with background noise. The
+  first time it loads, macOS spends about ten minutes preparing it for the
+  Neural Engine. After that it loads in seconds.
+- **Parakeet English** (Fermion Research's Phonon-2) is English only and lighter
+  than v3, and it punctuated our test recording most neatly.
 
-## Nothing waits for the clipboard any more
+Parakeet Standard (v3) is still the default. Nothing changes unless you pick
+something else.
 
-After pasting, utt puts back whatever was on your clipboard. To be sure the app
-you were in had read the text first, it waited half a second, and the history
-entry, the panel and every extension waited with it. The clipboard is still put
-back after the same half second, but nothing else waits for it.
+## Every model, described
 
-Extensions that receive your transcripts hear about it about 0.7 s sooner.
+Each model now has a plain name that says what it is for, such as Standard,
+Accurate, Compact or Quick, with the original name in its description. Under
+the description, four ratings of one to four dots compare it with every other
+model on both engines: speed, accuracy, how many languages it knows, and how
+little room it takes. Its language and size sit beside them.
 
-## Extensions are answered as soon as they speak
+The engine switch now just says Parakeet, since it runs seven models.
 
-utt used to check an extension's folder on a timer: every 300 ms for audio it
-had been sent, every 50 ms for a filter's answer. It now watches those folders
-and reacts the moment a file lands, and the timer is kept only as a safety net.
-A clip an extension hands utt starts transcribing about 90 ms sooner, and a
-filter that answers at once now costs a millisecond instead of fifty.
+## On this Mac, or still to download
 
-Audio that arrives without a key press, from an extension or over the API, now
-also gets the cleanup model ready while it is being transcribed, as a dictation
-already did. Together these take an 11-second extension clip from 2.3 s to 1.9 s.
+The Model page is split in two. The first list is what is already on this Mac,
+the second is what would have to be downloaded first, so you can see what a
+choice costs before you make it.
 
-## An extension can put a sign over your screens
+A downloaded model you are not using has a trash button. It moves the model's
+files to the Trash, so a mistake can be undone until you empty it. The model you
+are using has no trash button, since it is the one in memory.
 
-An extension can name a local address in its manifest, and utt will ask it every
-two seconds whether there is something to show. If there is, utt draws it across
-every screen, just below the Dock, without taking the mouse or the keyboard. Any
-touch of either takes it down at once: your own input always comes first.
-
-Only an address on this Mac is accepted. Anything else is ignored, and the
-extension's log says why.
-
-## An extension can offer text to copy
-
-An extension can list snippets in its manifest. Its page shows each one in full,
-selectable, with a **Copy** button that utt serves itself, so it works even when
-the extension is not running. Invisible characters are stripped, so what you see
-is what you paste.
-
-## Usage counts, if you want them
-
-**General → Send anonymous usage counts** is off, and stays off unless you
-switch it on. When it is on, utt reports that it launched and that a
-transcription finished, whether you dictated it or an extension or the API
-handed it in: the engine, the model, how many seconds it ran, and whether the
-text arrived. It never sends the words, never the audio, and never which app received
-them. There is no field for any of that to travel in.
+When you pick a model that is already downloaded, the page now says **Loading**
+beside the timer. A model on disk still has to be read into memory before it can
+listen.
 
 ## Updating
 
-Nothing you have set up needs redoing.
+Nothing you have set up needs redoing. The models are credited under
+**About → Attribution**, as their licence asks.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v2.2.0/utt-2.2.0.zip" length="11818231" type="application/octet-stream" sparkle:edSignature="b1NNcFM+RF8VmJhm928l4jObIoMerg12h4HPuyvIsQuei3cRfBzJeryI3lEfM9xomDABxDAFIunpj6UdBUV0DA=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v2.3.0/utt-2.3.0.zip" length="27742134" type="application/octet-stream" sparkle:edSignature="Un4s3ZA7eNcf5RoxJn4Aq6bmHazamskBfJCORjImS1v9UCutuVEuCowp+arCL28OKUPYYGrxz5Ow01KO4fz4Dg=="/>
         </item>
     </channel>
 </rss>
