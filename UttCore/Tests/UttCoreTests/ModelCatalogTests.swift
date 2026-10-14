@@ -59,6 +59,18 @@ struct ModelCatalogTests {
         #expect(resolved.id == settings.selectedModel)
     }
 
+    /// A zero or a five draws as an empty or overflowing meter, and a missing blurb
+    /// as a blank line under the summary.
+    @Test
+    func everyModelIsDescribedAndRatedOnTheScale() {
+        for model in ModelCatalog.all {
+            #expect(!model.blurb.isEmpty)
+            for facet in ModelFacet.allCases {
+                #expect((1...ModelRatings.scale).contains(model.ratings[facet]), "\(model.id) \(facet)")
+            }
+        }
+    }
+
     @Test
     func summaryStatesLanguagesAndSize() {
         let model = ModelCatalog.preferred(for: .parakeet)

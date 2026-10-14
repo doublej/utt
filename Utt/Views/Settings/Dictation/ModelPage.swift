@@ -8,7 +8,7 @@ import UttCore
 /// A `Picker` was the wrong control here. It hides three of the four choices
 /// behind a click, and the two facts that decide the choice are per-model: is it
 /// already on this disk, and is it the one currently in memory. Rows show both
-/// without being opened, at the cost of the height four rows take.
+/// without being opened, at the cost of the height the rows take.
 struct ModelPage: View {
     let store: StoreOf<AppFeature>
     @Shared(.uttSettings) private var settings
@@ -63,6 +63,44 @@ struct ModelPage: View {
     }
 }
 
+/// Four facets side by side, each an icon and a meter of `ModelRatings.scale`
+/// dots — the LCD's dot, so the scores read as part of the same instrument.
+private struct RatingsStrip: View {
+    let ratings: ModelRatings
+
+    var body: some View {
+        HStack(spacing: Spacing.small) {
+            ForEach(ModelFacet.allCases) { facet in
+                HStack(spacing: Spacing.xxs) {
+                    Image(systemName: Self.symbol(facet))
+                        .font(Typography.hint)
+                        .foregroundStyle(Palette.textTertiary)
+                        .frame(width: 18)
+                    HStack(spacing: 2) {
+                        ForEach(1...ModelRatings.scale, id: \.self) { dot in
+                            Circle()
+                                .fill(dot <= ratings[facet] ? Palette.accent : Palette.strokeStrong)
+                                .frame(width: 5, height: 5)
+                        }
+                    }
+                }
+                .help(facet.title)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(facet.title), \(ratings[facet]) of \(ModelRatings.scale)")
+            }
+        }
+    }
+
+    private static func symbol(_ facet: ModelFacet) -> String {
+        switch facet {
+        case .speed: "hare"
+        case .accuracy: "scope"
+        case .languages: "globe"
+        case .lightness: "leaf"
+        }
+    }
+}
+
 /// One model, and what is true of it right now. Only the selected row can be
 /// busy — the engines load one model at a time — so the progress lives here
 /// rather than in a status line detached from the thing it describes.
@@ -83,9 +121,19 @@ private struct ModelRow: View {
                         .foregroundStyle(selected ? Palette.accent : Palette.textTertiary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(model.name).font(Typography.primaryRow)
-                        Text(model.summary)
+                        Text(model.blurb)
                             .font(Typography.hint)
-                            .foregroundStyle(Palette.textTertiary)
+                            .foregroundStyle(Palette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: Spacing.small) {
+                            RatingsStrip(ratings: model.ratings)
+                                .fixedSize()
+                            Text(model.summary)
+                                .font(Typography.hint)
+                                .foregroundStyle(Palette.textTertiary)
+                                .lineLimit(1)
+                        }
+                        .padding(.top, Spacing.xxs)
                     }
                     Spacer(minLength: Spacing.small)
                     badge
@@ -114,6 +162,9 @@ private struct ModelRow: View {
             case let .loading(since):
                 HStack(spacing: Spacing.xxs) {
                     ProgressView().controlSize(.small)
+                    // Downloaded is not loaded: picking a model on disk still reads it
+                    // into memory, and the first time compiles it for the Neural Engine.
+                    caption("Loading", Palette.textSecondary)
                     // No percentage: the loader reports nothing until it returns, so
                     // elapsed time is the only true thing we can show.
                     ElapsedTimer(

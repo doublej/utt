@@ -22,29 +22,84 @@ public struct TranscriptionModel: Equatable, Sendable, Identifiable {
     /// Roughly what it weighs. Estimates, not promises — the numbers move when the
     /// upstream repos re-quantise, and the download UI says "about".
     public let approximateBytes: Int64
+    /// One sentence on what it is for, under the summary.
+    public let blurb: String
+    public let ratings: ModelRatings
 
     public init(
         id: String,
         engine: TranscriptionEngine,
         name: String,
         languages: String,
-        approximateBytes: Int64
+        approximateBytes: Int64,
+        blurb: String,
+        ratings: ModelRatings
     ) {
         self.id = id
         self.engine = engine
         self.name = name
         self.languages = languages
         self.approximateBytes = approximateBytes
+        self.blurb = blurb
+        self.ratings = ratings
     }
 
-    /// "Multilingual · about 461 MB", for the row under the name. A fresh formatter
+    /// "Multilingual, 461 MB", beside the ratings. A fresh formatter
     /// per call — `ByteCountFormatter` is not `Sendable`, and one shared instance in
     /// a `static let` is a data race the compiler is right to refuse.
     public var summary: String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useGB]
         formatter.countStyle = .file
-        return "\(languages) · about \(formatter.string(fromByteCount: approximateBytes))"
+        return "\(languages), \(formatter.string(fromByteCount: approximateBytes))"
+    }
+}
+
+/// What a model is good at, each facet scored 1–4 across *every* model in the
+/// catalog, both engines — so a row can be compared with any other row.
+///
+/// More is always better, which is why the size facet is `lightness` rather than
+/// `size`. Judged from FluidAudio's release benchmarks (LibriSpeech, FLEURS, RTFx
+/// on the Neural Engine) and a smoke run on one dictation clip, not measured here.
+public struct ModelRatings: Equatable, Sendable {
+    public static let scale = 4
+
+    public let speed: Int
+    public let accuracy: Int
+    /// 1 for one language, 3 for Parakeet's 25 European, 4 for Whisper's ~100.
+    public let languages: Int
+    /// 4 under ~150 MB, 3 under ~400 MB, 2 under ~500 MB, 1 above.
+    public let lightness: Int
+
+    public init(speed: Int, accuracy: Int, languages: Int, lightness: Int) {
+        self.speed = speed
+        self.accuracy = accuracy
+        self.languages = languages
+        self.lightness = lightness
+    }
+
+    public subscript(facet: ModelFacet) -> Int {
+        switch facet {
+        case .speed: speed
+        case .accuracy: accuracy
+        case .languages: languages
+        case .lightness: lightness
+        }
+    }
+}
+
+public enum ModelFacet: String, CaseIterable, Sendable, Identifiable {
+    case speed, accuracy, languages, lightness
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .speed: "Speed"
+        case .accuracy: "Accuracy"
+        case .languages: "Languages"
+        case .lightness: "Light"
+        }
     }
 }
 
@@ -64,51 +119,65 @@ public enum ModelCatalog {
         TranscriptionModel(
             id: "parakeet-v3",
             engine: .parakeet,
-            name: "Parakeet TDT 0.6B v3",
+            name: "Parakeet Standard",
             languages: "Multilingual",
-            approximateBytes: 461_000_000
+            approximateBytes: 461_000_000,
+            blurb: "NVIDIA's Parakeet v3. 25 European languages, detected on their own.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 3, lightness: 2)
         ),
         TranscriptionModel(
             id: "parakeet-ultra",
             engine: .parakeet,
-            name: "Parakeet Ultra",
-            languages: "Multilingual, most accurate",
-            approximateBytes: 632_000_000
+            name: "Parakeet Accurate",
+            languages: "Multilingual",
+            approximateBytes: 632_000_000,
+            blurb: "Parakeet Ultra: Standard retrained by Moondream. Fewer errors in every language, as fast, heavier.",
+            ratings: ModelRatings(speed: 3, accuracy: 4, languages: 3, lightness: 1)
         ),
         TranscriptionModel(
             id: "parakeet-redux",
             engine: .parakeet,
-            name: "Parakeet Redux",
-            languages: "Multilingual, smallest",
-            approximateBytes: 220_000_000
+            name: "Parakeet Compact",
+            languages: "Multilingual",
+            approximateBytes: 220_000_000,
+            blurb: "Parakeet Redux: Standard at a third of the size. Slower, worse in noise; the first load compiles for about ten minutes.",
+            ratings: ModelRatings(speed: 2, accuracy: 2, languages: 3, lightness: 3)
         ),
         TranscriptionModel(
             id: "parakeet-phonon2",
             engine: .parakeet,
-            name: "Phonon-2",
+            name: "Parakeet English",
             languages: "English",
-            approximateBytes: 360_000_000
+            approximateBytes: 360_000_000,
+            blurb: "Phonon-2: an English-only Standard from Fermion Research. Lighter, and the tidiest punctuation on our test clip.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 3)
         ),
         TranscriptionModel(
             id: "parakeet-v2",
             engine: .parakeet,
-            name: "Parakeet TDT 0.6B v2",
+            name: "Parakeet English Classic",
             languages: "English",
-            approximateBytes: 461_000_000
+            approximateBytes: 461_000_000,
+            blurb: "NVIDIA's Parakeet v2, Standard's English-only predecessor.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
         ),
         TranscriptionModel(
             id: "parakeet-tdt-ctc-110m",
             engine: .parakeet,
-            name: "Parakeet TDT-CTC 110M",
-            languages: "English, fastest",
-            approximateBytes: 120_000_000
+            name: "Parakeet Quick",
+            languages: "English",
+            approximateBytes: 120_000_000,
+            blurb: "Parakeet 110M, a fifth of Standard's size. Near-instant, and it shows on hard words.",
+            ratings: ModelRatings(speed: 4, accuracy: 2, languages: 1, lightness: 4)
         ),
         TranscriptionModel(
             id: "parakeet-ja",
             engine: .parakeet,
-            name: "Parakeet TDT 0.6B ja",
+            name: "Parakeet Japanese",
             languages: "Japanese",
-            approximateBytes: 461_000_000
+            approximateBytes: 461_000_000,
+            blurb: "NVIDIA's Parakeet ja, trained for Japanese only.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
         )
     ]
 
@@ -119,30 +188,38 @@ public enum ModelCatalog {
         TranscriptionModel(
             id: "openai_whisper-tiny",
             engine: .whisper,
-            name: "Whisper tiny",
-            languages: "Multilingual, fastest",
-            approximateBytes: 75_000_000
+            name: "Whisper Quick",
+            languages: "Multilingual",
+            approximateBytes: 75_000_000,
+            blurb: "OpenAI's Whisper tiny. Quick to fetch, rough on anything but clear speech.",
+            ratings: ModelRatings(speed: 4, accuracy: 1, languages: 4, lightness: 4)
         ),
         TranscriptionModel(
             id: "openai_whisper-base",
             engine: .whisper,
-            name: "Whisper base",
+            name: "Whisper Light",
             languages: "Multilingual",
-            approximateBytes: 145_000_000
+            approximateBytes: 145_000_000,
+            blurb: "Whisper base. A step up from Quick, still a sketch of what you said.",
+            ratings: ModelRatings(speed: 3, accuracy: 1, languages: 4, lightness: 4)
         ),
         TranscriptionModel(
             id: "openai_whisper-small",
             engine: .whisper,
-            name: "Whisper small",
+            name: "Whisper Standard",
             languages: "Multilingual",
-            approximateBytes: 480_000_000
+            approximateBytes: 480_000_000,
+            blurb: "Whisper small. Usable in most languages, at Parakeet's size and well below its speed.",
+            ratings: ModelRatings(speed: 2, accuracy: 2, languages: 4, lightness: 2)
         ),
         TranscriptionModel(
             id: "openai_whisper-large-v3-v20240930_turbo",
             engine: .whisper,
-            name: "Whisper large v3 turbo",
-            languages: "Multilingual, most accurate",
-            approximateBytes: 632_000_000
+            name: "Whisper Accurate",
+            languages: "Multilingual",
+            approximateBytes: 632_000_000,
+            blurb: "Whisper large v3 turbo. The one for a language Parakeet does not know.",
+            ratings: ModelRatings(speed: 1, accuracy: 3, languages: 4, lightness: 1)
         )
     ]
 
@@ -159,7 +236,8 @@ public enum ModelCatalog {
             // Unreachable while both lists are non-empty, and a fatalError in a
             // settings pane is a worse bug than a wrong-looking picker.
             return TranscriptionModel(
-                id: "", engine: engine, name: "None", languages: "—", approximateBytes: 0
+                id: "", engine: engine, name: "None", languages: "—", approximateBytes: 0,
+                blurb: "", ratings: ModelRatings(speed: 0, accuracy: 0, languages: 0, lightness: 0)
             )
         }
         return first

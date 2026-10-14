@@ -37,6 +37,16 @@ struct AboutPage: View {
                 url: "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"
             )
             AttributionRow(
+                title: "Parakeet Ultra and Redux",
+                detail: "Moondream, CC-BY-4.0",
+                url: "https://huggingface.co/moondream/parakeet-ultra"
+            )
+            AttributionRow(
+                title: "Phonon-2",
+                detail: "Fermion Research, CC-BY-4.0",
+                url: "https://huggingface.co/FermionResearch/Phonon-2"
+            )
+            AttributionRow(
                 title: "Whisper",
                 detail: "OpenAI, MIT, via WhisperKit",
                 url: "https://github.com/argmaxinc/argmax-oss-swift"

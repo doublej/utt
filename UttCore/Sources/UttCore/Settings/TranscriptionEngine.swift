@@ -11,7 +11,7 @@ public enum TranscriptionEngine: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .parakeet: "Parakeet TDT v3"
+        case .parakeet: "Parakeet"
         case .whisper: "Whisper"
         }
     }
