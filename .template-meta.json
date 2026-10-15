@@ -1,6 +1,6 @@
 {
   "template": "swift/macos",
-  "template_version": "3.4.0",
+  "template_version": "3.5.0",
   "template_source": {
     "type": "local",
     "path": "/Users/jurrejan/dev/_management/cookiecutter-templates",
