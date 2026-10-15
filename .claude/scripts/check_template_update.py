@@ -128,10 +128,11 @@ def main() -> None:
             f"[template-update] ⚠️ TEMPLATE UPDATE AVAILABLE: {template} {local} -> {upstream}."
             f"{changes_block}\n"
             f"Invoke the `/update-scaffold` skill before other work. It applies the update without "
-            f"asking (tooling is overwritten, `.atlas` merged, every other changed file arrives as a "
-            f"`<file>.upstream` sidecar), resolves the sidecars itself, and asks the user only about "
-            f"real conflicts. If that skill is not installed: `just update-scaffold --apply --include-other`, "
-            f"then review each `<file>.upstream` sidecar. Never add `--force` unless the user asks for it."
+            f"asking (tooling is overwritten, `.atlas` merged, every other file 3-way merged like "
+            f"`git merge`, keeping local edits), resolves any conflict markers itself, and asks the user "
+            f"only when both sides want incompatible things. If that skill is not installed: "
+            f"`just update-scaffold --apply`, then resolve the reported conflict markers. "
+            f"Never add `--force` unless the user asks for it."
         )
         _diag_log("ok", elapsed_ms(), meta={"local": local, "upstream": upstream, "has_changelog": bool(entries)})
     except Exception as e:
