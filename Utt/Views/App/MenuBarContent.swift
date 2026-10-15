@@ -66,6 +66,10 @@ struct MenuBarContent: View {
 
     var body: some View {
         Text(statusLine)
+        // Under the status line it flips: "Unarmed" and the way back sit together.
+        Button(settings.dictationEnabled ? "Run unarmed" : "Listen for the hotkey") {
+            store.send(.settings(.dictationChanged(!settings.dictationEnabled)))
+        }
 
         Divider()
 
@@ -73,10 +77,6 @@ struct MenuBarContent: View {
             .disabled(transcripts.history.isEmpty)
         Button("Copy last transcript") { store.send(.copyLastTapped) }
             .disabled(transcripts.history.isEmpty)
-
-        Button(settings.dictationEnabled ? "Run unarmed" : "Listen for the hotkey") {
-            store.send(.settings(.dictationChanged(!settings.dictationEnabled)))
-        }
 
         if !menuExtensions.isEmpty {
             Divider()
@@ -112,6 +112,9 @@ struct MenuBarContent: View {
         if store.updatesConfigured {
             Button("Check for Updates…") { store.send(.checkForUpdatesTapped) }
         }
+
+        Divider()
+
         Button("Quit utt") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
