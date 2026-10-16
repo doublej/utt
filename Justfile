@@ -240,6 +240,8 @@ check:
     just test-app
     @echo '→ Raycast extension...'
     just raycast-check
+    @echo '→ OpenCode plugin...'
+    just opencode-check
 
 # The Raycast extension is plain TypeScript against the same JSON files the app
 # reads, so it needs no Xcode and nothing from the build above.
@@ -258,6 +260,19 @@ raycast-check:
 [group('raycast')]
 raycast-dev:
     cd raycast && bunx ray develop
+
+# The OpenCode plugin talks to utt through the same extension files and utt://
+# verbs, so like the Raycast extension it needs nothing from the Xcode build.
+
+[group('opencode')]
+opencode-check:
+    #!/usr/bin/env zsh
+    set -o pipefail
+    cd opencode
+    [[ -d node_modules ]] || bun install
+    bunx tsc --noEmit -p tsconfig.json
+    bun test
+    bun build.ts
 
 # Everything below ships builds to other people. `just dmg` is the whole chain;
 # the recipes it depends on are listed separately because each one is worth

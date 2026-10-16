@@ -44,6 +44,8 @@ System, Transcription, Extensions, App) and `.claude/rules/`. Global:
 - **Raycast command** → `.tsx` in `raycast/src/` + `raycast/package.json`
   `commands`. Reads are Application Support files (only `raycast/src/utt.ts`
   touches disk); actions are `utt://` verbs. Contract: `raycast/README.md`.
+- **OpenCode plugin** → `opencode/src/`; same two doors (extension files via
+  `opencode/src/utt.ts`, `utt://` verbs). Contract: `opencode/README.md`.
 - **App icon** → `just icon`, commit `Utt/Resources/AppIcon.icon`. Keep it an
   Icon Composer `.icon`: macOS 26 gives a legacy `.icns` a grey border.
 - **Dark ground** → `Palette.lcdGround` + `.environment(\.colorScheme, .dark)` — no second palette; `.primary` inverts for free.
@@ -54,7 +56,7 @@ System, Transcription, Extensions, App) and `.claude/rules/`. Global:
 ## Verification
 
 `just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` +
-`test` + `raycast-check`. Also: `just run` (build, relaunch), `just dr`,
+`test` + `raycast-check` + `opencode-check`. Also: `just run` (build, relaunch), `just dr`,
 `just test` (`UttCore`), `just raycast-dev`. `just bench` times key release →
 extension hand-off in a Release test host (`.build/bench/report.txt`); safe beside
 the installed app — own `UTT_APPLICATION_SUPPORT`, no ⌘V, tap or listener.
