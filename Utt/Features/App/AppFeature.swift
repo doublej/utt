@@ -266,10 +266,12 @@ private extension AppFeature {
     func recordHistory(_ state: inout State, pasted: Bool) -> Effect<Action> {
         guard let transcript = state.transcription.lastTranscript else { return .none }
         let duration = state.transcription.lastDuration
+        let owner = state.transcription.owner.map { AppIdentity(bundleID: nil, name: $0.name) }
         return .run { send in
             // Nil when the paste failed: the text never reached an app, so claiming
-            // one received it would be a lie in the history list.
-            let app = pasted ? await pasteboard.frontmostApp() : nil
+            // one received it would be a lie. An extension's own dictation went to it.
+            var app = owner
+            if app == nil, pasted { app = await pasteboard.frontmostApp() }
             // The same moment, to any extension that asked for transcripts. Not routed
             // through the history reducer: retention governs what utt keeps, not
             // what an extension the user installed is handed. Ahead of the history

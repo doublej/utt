@@ -2,7 +2,8 @@
 //  ExtensionAboutTests.swift
 //  UttCoreTests
 //
-//  The About section is links the person will click, written by another process.
+//  How an extension presents itself, written by another process: the About
+//  section's links the person will click, and the colour it lights the menu bar with.
 //
 
 import Foundation
@@ -74,5 +75,46 @@ struct ExtensionAboutTests {
         #expect(guide.contains("\"snippets\""))
         #expect(guide.contains("## Implementing it"))
         #expect(!guide.contains("{{"))
+    }
+}
+
+/// The extension's declared colour, which utt lights the menu bar with while that
+/// extension's clip is being transcribed. Another extension-supplied string, so the same
+/// rule applies: parsed strictly, refused rather than repaired — a colour utt
+/// cannot read is one the extension did not mean.
+struct ExtensionTintTests {
+    @Test("both hex forms parse, with or without the hash")
+    func parsesHex() throws {
+        let teal = try #require(ExtensionManifest.rgb(from: "#3EAFB4"))
+        #expect(abs(teal.red - 62.0 / 255) < 0.001)
+        #expect(abs(teal.green - 175.0 / 255) < 0.001)
+        #expect(abs(teal.blue - 180.0 / 255) < 0.001)
+        #expect(ExtensionManifest.rgb(from: "3EAFB4") == teal)
+    }
+
+    /// `#RGB` is shorthand for `#RRGGBB`: "f0a" is "ff00aa", not "0f0a00".
+    @Test("three digits expand the way CSS does")
+    func expandsShorthand() {
+        #expect(ExtensionManifest.rgb(from: "#f0a") == ExtensionManifest.rgb(from: "#ff00aa"))
+        #expect(ExtensionManifest.rgb(from: "#000") == ExtensionRGB(red: 0, green: 0, blue: 0))
+        #expect(ExtensionManifest.rgb(from: "#fff") == ExtensionRGB(red: 1, green: 1, blue: 1))
+    }
+
+    @Test("anything that is not a colour is refused")
+    func refusesNonColours() {
+        for bad in ["", "#", "#12", "#12345", "#1234567", "teal", "#gggggg", "#3EAFB4 "] {
+            #expect(ExtensionManifest.rgb(from: bad) == nil, "\(bad) should not parse")
+        }
+    }
+
+    /// Dropped on the manifest rather than kept as a dead string, so nothing
+    /// downstream has to ask whether the tint it is holding is real.
+    @Test("an unreadable tint does not survive sanitizing")
+    func dropsUnreadableTint() throws {
+        let bad = ExtensionManifest(id: "p", name: "P", tint: "not a colour")
+        #expect(try #require(bad.sanitized()).tint == nil)
+        let good = ExtensionManifest(id: "p", name: "P", tint: "#3EAFB4")
+        #expect(try #require(good.sanitized()).tint == "#3EAFB4")
+        #expect(try #require(good.sanitized()).rgb != nil)
     }
 }

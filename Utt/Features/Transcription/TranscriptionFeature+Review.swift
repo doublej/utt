@@ -28,9 +28,10 @@ extension TranscriptionFeature {
                 state.status = state.quietWarning
                     ? .failed("Nothing heard — your input level looks very low")
                     : .idle
-                return .none
+                return endedWithNothing(state, duration: state.lastDuration)
             }
             state.status = .idle
+            if state.owner != nil { return handOff(&state, transcript) }
             guard settings.deliveryMode == .review else { return deliver(&state, transcript) }
             // Held, not pasted. No dismiss timer: a review card that vanishes on
             // its own is worse than no review at all.
@@ -42,7 +43,7 @@ extension TranscriptionFeature {
             // The sentence a person reads is written here, not lifted from the
             // error: an ASRError's localizedDescription is a framework error number.
             state.status = .failed("Could not turn that into text. Try again.")
-            return .none
+            return endedWithNothing(state, duration: state.lastDuration)
         }
     }
 
@@ -73,6 +74,8 @@ extension TranscriptionFeature {
             state.status = .failed("Could not paste — the text is on your clipboard")
             return .none
         }
+        // An extension's own dictation has no receipt card: nothing was pasted.
+        guard state.owner == nil else { return .none }
         state.lastDeliveredAt = now
         return startDismissTimer()
     }

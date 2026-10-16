@@ -167,6 +167,96 @@ struct TranscriptionFeatureTests {
         #expect(store.state.lastTranscript?.changed == true)
     }
 
+    /// What an extension's own dictation touched: the lanes it was handed, and
+    /// whether anything was pasted at the cursor.
+    private final class OwnedLanes: @unchecked Sendable {
+        let pasted = LockIsolated(false)
+        let nothing = LockIsolated<[String]>([])
+        let closed = LockIsolated<[String]>([])
+    }
+
+    private func makeOwnedStore(_ lanes: OwnedLanes) -> TestStore<TranscriptionFeature.State, TranscriptionFeature.Action> {
+        let store = makeStore()
+        store.dependencies.pasteboard.paste = { _, _ in lanes.pasted.setValue(true); return true }
+        store.dependencies.extensions = ExtensionClient(
+            installed: { [] },
+            write: { _, _, _ in },
+            deliver: { _, _, _ in },
+            level: { owner, level, _ in if level == nil { lanes.closed.withValue { $0.append(owner) } } },
+            nothing: { owner, _ in lanes.nothing.withValue { $0.append(owner) } },
+            request: { _, _ in },
+            setEnabled: { _, _ in },
+            setPriority: { _, _ in },
+            remove: { _ in },
+            logEntries: { [] }
+        )
+        store.exhaustivity = .off
+        return store
+    }
+
+    private let owner = DictationOwner(id: "opencode", name: "OpenCode")
+
+    /// The extension draws the dictation and puts the words where they go; a paste
+    /// at the cursor on top of that would land them twice. Review mode included:
+    /// the extension is the review.
+    @Test("an extension's own dictation is handed to it, never pasted, never held for review")
+    func ownedDictationIsHandedOff() async {
+        @Shared(.uttSettings) var settings
+        $settings.withLock { $0.deliveryMode = .review }
+        defer { $settings.withLock { $0.deliveryMode = .immediate } }
+        let lanes = OwnedLanes()
+        let store = makeOwnedStore(lanes)
+        let transcript = ProcessedTranscript(raw: "ship it", text: "Ship it.")
+
+        await store.send(.startOwnedRecording(owner)) {
+            $0.status = .recording
+            $0.owner = self.owner
+        }
+        await store.send(.transcriptReady(.success(transcript)))
+        await store.receive(\.pasteFinished)
+        await store.send(.cancelRecording(silent: true))
+        await store.finish()
+
+        #expect(store.state.lastTranscript == transcript)
+        #expect(store.state.pendingReview == nil)
+        #expect(store.state.lastDeliveredAt == nil)
+        #expect(lanes.pasted.value == false)
+        #expect(lanes.nothing.value.isEmpty)
+        #expect(lanes.closed.value == ["opencode"])
+    }
+
+    /// Every dictation an extension starts ends in one write it can stop waiting on.
+    @Test("an extension's own dictation that comes to nothing tells it so, once")
+    func ownedDictationEndsInNothing() async {
+        let lanes = OwnedLanes()
+        let store = makeOwnedStore(lanes)
+
+        await store.send(.startOwnedRecording(owner))
+        await store.send(.transcriptReady(.success(ProcessedTranscript(raw: "", text: ""))))
+        await store.send(.startOwnedRecording(owner))
+        await store.send(.cancelRecording(silent: false))
+        // Nothing in flight: a stray cancel is not the end of a dictation.
+        await store.send(.cancelRecording(silent: false))
+        await store.finish()
+
+        #expect(lanes.nothing.value == ["opencode", "opencode"])
+    }
+
+    @Test("the person's own dictation clears the owner and is pasted as always")
+    func ordinaryStartClearsTheOwner() async {
+        let lanes = OwnedLanes()
+        let store = makeOwnedStore(lanes)
+
+        await store.send(.startOwnedRecording(owner))
+        await store.send(.cancelRecording(silent: true))
+        await store.send(.startRecording) { $0.owner = nil }
+        await store.send(.transcriptReady(.success(ProcessedTranscript(raw: "hi", text: "Hi."))))
+        await store.send(.cancelRecording(silent: true))
+        await store.finish()
+
+        #expect(lanes.pasted.value)
+    }
+
     @Test("a failed paste says the text is still on the clipboard")
     func failedPasteIsReported() async {
         let store = makeStore()

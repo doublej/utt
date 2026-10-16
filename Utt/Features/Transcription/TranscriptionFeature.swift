@@ -38,6 +38,9 @@ struct TranscriptionFeature {
         /// Set when a transcript actually reached an app. Drives the panel's
         /// post-delivery card, and its dismiss timer.
         var lastDeliveredAt: Date?
+        /// The extension that started this dictation with `utt://start?for=`, and
+        /// draws it itself: no overlay, no panel, no paste. Nil for the person's own.
+        var owner: DictationOwner?
 
         var isRecording: Bool { status == .recording }
     }
@@ -53,6 +56,8 @@ struct TranscriptionFeature {
         /// A decision from the hotkey processor. These arrive in order, from one stream.
         case hotKey(HotKeyProcessor.Output)
         case startRecording
+        /// `utt://start?for=<id>`, the owner already checked against its approval.
+        case startOwnedRecording(DictationOwner)
         case stopRecording
         case cancelRecording(silent: Bool)
         case recordingFinished(RecordingResult?)
@@ -95,6 +100,7 @@ struct TranscriptionFeature {
             switch action {
             case let .hotKey(output): return reduce(&state, hotKey: output)
             case .startRecording: return start(&state)
+            case let .startOwnedRecording(owner): return start(&state, owner: owner)
             case .stopRecording: return stop(&state)
             case let .cancelRecording(silent): return cancel(&state, silent: silent)
             case let .recordingFinished(result): return finished(&state, result)
@@ -124,7 +130,7 @@ private extension TranscriptionFeature {
         }
     }
 
-    func start(_ state: inout State) -> Effect<Action> {
+    func start(_ state: inout State, owner: DictationOwner? = nil) -> Effect<Action> {
         // Every road to the microphone ends here — the hotkey, `utt://start`, the
         // panel — so unarmed is one guard rather than one per caller.
         guard settings.dictationEnabled else {
@@ -132,6 +138,7 @@ private extension TranscriptionFeature {
             return .none
         }
         guard !state.isRecording else { return .none }
+        state.owner = owner
         state.status = .recording
         state.recordingStartedAt = now
         state.quietWarning = false
@@ -167,52 +174,10 @@ private extension TranscriptionFeature {
                 }
             }
             .cancellable(id: CancelID.meter),
+            owner.map(reportLevel) ?? .none,
             settings.liveWords ? live() : .none
         )
         .cancellable(id: CancelID.pipeline, cancelInFlight: true)
-    }
-
-    /// The second recogniser, running beside the first for as long as the key is
-    /// held. Its words are a preview on the panel and a line in each watching
-    /// extension's file; nothing it produces reaches the cursor or the history.
-    func live() -> Effect<Action> {
-        .run { send in
-            let partials = await liveTranscription.start()
-            // One stream, one consumer — the same reason the key events have one.
-            // A `Task` per tap block would let chunk 4 reach the decoder before
-            // chunk 3, and the recogniser has no way to notice.
-            //
-            // ponytail: bufferingNewest caps the backlog at ~4s of audio. The
-            // decoder runs an order of magnitude faster than realtime, so this is
-            // a safety valve, not a policy.
-            let (audio, sink) = AsyncStream<[Int16]>.makeStream(bufferingPolicy: .bufferingNewest(64))
-            await recording.tee { sink.yield($0) }
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    for await chunk in audio { await liveTranscription.feed(chunk) }
-                }
-                group.addTask {
-                    for await words in partials {
-                        await send(.liveWordsHeard(words))
-                        ExtensionStore.deliver(partial: words)
-                    }
-                }
-            }
-            sink.finish()
-        }
-        .cancellable(id: CancelID.live, cancelInFlight: true)
-    }
-
-    /// Unhooks the tap first, so no chunk arrives after the session it belonged to.
-    func endLive() -> Effect<Action> {
-        .merge(
-            .cancel(id: CancelID.live),
-            .run { _ in
-                await recording.tee(nil)
-                await liveTranscription.finish()
-                ExtensionStore.deliver(partial: nil)
-            }
-        )
     }
 
     /// Undoes everything `start` did to the rest of the system. Deliberately
@@ -249,6 +214,7 @@ private extension TranscriptionFeature {
 
     func cancel(_ state: inout State, silent: Bool) -> Effect<Action> {
         let wasRecording = state.isRecording
+        let inFlight = wasRecording || state.status == .transcribing
         state.status = .idle
         state.recordingStartedAt = nil
         state.meterLevel = 0
@@ -257,6 +223,7 @@ private extension TranscriptionFeature {
             .cancel(id: CancelID.meter),
             .cancel(id: CancelID.pipeline),
             endLive(),
+            inFlight ? endedWithNothing(state) : .none,
             wasRecording && !silent ? play(.cancel) : .none,
             releaseSystemHolds(),
             .run { _ in await recording.cancel() }
@@ -267,7 +234,7 @@ private extension TranscriptionFeature {
         guard let result else {
             state.status = .idle
             state.recordingStartedAt = nil
-            return .none
+            return endedWithNothing(state)
         }
         state.quietWarning = result.isSuspiciouslyQuiet
         state.lastDuration = result.duration

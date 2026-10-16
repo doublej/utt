@@ -27,6 +27,10 @@ model and its sanitisation; this folder owns the running system.
   permanent has a pid about a second in every ten, so read `LastExitStatus`
   from `launchctl list`, not the pid. `.stopped` says "Restart starts it";
   `.failing` says read the log.
+- **An extension's own dictation (`ownsDictation`) is checked once, at
+  `utt://start?for=`** (`ExtensionStore.dictationOwner`); the 20 Hz level writes
+  do not rescan. It must end in exactly one `<id>.transcript.json` write — text,
+  or `""` via `endedWithNothing` — or the extension waits on a timer.
 
 ## Common change patterns
 

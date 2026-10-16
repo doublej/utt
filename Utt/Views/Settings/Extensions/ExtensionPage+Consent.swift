@@ -42,8 +42,17 @@ extension ExtensionPage {
     var access: some View {
         if installed.manifest.wantsTranscripts || installed.manifest.needsApi
             || installed.manifest.sendsAudio || installed.manifest.filtersTranscripts
-            || installed.manifest.wantsPartials || installed.manifest.wantsWordTimings {
+            || installed.manifest.wantsPartials || installed.manifest.wantsWordTimings
+            || installed.manifest.ownsDictation {
             SettingsGroup("What it asked for") {
+                if installed.manifest.ownsDictation {
+                    SettingRow(
+                        "To show its own dictations",
+                        detail: "Can start a recording that it shows itself. utt draws none of its own panels for it and pastes nothing; the words and your microphone level go to this extension instead. The menu bar mark still shows the microphone is on."
+                    ) {
+                        Image(systemName: "mic.badge.plus").foregroundStyle(Palette.textTertiary)
+                    }
+                }
                 if installed.manifest.filtersTranscripts {
                     SettingRow(
                         "To rewrite your transcripts",

@@ -52,6 +52,13 @@ struct ExtensionGuideTests {
         #expect(documented == written)
     }
 
+    @Test("the level example names every key utt writes, and no others")
+    func levelExampleMatches() throws {
+        let documented = Set(try example(after: "`<id>.level.json`").keys)
+        let written = try keys(of: ExtensionLevel(sequence: 812, level: 0.083, recording: true, model: "Parakeet Standard"))
+        #expect(documented == written)
+    }
+
     @Test("the jobs answer example names every key utt writes, and no others")
     func jobAnswerExampleMatches() throws {
         let documented = Set(try example(after: "writes `clip-1.json` beside it").keys)

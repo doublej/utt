@@ -50,6 +50,10 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// This puts the extension on the path between the key coming up and the text
     /// appearing, so a slow or stopped extension costs a pause and then nothing.
     public var filtersTranscripts = false
+    /// The extension starts dictations of its own with `utt://start?for=<id>` and
+    /// draws them itself: utt shows none of its own panels and pastes nothing, and the
+    /// level goes to `<id>.level.json`. Needs `wantsTranscripts`, where the words land.
+    public var ownsDictation = false
     /// Stages of utt's text pipeline this extension's own transcriptions skip.
     ///
     /// Only the clips the extension sends itself — never what the person dictates.
@@ -89,7 +93,8 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         description: String? = nil, repository: String? = nil, website: String? = nil,
         systemImage: String? = nil, settings: [ExtensionSetting] = [],
         needsApi: Bool = false, wantsTranscripts: Bool = false, sendsAudio: Bool = false,
-        wantsWordTimings: Bool = false, wantsPartials: Bool = false, filtersTranscripts: Bool = false, skipsTextStages: Set<TextStage> = [],
+        wantsWordTimings: Bool = false, wantsPartials: Bool = false, filtersTranscripts: Bool = false,
+        ownsDictation: Bool = false, skipsTextStages: Set<TextStage> = [],
         tint: String? = nil, actions: [ExtensionAction] = [], daemon: ExtensionDaemon? = nil,
         showsInMenuBar: Bool = false, snippets: [ExtensionSnippet] = [], cover: ExtensionCover? = nil
     ) {
@@ -107,6 +112,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         self.wantsWordTimings = wantsWordTimings
         self.wantsPartials = wantsPartials
         self.filtersTranscripts = filtersTranscripts
+        self.ownsDictation = ownsDictation
         self.skipsTextStages = skipsTextStages
         self.tint = tint
         self.actions = actions
@@ -119,7 +125,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, name, blurb, description, repository, website, systemImage, settings
         case needsApi, wantsTranscripts, sendsAudio, wantsWordTimings
-        case wantsPartials, filtersTranscripts, skipsTextStages
+        case wantsPartials, filtersTranscripts, ownsDictation, skipsTextStages
         case tint, actions, daemon
         case showsInMenuBar, snippets, cover
     }
@@ -144,6 +150,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
         wantsWordTimings = (try? container.decodeIfPresent(Bool.self, forKey: .wantsWordTimings)) ?? false
         wantsPartials = (try? container.decodeIfPresent(Bool.self, forKey: .wantsPartials)) as? Bool ?? false
         filtersTranscripts = (try? container.decodeIfPresent(Bool.self, forKey: .filtersTranscripts)) ?? false
+        ownsDictation = (try? container.decodeIfPresent(Bool.self, forKey: .ownsDictation)) ?? false
         // Decoded as strings, not as the enum: `Set<TextStage>` throws on the first
         // name it does not know, and `try?` around that would drop every stage the
         // extension *did* spell right along with the typo.
@@ -194,6 +201,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
             wantsWordTimings: wantsWordTimings,
             wantsPartials: wantsPartials,
             filtersTranscripts: filtersTranscripts,
+            ownsDictation: ownsDictation,
             skipsTextStages: skipsTextStages,
             // Dropped rather than corrected: a colour utt cannot read is one the
             // extension did not mean, and guessing at it would light the menu bar in
@@ -247,7 +255,7 @@ public struct ExtensionManifest: Codable, Hashable, Sendable, Identifiable {
     /// behind would switch off the next install of the same id.
     public static let ownedSuffixes: Set<String> = [
         "json", "values.json", "status.json", "action.json", "transcript.json",
-        "partial.json", "consent.json", "jobs", "filter", "disabled"
+        "partial.json", "level.json", "consent.json", "jobs", "filter", "disabled"
     ]
 
     /// Whether a name in the extensions directory belongs to this extension.

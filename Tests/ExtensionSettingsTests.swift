@@ -40,6 +40,8 @@ struct ExtensionSettingsTests {
                 installed: { [installed] },
                 write: { id, values, _ in writes.recorded.append((id, values)) },
                 deliver: { _, _, _ in },
+                level: { _, _, _ in },
+                nothing: { _, _ in },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
                 setPriority: { _, _ in },
@@ -156,6 +158,8 @@ struct ExtensionTranscriptTests {
                         app: app
                     ))
                 },
+                level: { _, _, _ in },
+                nothing: { _, _ in },
                 request: { _, _ in },
                 setEnabled: { _, _ in },
                 setPriority: { _, _ in },

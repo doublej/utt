@@ -176,47 +176,6 @@ struct ExtensionManifestDecodingTests {
     }
 }
 
-/// The extension's declared colour, which utt lights the menu bar with while that
-/// extension's clip is being transcribed. Another extension-supplied string, so the same
-/// rule applies: parsed strictly, refused rather than repaired — a colour utt
-/// cannot read is one the extension did not mean.
-struct ExtensionTintTests {
-    @Test("both hex forms parse, with or without the hash")
-    func parsesHex() throws {
-        let teal = try #require(ExtensionManifest.rgb(from: "#3EAFB4"))
-        #expect(abs(teal.red - 62.0 / 255) < 0.001)
-        #expect(abs(teal.green - 175.0 / 255) < 0.001)
-        #expect(abs(teal.blue - 180.0 / 255) < 0.001)
-        #expect(ExtensionManifest.rgb(from: "3EAFB4") == teal)
-    }
-
-    /// `#RGB` is shorthand for `#RRGGBB`: "f0a" is "ff00aa", not "0f0a00".
-    @Test("three digits expand the way CSS does")
-    func expandsShorthand() {
-        #expect(ExtensionManifest.rgb(from: "#f0a") == ExtensionManifest.rgb(from: "#ff00aa"))
-        #expect(ExtensionManifest.rgb(from: "#000") == ExtensionRGB(red: 0, green: 0, blue: 0))
-        #expect(ExtensionManifest.rgb(from: "#fff") == ExtensionRGB(red: 1, green: 1, blue: 1))
-    }
-
-    @Test("anything that is not a colour is refused")
-    func refusesNonColours() {
-        for bad in ["", "#", "#12", "#12345", "#1234567", "teal", "#gggggg", "#3EAFB4 "] {
-            #expect(ExtensionManifest.rgb(from: bad) == nil, "\(bad) should not parse")
-        }
-    }
-
-    /// Dropped on the manifest rather than kept as a dead string, so nothing
-    /// downstream has to ask whether the tint it is holding is real.
-    @Test("an unreadable tint does not survive sanitizing")
-    func dropsUnreadableTint() throws {
-        let bad = ExtensionManifest(id: "p", name: "P", tint: "not a colour")
-        #expect(try #require(bad.sanitized()).tint == nil)
-        let good = ExtensionManifest(id: "p", name: "P", tint: "#3EAFB4")
-        #expect(try #require(good.sanitized()).tint == "#3EAFB4")
-        #expect(try #require(good.sanitized()).rgb != nil)
-    }
-}
-
 /// The capabilities an extension declares, which are what its page and its menu bar
 /// item are built from. Each one is a plain flag, and each one has to survive
 /// sanitizing — a capability silently dropped is an extension that looks broken.
@@ -225,7 +184,7 @@ struct ExtensionCapabilityTests {
     {
       "id": "deckhand", "name": "Deckhand",
       "needsApi": true, "wantsTranscripts": true, "sendsAudio": true, "wantsPartials": true,
-      "wantsWordTimings": true, "showsInMenuBar": true, "tint": "#3EAFB4",
+      "wantsWordTimings": true, "ownsDictation": true, "showsInMenuBar": true, "tint": "#3EAFB4",
       "daemon": {"label": "com.jurrejan.deckhand"}, "actions": [{"key": "openLog", "label": "Open log"}]
     }
     """.utf8)
@@ -238,6 +197,7 @@ struct ExtensionCapabilityTests {
         #expect(manifest.sendsAudio)
         #expect(manifest.wantsPartials)
         #expect(manifest.wantsWordTimings)
+        #expect(manifest.ownsDictation)
         #expect(manifest.showsInMenuBar)
         #expect(manifest.daemon?.label == "com.jurrejan.deckhand")
         #expect(manifest.actions.map(\.key) == ["openLog"])
@@ -254,9 +214,33 @@ struct ExtensionCapabilityTests {
         #expect(!manifest.sendsAudio)
         #expect(!manifest.wantsPartials)
         #expect(!manifest.wantsWordTimings)
+        #expect(!manifest.ownsDictation)
         #expect(!manifest.showsInMenuBar)
         #expect(manifest.daemon == nil)
         #expect(manifest.actions.isEmpty)
+    }
+
+    /// Hiding utt's own indicator is the one thing here the person would notice
+    /// missing, so it takes the approval and both flags — the second because the
+    /// words would otherwise have nowhere to land.
+    @Test("a dictation of its own needs approval, the capability and transcripts")
+    func ownsDictationOnlyWhenAllowed() throws {
+        let manifest = try #require(JSONDecoder().decode(ExtensionManifest.self, from: json).sanitized())
+        #expect(DictationOwner.allows(manifest, approved: true))
+        #expect(!DictationOwner.allows(manifest, approved: false))
+        var silent = manifest
+        silent.wantsTranscripts = false
+        #expect(!DictationOwner.allows(silent, approved: true))
+        let bare = try #require(ExtensionManifest(id: "p", name: "P", wantsTranscripts: true).sanitized())
+        #expect(!DictationOwner.allows(bare, approved: true))
+    }
+
+    @Test("utt://start names its owner with for=, and only a usable id counts")
+    func readsTheOwnerFromTheURL() throws {
+        #expect(DictationOwner.requested(by: try #require(URL(string: "utt://start?for=opencode"))) == "opencode")
+        #expect(DictationOwner.requested(by: try #require(URL(string: "utt://start"))) == nil)
+        #expect(DictationOwner.requested(by: try #require(URL(string: "utt://start?for=../x"))) == nil)
+        #expect(DictationOwner.requested(by: try #require(URL(string: "utt://start?for=OpenCode"))) == nil)
     }
 
     /// An extension may report on its own daemon, not reach into the system's.

@@ -43,6 +43,12 @@ struct ExtensionClient: Sendable {
     /// Hands a finished transcript to every extension that asked for them, with
     /// what was heard and which stages changed it alongside the finished text.
     var deliver: @Sendable (_ transcript: ProcessedTranscript, _ duration: Double, _ app: String?) -> Void
+    /// The microphone's level, to the extension whose own dictation this is. `nil`
+    /// is the closing write: the microphone has closed.
+    var level: @Sendable (_ owner: String, _ level: Float?, _ model: String) -> Void = { _, _, _ in }
+    /// An empty transcript, to the extension whose own dictation came to nothing,
+    /// so it stops waiting for one.
+    var nothing: @Sendable (_ owner: String, _ duration: Double) -> Void = { _, _ in }
     /// Records that the user pressed one of the extension's own buttons.
     var request: @Sendable (_ extensionID: String, _ actionKey: String) -> Void
     /// Records the person's answer: approving one they have not ruled on yet, and
@@ -65,6 +71,8 @@ extension ExtensionClient: DependencyKey {
         deliver: { transcript, duration, app in
             ExtensionStore.deliver(transcript, duration: duration, app: app)
         },
+        level: { owner, level, model in ExtensionStore.deliver(level: level, model: model, to: owner) },
+        nothing: { owner, duration in ExtensionStore.deliverNothing(to: owner, duration: duration) },
         request: { id, key in ExtensionStore.request(id, action: key) },
         setEnabled: { id, enabled in ExtensionStore.setEnabled(id, enabled) },
         setPriority: { id, priority in ExtensionStore.prioritise(id, priority) },

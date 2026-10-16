@@ -89,7 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `utt://start`, `utt://stop`, `utt://toggle`, `utt://cancel` — the hotkey's
     /// four decisions — plus `utt://show?section=…`, which puts the window on a
     /// page. For anything that can open a URL: Raycast, Shortcuts, a Stream Deck,
-    /// `open` in a script, an agent checking its own work.
+    /// `open` in a script, an agent checking its own work. `start` and `toggle` take
+    /// `?for=<extension id>`: a dictation that extension draws itself.
     ///
     /// Callers must use `open -g`. utt does not activate itself here, but a plain
     /// `open` does it for them, and the frontmost app at the moment a recording
@@ -128,14 +129,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static func action(for url: URL) -> TranscriptionFeature.Action? {
         guard url.scheme == "utt" else { return nil }
         switch url.host() {
-        case "start": return .startRecording
+        case "start": return start(url)
         case "stop": return .stopRecording
         // Not silent: the user asked for this, so the discard chime is feedback,
         // not an apology for a keypress they did not mean.
         case "cancel": return .cancelRecording(silent: false)
-        case "toggle": return UttApp.store.transcription.isRecording ? .stopRecording : .startRecording
+        case "toggle": return UttApp.store.transcription.isRecording ? .stopRecording : start(url)
         default: return nil
         }
+    }
+
+    /// An owner utt cannot hand the dictation to — not approved, or not declaring
+    /// it — makes it an ordinary one, and its log says why: the words still arrive.
+    @MainActor
+    private static func start(_ url: URL) -> TranscriptionFeature.Action {
+        guard let id = DictationOwner.requested(by: url), let owner = ExtensionStore.dictationOwner(id)
+        else { return .startRecording }
+        return .startOwnedRecording(owner)
     }
 
     /// Two launches, two behaviours. Started by launchd as a login item, nothing

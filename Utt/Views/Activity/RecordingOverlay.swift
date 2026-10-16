@@ -74,8 +74,11 @@ private struct RecordingOverlayView: View {
 
     /// Switched off, the panel stays where it is and draws nothing — the same
     /// state it is in between recordings. A preview still draws, or the sliders
-    /// in `overlay.json` would have nothing to show.
-    private var recording: Bool { store.transcription.isRecording && settings.showRecordingOverlay }
+    /// in `overlay.json` would have nothing to show. An extension's own dictation
+    /// is drawn by that extension, so this one stays out of it.
+    private var recording: Bool {
+        store.transcription.isRecording && settings.showRecordingOverlay && store.transcription.owner == nil
+    }
     private var style: OverlayStyle { OverlayStyleStore.shared.style }
 
     var body: some View {

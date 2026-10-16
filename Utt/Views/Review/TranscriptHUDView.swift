@@ -35,9 +35,10 @@ struct TranscriptHUDView: View {
     }
 
     /// Review outranks everything: a transcript waiting on the user is the only
-    /// thing on screen that the rest of the machine is blocked on.
+    /// thing on screen that the rest of the machine is blocked on. An extension's
+    /// own dictation has no card at all — that extension shows it.
     private var phase: Phase? {
-        guard settings.showTranscriptHUD else { return nil }
+        guard settings.showTranscriptHUD, store.transcription.owner == nil else { return nil }
         let transcription = store.transcription
         if let pending = transcription.pendingReview { return .review(pending) }
         if transcription.isRecording { return .recording }

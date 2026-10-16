@@ -85,6 +85,54 @@ extension ExtensionStore {
         }
     }
 
+    /// The extension a `utt://start?for=<id>` names, when it may have the dictation to
+    /// itself. Anything short of that is said in its log, and the dictation is an
+    /// ordinary one: the person still gets their words, at the cursor.
+    static func dictationOwner(_ id: String) -> DictationOwner? {
+        guard let installed = installed().first(where: { $0.id == id }) else {
+            ExtensionLog.problem(nil, "a dictation was started for \(id), which is not installed — it ran as an ordinary one")
+            return nil
+        }
+        guard DictationOwner.allows(installed.manifest, approved: installed.enabled) else {
+            ExtensionLog.problem(id, "started a dictation of its own without approval, ownsDictation and wantsTranscripts — it ran as an ordinary one")
+            return nil
+        }
+        return DictationOwner(id: id, name: installed.manifest.name)
+    }
+
+    /// The level, to the owner of the dictation alone, twenty times a second. Not
+    /// re-checked against consent here: the owner was checked when it started, and
+    /// a directory scan per tick is not worth spending on a meter.
+    static func deliver(level: Float?, model: String, to owner: String) {
+        guard let url = try? URL.uttExtensionsDirectory.appendingPathComponent("\(owner).level.json")
+        else { return }
+        let previous = (try? Data(contentsOf: url))
+            .flatMap { try? JSONDecoder().decode(ExtensionLevel.self, from: $0) }
+        let next = ExtensionLevel(
+            sequence: (previous?.sequence ?? 0) &+ 1,
+            level: (Double(level ?? 0) * 1000).rounded() / 1000,
+            recording: level != nil,
+            model: model
+        )
+        try? JSONEncoder().encode(next).writePrivately(to: url)
+    }
+
+    /// The one write a dictation the extension started ends in, when nothing came
+    /// of it. Its owner alone: to anyone else an empty transcript is not news.
+    static func deliverNothing(to owner: String, duration: Double) {
+        guard let url = try? URL.uttExtensionsDirectory.appendingPathComponent("\(owner).transcript.json")
+        else { return }
+        let next = ExtensionTranscript(
+            sequence: transcriptFile(owner).sequence &+ 1, text: "", raw: "", stages: [],
+            finishedAt: ISO8601DateFormatter().string(from: Date()), duration: duration
+        )
+        do {
+            try JSONEncoder().encode(next).writePrivately(to: url)
+        } catch {
+            ExtensionLog.problem(owner, "could not be told its dictation came to nothing — \(error.localizedDescription)")
+        }
+    }
+
     private static func partialFile(_ id: String) -> ExtensionPartial {
         guard let url = try? URL.uttExtensionsDirectory.appendingPathComponent("\(id).partial.json"),
               let data = try? Data(contentsOf: url),

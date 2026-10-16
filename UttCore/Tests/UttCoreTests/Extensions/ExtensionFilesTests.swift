@@ -17,7 +17,7 @@ struct ExtensionFilesTests {
         // `deck.consent.json` above all: a consent record left behind by a removal
         // would approve the next install of the same id without anyone being asked.
         for name in ["deck.json", "deck.values.json", "deck.status.json", "deck.action.json",
-                     "deck.transcript.json", "deck.partial.json", "deck.consent.json",
+                     "deck.transcript.json", "deck.partial.json", "deck.level.json", "deck.consent.json",
                      "deck.jobs", "deck.filter", "deck.disabled"] {
             #expect(ExtensionManifest.file(name, belongsTo: "deck"), "\(name)")
         }

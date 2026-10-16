@@ -12,6 +12,7 @@ public enum ExtensionGuide {
             .replacingOccurrences(of: "{{jobs}}", with: extensionJobsGuide)
             .replacingOccurrences(of: "{{transcripts}}", with: extensionTranscriptsGuide)
             .replacingOccurrences(of: "{{partials}}", with: extensionPartialsGuide)
+            .replacingOccurrences(of: "{{dictation}}", with: extensionDictationGuide)
             .replacingOccurrences(of: "{{cover}}", with: extensionCoverGuide)
             .replacingOccurrences(of: "{{filters}}", with: extensionFilterGuide)
             .replacingOccurrences(of: "{{implementing}}", with: extensionImplementingGuide)
@@ -64,6 +65,7 @@ private let extensionGuideTemplate = #"""
           "needsApi": false,
           "wantsTranscripts": false,
           "wantsPartials": false,
+          "ownsDictation": false,
           "sendsAudio": false,
           "wantsWordTimings": false,
           "skipsTextStages": [],
@@ -258,6 +260,8 @@ private let extensionGuideTemplate = #"""
         {{transcripts}}
 
         {{partials}}
+
+        {{dictation}}
 
         {{filters}}
 
