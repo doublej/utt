@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Dictation, WAIT } from "../src/dictation"
-import type { Level, Partial, Transcript, Verb } from "../src/utt"
+import { DOWNLOAD, type Level, Missing, type Partial, type Transcript, type Verb } from "../src/utt"
 import { FakeEditor } from "./fake-editor"
 
 function harness(editor: FakeEditor | null = new FakeEditor()) {
@@ -19,7 +19,7 @@ function harness(editor: FakeEditor | null = new FakeEditor()) {
   let failing = false
   const dictation = new Dictation({
     send: async (verb) => {
-      if (failing) throw new Error("utt is not installed")
+      if (failing) throw new Missing("darwin")
       sent.push(verb)
     },
     editor: () => editor ?? undefined,
@@ -309,7 +309,8 @@ test("utt missing: nothing changes and it says why", async () => {
   fail()
   await dictation.toggle()
   expect(dictation.phase).toBe("idle")
-  expect(said[0]).toContain("utt is not installed")
+  expect(said[0]).toContain("Dictation needs utt")
+  expect(said[0]).toContain(DOWNLOAD)
 })
 
 test("no text field focused: the transcript is shown instead of lost", async () => {

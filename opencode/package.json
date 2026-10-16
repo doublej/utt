@@ -1,6 +1,6 @@
 {
   "name": "utt-opencode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "OpenCode CLI plugin: dictate into the prompt with utt, the words appearing as you speak.",
   "license": "MIT",

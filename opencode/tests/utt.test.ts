@@ -5,9 +5,11 @@ import { join } from "node:path"
 import {
   baseline,
   consent,
+  DOWNLOAD,
   describeKey,
   EXTENSION_ID,
   installManifest,
+  Missing,
   manifest,
   parseLevel,
   parsePartial,
@@ -98,5 +100,15 @@ describe("the extension folder", () => {
     writeFileSync(join(extensions, "opencode.consent.json"), '{"decision":"approved","decidedAt":""}')
     expect(baseline()).toEqual({ partial: 41, transcript: 9, level: 812 })
     expect(consent()).toBe("approved")
+  })
+})
+
+describe("Missing", () => {
+  test("on a Mac it says where to get utt", () => {
+    expect(new Missing("darwin").message).toContain(DOWNLOAD)
+  })
+
+  test("anywhere else it says utt is Mac-only", () => {
+    expect(new Missing("linux").message).toContain("only on macOS")
   })
 })

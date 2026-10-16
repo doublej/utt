@@ -1,5 +1,5 @@
 import { type Editor, Region, type Span } from "./region"
-import type { Baseline, Level, Partial, Transcript, Verb } from "./utt"
+import { type Baseline, type Level, Missing, type Partial, type Transcript, type Verb } from "./utt"
 
 /**
  * - `recording` — utt is listening; each partial replaces the dictated stretch.
@@ -218,6 +218,7 @@ export class Dictation {
     } catch (cause) {
       if (verb === "start") this.region?.set("")
       this.enter("idle")
+      if (cause instanceof Missing) return this.deps.say(cause.message, "warning")
       this.deps.say(`Could not reach utt: ${cause instanceof Error ? cause.message : String(cause)}`, "error")
     }
   }

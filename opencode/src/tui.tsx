@@ -146,16 +146,25 @@ export default Plugin.define({
     // Until the person approves the extension in utt, utt shows and pastes the
     // dictation itself. The first press brings utt up on the page with the Approve
     // button instead of recording — utt in front would receive the paste. Once per
-    // TUI: a second press dictates anyway, the ordinary way.
+    // TUI: a second press dictates anyway, the ordinary way. With no utt at all,
+    // every press says where to get it, so installing it meanwhile just works.
     let asked = false
     const ready = (): boolean => {
       if (dictation.phase !== "idle") return true
       register()
       if (asked || utt.consent() !== "pending") return true
-      asked = true
       trace("not approved yet: showing utt's page")
-      utt.showPage().catch((cause) => say(String(cause instanceof Error ? cause.message : cause), "error"))
-      say(`Approve OpenCode in utt so it can show your dictation here, then press ${hint(keys.toggle)} again`)
+      utt.showPage().then(
+        () => {
+          asked = true
+          say(`Approve OpenCode in utt so it can show your dictation here, then press ${hint(keys.toggle)} again`)
+        },
+        (cause) => {
+          trace(cause instanceof utt.Missing ? "utt not found" : `could not show utt's page: ${cause}`)
+          if (cause instanceof utt.Missing) say(cause.message, "warning")
+          else say(String(cause instanceof Error ? cause.message : cause), "error")
+        },
+      )
       return false
     }
 

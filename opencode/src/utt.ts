@@ -12,6 +12,23 @@ import { join } from "node:path"
 
 export const EXTENSION_ID = "opencode"
 
+export const DOWNLOAD = "https://utt.jurrejan.com/download"
+
+/**
+ * No utt to talk to: not on this Mac, or not a Mac. The plugin installs from npm
+ * on its own, so this is the first thing many people see — said as what to do.
+ */
+export class Missing extends Error {
+  constructor(platform = process.platform) {
+    super(
+      platform === "darwin"
+        ? `Dictation needs utt, the free Mac app that does the listening. Get it at ${DOWNLOAD}`
+        : "Dictation needs utt, which runs only on macOS",
+    )
+    this.name = "Missing"
+  }
+}
+
 /** `UTT_APPLICATION_SUPPORT` is utt's own override, so a test run and the app agree. */
 export function supportDir(env: Record<string, string | undefined> = process.env): string {
   return env.UTT_APPLICATION_SUPPORT ?? join(homedir(), "Library", "Application Support", "dev.jurrejan.utt")
@@ -194,10 +211,12 @@ export const showPage = () => open([`utt://show?section=${EXTENSION_ID}`])
 
 function open(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (process.platform !== "darwin") return reject(new Missing())
     execFile("open", args, (error, _stdout, stderr) => {
       if (!error) return resolve()
       const reason = String(stderr).trim()
-      reject(new Error(reason.includes("No application") ? "utt is not installed" : reason || error.message))
+      // No handler for utt:// is how macOS says the app is not there.
+      reject(reason.includes("No application") ? new Missing() : new Error(reason || error.message))
     })
   })
 }

@@ -35,7 +35,8 @@ opencode plugin add utt-opencode
 ```
 
 This adds `utt-opencode` to `plugins` in `~/.config/opencode/cli.json`. Restart
-OpenCode to load it. The plugin needs macOS and utt.
+OpenCode to load it. The plugin needs macOS and [utt](https://utt.jurrejan.com/download).
+Without utt it stays quiet until you press the key, then says where to get it.
 
 Other keys go in the object form:
 
