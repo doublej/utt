@@ -4,7 +4,11 @@ utt can serve its own engine over HTTP, so a phone, a script or another app can
 send a clip and get the transcript back. The audio is still transcribed on this
 Mac — the API moves the *recording* off the machine, never the transcription.
 
-Off by default. Settings → General → Transcription API.
+Off by default. Turn it on in the window, under Connect → API.
+
+The API is one of three ways another program works with utt. The other two are
+extension files and `utt://` URLs; the in-app guide under Connect → Extensions →
+**Copy guide** covers all of them.
 
 ## Reach
 
@@ -44,8 +48,8 @@ Every request, `/health` included:
 Authorization: Bearer <token>
 ```
 
-The token is generated the first time the API is switched on and shown in the
-settings card. "New" replaces it, which locks out every caller set up with the
+The token is generated the first time the API is switched on and shown on the
+API page. "New" replaces it, which locks out every caller set up with the
 old one. An empty token means the server does not start at all.
 
 `/docs` also accepts `?token=…`, because a browser address bar cannot set a
@@ -61,8 +65,8 @@ does not.
 ### `GET /docs`
 
 The OpenAPI reference, rendered by Redoc, served by utt itself so it always
-describes the build that is answering. The settings card's **API reference** link
-opens it with the token already in the URL.
+describes the build that is answering. The **Reference** row on the API page opens
+it with the token already in the URL.
 
 The document is inlined in the page, so the browser makes one authenticated
 request and Redoc never sees the token. The Redoc bundle itself comes from a CDN,
@@ -72,7 +76,7 @@ bar out of the request for it.
 ### `GET /health`
 
 ```json
-{ "ok": true, "version": "0.5.2" }
+{ "ok": true, "version": "2.3.0" }
 ```
 
 ### `POST /transcribe`
@@ -130,7 +134,7 @@ Errors are `{"error": "..."}` with `400` (not audio, or an empty body), `401`
 
 ## Writing a client
 
-The settings card's **Copy guide for an LLM** button puts a complete brief on the
+The **Copy guide** button on the API page puts a complete brief on the
 clipboard: this install's base URL, the wire format, the audio settings that
 produce what the engine wants, a worked `URLSession` client and the mistakes a
 model otherwise makes — multipart bodies, expecting keep-alive, "cleaning up" a

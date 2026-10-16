@@ -8,7 +8,7 @@ installs like any other Mac app — no terminal commands, no security overrides.
 ## 1. Install
 
 Grab `utt-<version>.dmg` — the file name carries the version it installs — from
-the [latest release](../../releases/latest), open it, and
+the [latest release](https://github.com/doublej/utt/releases/latest), open it, and
 drag `utt.app` onto the `Applications` shortcut in the same window. Eject the
 disk image afterwards.
 
@@ -53,6 +53,15 @@ individual certificate, so even a certificate renewal leaves them alone.
 Replacing `/Applications/utt.app` from a new disk image by hand still works if
 you would rather do it that way.
 
+## Adding extensions
+
+Extensions bring utt into other tools, such as OpenCode, Raycast or your iPhone.
+Install utt first, then the extension; the list is at
+[utt.jurrejan.com/extensions](https://utt.jurrejan.com/extensions). The first
+time an extension runs, utt asks you to approve it on the extension's own page in
+the utt window. Until you do, utt shares nothing with it. You can switch an
+extension off on the same page.
+
 ## Uninstalling
 
 ```bash
@@ -70,7 +79,7 @@ Monitoring and Accessibility.
 If you have Xcode:
 
 ```bash
-git clone <this repo>
+git clone https://github.com/doublej/utt.git
 cd utt
 just install   # generate the Xcode project
 just run       # build and launch

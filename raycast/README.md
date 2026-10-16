@@ -23,7 +23,7 @@ already reads, in `~/Library/Application Support/dev.jurrejan.utt`:
 | `history.json` | read | past transcripts |
 | `devices.json` | read | input names and their CoreAudio UIDs |
 
-There is no scripting bridge, no URL scheme and no relaunch: utt watches
+There is no scripting bridge and no relaunch for settings: utt watches
 `settings.json`, so a microphone change from here takes effect in the running
 app immediately. `devices.json` is exported by utt while it runs — a UID is not
 something any system tool will hand out, and `microphonePriority` is written in
