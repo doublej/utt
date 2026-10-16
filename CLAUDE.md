@@ -4,135 +4,65 @@
 
 ## What this is
 
-All-native on-device transcription: TCA app plus a pure-logic SPM package that
-carries the parts worth testing. **Parakeet TDT v3 via FluidAudio** by default,
-WhisperKit alongside. Nothing leaves the machine.
-
-## Mental model
-
-```
-Utt.xcodeproj        # generated — never edit, never commit changes by hand
-project.yml          # XcodeGen source of truth for the project
-Utt/
-  App/               # @main, AppDelegate, lifecycle
-  Clients/           # @DependencyClient wrappers around the system
-    Api/             # http listener, routes, the settings it acts on
-    Input/           # event tap, pasteboard
-    Recording/       # capture, devices, idle suspension
-    System/          # permissions, sleep, sounds, presence, updates
-    Transcription/   # engine dispatch, Parakeet, Whisper
-  Design/            # palette, typography, spacing, surfaces
-  Features/          # TCA reducers: App, Transcription, Settings, History
-  Views/             # SwiftUI, one directory per surface
-    App/             # root view, AppSection (the rail's sections), route
-    Chrome/          # AppRail, OnboardingRail, PageHeader, the pill
-    Settings/        # SettingRow + SettingsGroup, one page per section in
-                     #   Dictation/, Text/, Output/, Application/
-  Resources/         # Info.plist, entitlements
-UttCore/             # SPM package: pure logic + all the tests
-raycast/             # Raycast extension — talks to the app through its JSON files
-docs/                # specs (hotkeys, API, cleanup), phase 0, release notes
-```
-
-Runtime path: event tap → `KeyEventMonitorClient` (one serial `AsyncStream`) →
-`AppFeature` → `HotKeyProcessor` → `TranscriptionFeature` → `RecordingClient` →
-`TranscriptionClient` → `PasteboardClient`.
+All-native, on-device: a TCA app (`Utt/`) plus `UttCore/`, a pure-logic SPM
+package holding all the tests. Parakeet TDT v3 via FluidAudio by default,
+WhisperKit alongside. `project.yml` is the XcodeGen source; `Utt.xcodeproj` is
+generated — never edit it. Layout and runtime path: `docs/architecture.md`.
 
 ## Invariants
 
-Folder-specific invariants live in the nested `CLAUDE.md` files below. Global:
+Folder invariants live in the nested `CLAUDE.md` files (Api, Input, Recording,
+System, Transcription, Extensions, App) and `.claude/rules/`. Global:
 
 - **The signing identity is fixed.** `CODE_SIGN_IDENTITY` in `project.yml` is the
-  Developer ID Application cert's SHA-1, Debug and Release alike. TCC keys grants
-  to the designated requirement, so another cert (or ad-hoc `-`, which changes it
-  every build) silently resets Accessibility, Input Monitoring and Microphone.
-  The requirement pins the team OU, so cert renewal keeps grants. `just dr`
-  prints it; `just verify-identity` refuses to build without the cert.
+  Developer ID cert's SHA-1, Debug and Release. TCC keys grants to the designated
+  requirement, so another cert (or ad-hoc `-`, new every build) silently resets
+  Accessibility, Input Monitoring and Microphone. It pins the team OU, so cert
+  renewal keeps grants. `just dr` prints it;
+  `just verify-identity` refuses to build without the cert.
 - **`just check` must be green before a commit.** Zero warnings, `--strict` lint.
-- **Versions are written only by `just bump`** — a hook refuses hand-edits of
-  `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`.
-- **`appcast.xml` at the repo root is the live Sparkle feed** (raw URL on `main`).
-  Deleting it, renaming `main`, or making the repo private strands every
-  installed copy.
-- **Deferred by decision, not oversight** — don't build unasked: caret-tracking
-  indicator, LLM staging panel, log viewer, setup wizard, OpenAI/LAN providers,
-  history audio playback, left/right modifier sides.
-
-## Context boundaries
-
-Before editing, read the local `CLAUDE.md`:
-
-- `Utt/Clients/Api/CLAUDE.md` (+ `UttCore/Sources/UttCore/Api/CLAUDE.md`) — the
-  listener, its reach, its token
-- `Utt/Clients/Input/CLAUDE.md` — the event tap and the hotkey stream
-- `Utt/Clients/Recording/CLAUDE.md` — capture, devices, the real-time boundary
-- `Utt/Clients/System/CLAUDE.md` — permissions, sandbox, TCC timing
-- `Utt/Clients/Transcription/CLAUDE.md` — model selection, live words
-- `Utt/Clients/Extensions/CLAUDE.md` (+
-  `UttCore/Sources/UttCore/Extensions/CLAUDE.md`) — capability negotiation, the
-  log
-- `Utt/App/CLAUDE.md` — activation, the `utt://` scheme
-- `.claude/rules/isolation-boundaries.md` — applies across Recording, Input,
-  Transcription
+- **Versions are written only by `just bump`** (hook-guarded).
+- **`appcast.xml` on `main` is the live Sparkle feed.** Deleting it, renaming
+  `main`, or making the repo private strands every installed copy.
+- **Deferred by decision** — don't build unasked: caret-tracking indicator, LLM
+  staging panel, log viewer, setup wizard, OpenAI/LAN providers, history audio
+  playback, left/right modifier sides.
 
 ## Common change patterns
 
-- **Add pure logic** → `UttCore/Sources/UttCore/`, with tests. Anything testable
-  without a screen or a microphone belongs there.
-- **Add a system capability** → a `@DependencyClient` struct in `Utt/Clients/`,
-  `liveValue` forwarding to an actor (except the tap, which a C callback must
-  call synchronously).
-- **Add UI** → a `View` in `Utt/Views/<surface>/` reading `@Shared(.uttSettings)`
-  directly, not bindings threaded through the store. A new surface opens with
-  `PageHeader`; a new place to go is a case in `AppSection` (the whole rail).
-- **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
-  `UttSettings` (every key decodes independently so an old file always loads),
-  then a `SettingToggle` / `SettingRow` in a `SettingsGroup` on its page, bound
-  via `$settings.binding(\.key)`. Explanation goes in `detail:`, not `.help`.
-- **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
-  `raycast/package.json` `commands`. Reads go through files in Application
-  Support (`raycast/src/utt.ts` is the only disk access); actions are `utt://`
-  verbs. File contract: `raycast/README.md`.
-- **Extension log / API endpoint / `utt://` verb / model** → see the Extensions,
-  Api, App and Transcription `CLAUDE.md` respectively.
-- **Redraw the app icon** → `just icon` (`tools/make-app-icon.py` writes
-  `Utt/Resources/AppIcon.icon`; commit it, the build reads that). Keep it an Icon
-  Composer `.icon`, not an appiconset: macOS 26 puts a legacy `.icns` on a light
-  plate, which reads as a grey border.
-- **Dark ground** → `Palette.lcdGround` plus `.environment(\.colorScheme, .dark)`;
-  anything drawn with `.primary` inverts for free, no second palette.
-- **Child → parent in TCA** → pattern-match the child action in `AppFeature`
-  (`case .transcription(.pasteFinished(let pasted)):`). No delegate actions.
-- **Release, version bump, appcast, notarization** → the `utt-release` skill
-  (`.claude/skills/utt-release/SKILL.md`).
+- **Pure logic** → `UttCore/Sources/UttCore/`, with tests — anything testable
+  without a screen or a microphone.
+- **System capability** → `@DependencyClient` in `Utt/Clients/`, `liveValue`
+  forwarding to an actor (except the tap: a C callback calls it synchronously).
+- **UI** → a `View` in `Utt/Views/<surface>/` reading `@Shared(.uttSettings)`
+  directly. New surface opens with `PageHeader`; new destination = a case in
+  `AppSection` (the whole rail).
+- **Setting** → property + `CodingKey` + one `decodeIfPresent` in `UttSettings`
+  (keys decode independently so old files load), then a `SettingToggle` /
+  `SettingRow` in a `SettingsGroup`, bound via `$settings.binding(\.key)`.
+  Explanation in `detail:`, not `.help`.
+- **Raycast command** → `.tsx` in `raycast/src/` + `raycast/package.json`
+  `commands`. Reads are Application Support files (only `raycast/src/utt.ts`
+  touches disk); actions are `utt://` verbs. Contract: `raycast/README.md`.
+- **App icon** → `just icon`, commit `Utt/Resources/AppIcon.icon`. Keep it an
+  Icon Composer `.icon`: macOS 26 gives a legacy `.icns` a grey border.
+- **Dark ground** → `Palette.lcdGround` + `.environment(\.colorScheme, .dark)`.
+- **Child → parent in TCA** → pattern-match the child action in `AppFeature`;
+  no delegate actions.
+- **Release / bump / appcast / notarize** → `utt-release` skill.
 
 ## Verification
 
 `just check` = `just-fmt-check` + `loc-check` + `dir-check` + `lint` + `build` +
-`test` + `raycast-check`.
-
-- `just run` — build, kill the running copy, launch
-- `just dr` — print the designated requirement (TCC stability check)
-- `just test` — `swift test` in `UttCore`
-- `just loc-check` / `dir-check` — thresholds in `.quality.json`
-- `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`; `just
-  raycast-dev` loads the extension into Raycast with reload on save
-- `just bench` — key release → extension hand-off through the real reducers and
-  engines in a Release test host; writes `.build/bench/report.txt` with a Δ vs
-  the last run. Safe beside the installed app (own `UTT_APPLICATION_SUPPORT`,
-  private pasteboard, no ⌘V/tap/listener). `os_signpost` category `perf` marks
-  the same stages for Instruments.
+`test` + `raycast-check`. Also: `just run` (build, relaunch), `just dr`,
+`just test` (`UttCore`), `just raycast-dev`. `just bench` times key release →
+extension hand-off in a Release test host (`.build/bench/report.txt`); safe beside
+the installed app — own `UTT_APPLICATION_SUPPORT`, no ⌘V, tap or listener.
 
 ## Related context
 
-- `agent.md` — verify loop, auto-fix commands, boundaries
-- `docs/api.md` — the HTTP API: reach, auth, endpoints
-- `docs/transcript-cleanup.md` — on-device cleanup stage: deletion-only contract,
-  its setting, measured constants
-- `docs/hotkey-semantics.md` — press/hold/double-tap spec behind the
-  `HotKeyProcessor` tests
-- `docs/phase0-results.md` — what the spike proved about taps, TCC and
-  FluidAudio's API surface
+`agent.md` (verify loop), `docs/api.md`, `docs/transcript-cleanup.md`,
+`docs/hotkey-semantics.md`, `docs/phase0-results.md`, `.quality.json`.
 
 <!-- agent-log:policy -->
 ### Shared agent journal
