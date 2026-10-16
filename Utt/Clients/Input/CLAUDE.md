@@ -3,7 +3,7 @@
 ## What this is
 
 The event tap and the pasteboard. `KeyEventMonitorClient` turns raw `CGEvent`s
-into one serial stream (runtime path: root `CLAUDE.md`); `HotKeyProcessor` in
+into one serial stream (runtime path: `docs/architecture.md`); `HotKeyProcessor` in
 `UttCore/Sources/UttCore/Logic/` turns it into press/hold/double-tap decisions.
 
 ## Invariants

@@ -46,7 +46,7 @@ System, Transcription, Extensions, App) and `.claude/rules/`. Global:
   touches disk); actions are `utt://` verbs. Contract: `raycast/README.md`.
 - **App icon** → `just icon`, commit `Utt/Resources/AppIcon.icon`. Keep it an
   Icon Composer `.icon`: macOS 26 gives a legacy `.icns` a grey border.
-- **Dark ground** → `Palette.lcdGround` + `.environment(\.colorScheme, .dark)`.
+- **Dark ground** → `Palette.lcdGround` + `.environment(\.colorScheme, .dark)` — no second palette; `.primary` inverts for free.
 - **Child → parent in TCA** → pattern-match the child action in `AppFeature`;
   no delegate actions.
 - **Release / bump / appcast / notarize** → `utt-release` skill.
@@ -58,6 +58,7 @@ System, Transcription, Extensions, App) and `.claude/rules/`. Global:
 `just test` (`UttCore`), `just raycast-dev`. `just bench` times key release →
 extension hand-off in a Release test host (`.build/bench/report.txt`); safe beside
 the installed app — own `UTT_APPLICATION_SUPPORT`, no ⌘V, tap or listener.
+`os_signpost` category `perf` marks the same stages for Instruments.
 
 ## Related context
 
