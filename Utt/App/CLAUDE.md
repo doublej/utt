@@ -7,17 +7,14 @@ the `utt://` URL scheme are decided.
 
 ## Invariants
 
-- **No `LSUIElement`.** It made every launch start as an accessory, so
-  double-clicking utt opened its window *behind* whatever was already on
-  screen. The Dock icon is a runtime `setActivationPolicy` decision, and the
-  login-item launch the key used to cover is detected through
-  `launchIsDefaultUserInfoKey` instead.
-- **Fronting the app goes through `AppActivation.front()`.** macOS 14 made
-  activation cooperative: a bare `NSApp.activate()` only works if the active
-  app yielded, which nothing does for a menu bar app, so it is a silent no-op
-  and the window opens behind everything. `AppActivation` takes
-  `ignoringOtherApps:` and falls back to LaunchServices; a SwiftLint rule fails
-  the build on the bare call.
+- **No `LSUIElement`.** It makes every launch start as an accessory, so the
+  window opens *behind* whatever is on screen. The Dock icon is a runtime
+  `setActivationPolicy` decision; a login-item launch is detected through
+  `launchIsDefaultUserInfoKey`.
+- **Fronting the app goes through `AppActivation.front()`.** Since macOS 14
+  activation is cooperative, so a bare `NSApp.activate()` is a silent no-op for
+  a menu bar app. `AppActivation` takes `ignoringOtherApps:` and falls back to
+  LaunchServices; a SwiftLint rule fails the build on the bare call.
 - **A `utt://` caller must use `open -g`.** `utt://start|stop|toggle|cancel`
   reach `TranscriptionFeature` through `AppDelegate.application(_:open:)`. utt
   never activates itself there, but a plain `open` activates it for the

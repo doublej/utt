@@ -3,14 +3,8 @@
 ## What this is
 
 The event tap and the pasteboard. `KeyEventMonitorClient` turns raw `CGEvent`s
-into one serial stream; `HotKeyProcessor` in `UttCore/Sources/UttCore/Logic/`
-(pure, tested against [docs/hotkey-semantics.md](../../../docs/hotkey-semantics.md))
-turns that stream into press/hold/double-tap decisions.
-
-## Mental model
-
-Runtime path: event tap → `KeyEventMonitorClient` (one serial `AsyncStream`) →
-`AppFeature` → `HotKeyProcessor` → `TranscriptionFeature`.
+into one serial stream (runtime path: root `CLAUDE.md`); `HotKeyProcessor` in
+`UttCore/Sources/UttCore/Logic/` turns it into press/hold/double-tap decisions.
 
 ## Invariants
 
@@ -23,8 +17,7 @@ Runtime path: event tap → `KeyEventMonitorClient` (one serial `AsyncStream`) �
   (System's permission preflight lags — see `Utt/Clients/System/CLAUDE.md` — so
   a tap can be built while the grant is still in flight.)
 - **`CGEvent` never crosses an isolation boundary as itself** — see
-  `.claude/rules/isolation-boundaries.md`. Snapshot keycode and flags to values
-  before they leave the tap callback.
+  `.claude/rules/isolation-boundaries.md`.
 - **Suppression matches key *and* modifiers.** Suppressing a bare keycode would
   swallow ⌘V system-wide.
 - **A release is any part of the chord coming up**, not the whole keyboard going
@@ -37,10 +30,4 @@ Runtime path: event tap → `KeyEventMonitorClient` (one serial `AsyncStream`) �
 ## Verification
 
 `swift test` in `UttCore` covers `HotKeyProcessor` against
-[docs/hotkey-semantics.md](../../../docs/hotkey-semantics.md) — the
-press/hold/double-tap spec the tests are written against.
-
-## Related context
-
-- [docs/hotkey-semantics.md](../../../docs/hotkey-semantics.md)
-- `.claude/rules/isolation-boundaries.md`
+`docs/hotkey-semantics.md`, the press/hold/double-tap spec.

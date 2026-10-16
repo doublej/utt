@@ -4,12 +4,9 @@
 
 ## What this is
 
-utt replaces `python/utty`, which was a SwiftUI shell around a Python process. It
-keeps utty's product and visual identity: all-native on-device transcription,
-TCA, and a pure-logic SPM package that carries the parts worth testing.
-
-Transcription is **Parakeet TDT v3 via FluidAudio** by default, with WhisperKit
-alongside. Nothing leaves the machine.
+All-native on-device transcription: TCA app plus a pure-logic SPM package that
+carries the parts worth testing. **Parakeet TDT v3 via FluidAudio** by default,
+WhisperKit alongside. Nothing leaves the machine.
 
 ## Mental model
 
@@ -34,28 +31,32 @@ Utt/
   Resources/         # Info.plist, entitlements
 UttCore/             # SPM package: pure logic + all the tests
 raycast/             # Raycast extension — talks to the app through its JSON files
-docs/                # hotkey semantics spec, phase 0 brief and results
+docs/                # specs (hotkeys, API, cleanup), phase 0, release notes
 ```
 
-The runtime path is: event tap → `KeyEventMonitorClient` (one serial
-`AsyncStream`) → `AppFeature` → `HotKeyProcessor` → `TranscriptionFeature` →
-`RecordingClient` → `TranscriptionClient` → `PasteboardClient`.
+Runtime path: event tap → `KeyEventMonitorClient` (one serial `AsyncStream`) →
+`AppFeature` → `HotKeyProcessor` → `TranscriptionFeature` → `RecordingClient` →
+`TranscriptionClient` → `PasteboardClient`.
 
 ## Invariants
 
-Folder-specific invariants live next to the code they govern — see Context
-boundaries below. Two stay here because nothing owns them alone:
+Folder-specific invariants live in the nested `CLAUDE.md` files below. Global:
 
-- **The signing identity is fixed.** `CODE_SIGN_IDENTITY` in `project.yml` is a
-  hardcoded SHA-1, not a name — the Developer ID Application cert, in Debug and
-  Release alike. TCC keys grants to the designated requirement, so a changed
-  certificate silently resets Accessibility, Input Monitoring and Microphone.
-  Ad-hoc signing (`-`) changes it on *every build*. The Developer ID requirement
-  pins the team OU rather than a leaf hash, so renewing the cert keeps the grants
-  — that is the one thing the old self-signed cert could not do. `just dr` prints
-  the current requirement; `just verify-identity` refuses to build without the
-  right cert.
+- **The signing identity is fixed.** `CODE_SIGN_IDENTITY` in `project.yml` is the
+  Developer ID Application cert's SHA-1, Debug and Release alike. TCC keys grants
+  to the designated requirement, so another cert (or ad-hoc `-`, which changes it
+  every build) silently resets Accessibility, Input Monitoring and Microphone.
+  The requirement pins the team OU, so cert renewal keeps grants. `just dr`
+  prints it; `just verify-identity` refuses to build without the cert.
 - **`just check` must be green before a commit.** Zero warnings, `--strict` lint.
+- **Versions are written only by `just bump`** — a hook refuses hand-edits of
+  `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`.
+- **`appcast.xml` at the repo root is the live Sparkle feed** (raw URL on `main`).
+  Deleting it, renaming `main`, or making the repo private strands every
+  installed copy.
+- **Deferred by decision, not oversight** — don't build unasked: caret-tracking
+  indicator, LLM staging panel, log viewer, setup wizard, OpenAI/LAN providers,
+  history audio playback, left/right modifier sides.
 
 ## Context boundaries
 
@@ -79,39 +80,31 @@ Before editing, read the local `CLAUDE.md`:
 - **Add pure logic** → `UttCore/Sources/UttCore/`, with tests. Anything testable
   without a screen or a microphone belongs there.
 - **Add a system capability** → a `@DependencyClient` struct in `Utt/Clients/`,
-  `liveValue` forwarding to an actor (except the tap, which a C callback must be
-  able to call synchronously).
-- **Add UI** → a `View` in `Utt/Views/<surface>/`, reading `@Shared(.uttSettings)`
-  directly rather than threading bindings through the store. A new surface opens
-  with `PageHeader`; a new place to go is a case in `AppSection`, which is the
-  whole rail.
+  `liveValue` forwarding to an actor (except the tap, which a C callback must
+  call synchronously).
+- **Add UI** → a `View` in `Utt/Views/<surface>/` reading `@Shared(.uttSettings)`
+  directly, not bindings threaded through the store. A new surface opens with
+  `PageHeader`; a new place to go is a case in `AppSection` (the whole rail).
 - **Add a setting** → property + `CodingKey` + one `decodeIfPresent` line in
-  `UttSettings`, then a `SettingToggle` or `SettingRow` inside a `SettingsGroup`
-  on the page it belongs to (`$settings.binding(\.key)` is the binding). The
-  explanation goes in `detail:`, on the page, not in a `.help` tooltip. Every key
-  decodes independently so an old file never fails to load.
-- **Say something about an extension** → see `Utt/Clients/Extensions/CLAUDE.md`.
+  `UttSettings` (every key decodes independently so an old file always loads),
+  then a `SettingToggle` / `SettingRow` in a `SettingsGroup` on its page, bound
+  via `$settings.binding(\.key)`. Explanation goes in `detail:`, not `.help`.
 - **Add a Raycast command** → a `.tsx` in `raycast/src/` plus an entry in
-  `raycast/package.json`'s `commands`. Anything it needs to *read* from the app has
-  to be a file in Application Support first (`raycast/src/utt.ts` is the only place
-  that touches disk); anything it needs the app to *do* is a `utt://` verb. See
-  `raycast/README.md` for the file contract.
-- **Add an API endpoint** → see `Utt/Clients/Api/CLAUDE.md`.
-- **Add a `utt://` verb** → see `Utt/App/CLAUDE.md`.
-- **Add a model** → see `Utt/Clients/Transcription/CLAUDE.md`.
-- **Redraw the app icon** → `just icon`. `tools/make-app-icon.py` draws
-  `DotMatrix.patterns[0]` on `Palette.lcdGround` with `DotMatrix.rect`'s geometry
-  and writes `Utt/Resources/AppIcon.icon`, an Icon Composer document — commit it,
-  since the build reads that and not the script. It is *not* an appiconset on
-  purpose: macOS 26 composites a legacy `.icns` onto its own light plate and
-  shrinks it to fit, which reads as a grey border around the icon; a `.icon`
-  supplies the background itself.
-- **Dark ground** → `Palette.lcdGround` plus `.environment(\.colorScheme, .dark)`,
-  which is how the rails get white text and a light `.secondary` without a
-  second palette. Anything drawn with `.primary` inverts for free.
+  `raycast/package.json` `commands`. Reads go through files in Application
+  Support (`raycast/src/utt.ts` is the only disk access); actions are `utt://`
+  verbs. File contract: `raycast/README.md`.
+- **Extension log / API endpoint / `utt://` verb / model** → see the Extensions,
+  Api, App and Transcription `CLAUDE.md` respectively.
+- **Redraw the app icon** → `just icon` (`tools/make-app-icon.py` writes
+  `Utt/Resources/AppIcon.icon`; commit it, the build reads that). Keep it an Icon
+  Composer `.icon`, not an appiconset: macOS 26 puts a legacy `.icns` on a light
+  plate, which reads as a grey border.
+- **Dark ground** → `Palette.lcdGround` plus `.environment(\.colorScheme, .dark)`;
+  anything drawn with `.primary` inverts for free, no second palette.
 - **Child → parent in TCA** → pattern-match the child action in `AppFeature`
-  (`case .transcription(.pasteFinished(let pasted)):`). No delegate-action
-  ceremony.
+  (`case .transcription(.pasteFinished(let pasted)):`). No delegate actions.
+- **Release, version bump, appcast, notarization** → the `utt-release` skill
+  (`.claude/skills/utt-release/SKILL.md`).
 
 ## Verification
 
@@ -121,101 +114,25 @@ Before editing, read the local `CLAUDE.md`:
 - `just run` — build, kill the running copy, launch
 - `just dr` — print the designated requirement (TCC stability check)
 - `just test` — `swift test` in `UttCore`
-- `just loc-check` / `dir-check` — thresholds from `.quality.json` (300 warn /
-  400 error lines, 6 files per directory)
-- `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`
-- `just bench` — the round trip from key release to the extension hand-off,
-  timed through the real reducers and engines in a Release test host; prints
-  `.build/bench/report.txt` with a Δ against the run before. Safe beside the
-  installed app: its own Application Support (`UTT_APPLICATION_SUPPORT`), a
-  private pasteboard, no ⌘V, no tap, no listener. `os_signpost` category `perf`
-  marks the same stages for Instruments.
-- `just raycast-dev` — loads the extension into Raycast, reloads on save
-
-Release: `just bump` → `just publish`, which runs `archive` → `export-app` →
-`notarize` → `dmg` and then pushes the tag, creates the GitHub release from
-`docs/RELEASE-X.Y.Z.md` with the dmg and the zip attached, and finally rewrites
-and commits `appcast.xml`. `just dmg` is the shippable artifact — a
-drag-to-Applications image, signed and notarized itself, because Gatekeeper
-checks the container before anything is copied out of it.
-`export-app` writes `release/ExportOptions.plist` itself; `notarize` needs the
-`utt-notary` keychain profile, stored once with `xcrun notarytool
-store-credentials` and an app-specific password, or `onenv export utt -- just
-publish`, which takes the same credentials from 1Password. Use the onenv form
-where no keychain dialog can appear: an agent shell, or a Mac in dark wake.
-`just sparkle-keys` once, and **back the private key up** — losing it means
-installed copies can never be updated again.
-
-The appcast is the load-bearing part:
-
-- **`appcast.xml` at the repo root is the live feed.** `SUFeedURL` points at its
-  `raw.githubusercontent.com` URL on `main`, so it is served for free and never
-  moves. Deleting it, renaming the branch, or making the repo private strands
-  every installed copy.
-- **`release/appcast/` is not disposable.** `generate_appcast` carries the
-  previous entries forward only from the appcast sitting next to the archives —
-  generating into the wiped `release/export/` would publish a feed containing
-  only the newest version.
-- **The appcast is committed last.** It is the only thing installed copies read,
-  so it must never name a download that is not attached to the release yet.
-- **Deltas are off** (`--maximum-deltas 0`). A delta is a separate file that would
-  have to be uploaded too, and an advertised delta that 404s fails the update.
-
-## Versioning
-
-Semver, and `just bump` is the only thing that writes it. It moves all three
-together, behind `just check`, in one `release: X.Y.Z` commit:
-
-- `MARKETING_VERSION` — what a person sees, and what names the dmg and the zip
-- `CURRENT_PROJECT_VERSION` — a monotonic integer. Sparkle orders updates by it,
-  so a reused build number is an update nobody is ever offered, on machines
-  there is no other way to reach
-- an annotated `vX.Y.Z` tag, `utt X.Y.Z` — what a shipped file is traced back to
-
-A hook refuses hand-edits of either key; `.claude/scripts/guard_version_edit.py`
-is the guard and carries its own test.
-
-- `just next` — what the bump would decide, without deciding it
-- `just bump` — read the part off the commits since the last tag
-- `just bump major|minor|patch` — overrule it
-
-The part follows the commit messages, which are conventional commits:
-
-- **patch** — `fix:`, `perf:`, `refactor:`: nothing visible from outside changes
-- **minor** — `feat:`: a new setting, a new `utt://` verb, a new engine or model
-- **major** — `feat!:` or a `BREAKING CHANGE:` trailer: a removed `utt://` verb, a
-  settings key that stops being read, a default that cannot be migrated
-
-While the version is `0.x` a *derived* major lands as a minor — semver's own rule
-for pre-1.0, where nothing is promised yet. Reaching 1.0.0 is a decision rather
-than a consequence of a commit message, so it takes an explicit `just bump major`.
-
-Bump first, then the release pipeline above: every artifact after this point is
-named from `MARKETING_VERSION`. `docs/RELEASE-X.Y.Z.md` is written by hand and
-`bump` only warns when it is missing — what changed and why is prose, not
-something a script should be inventing.
-
-## Known gaps
-
-- The disk image has no custom window background or icon layout — the volume
-  opens in plain icon view with `utt.app` and the `Applications` alias in it.
-  Positioning them takes Finder AppleScript; it has not been worth it.
-- Deferred by decision, not oversight: caret-tracking indicator, LLM staging
-  panel, log viewer, setup wizard, OpenAI/LAN providers, history audio playback,
-  left/right modifier sides.
+- `just loc-check` / `dir-check` — thresholds in `.quality.json`
+- `just raycast-check` — `tsc --noEmit` + `bun test` in `raycast/`; `just
+  raycast-dev` loads the extension into Raycast with reload on save
+- `just bench` — key release → extension hand-off through the real reducers and
+  engines in a Release test host; writes `.build/bench/report.txt` with a Δ vs
+  the last run. Safe beside the installed app (own `UTT_APPLICATION_SUPPORT`,
+  private pasteboard, no ⌘V/tap/listener). `os_signpost` category `perf` marks
+  the same stages for Instruments.
 
 ## Related context
 
-- [agent.md](agent.md) — verify loop, auto-fix commands, boundaries
-- [docs/api.md](docs/api.md) — the HTTP API: reach, auth, endpoints
-- [docs/transcript-cleanup.md](docs/transcript-cleanup.md) — the on-device cleanup
-  stage: the deletion-only contract, the one setting, and the constants that are
-  measured rather than chosen
-- [docs/hotkey-semantics.md](docs/hotkey-semantics.md) — the press/hold/double-tap
-  spec the `HotKeyProcessor` tests are written against
-- [docs/phase0-results.md](docs/phase0-results.md) — what the spike actually
-  proved about taps, TCC and FluidAudio's API surface
-- `.quality.json` — loc / dir thresholds (single source of truth)
+- `agent.md` — verify loop, auto-fix commands, boundaries
+- `docs/api.md` — the HTTP API: reach, auth, endpoints
+- `docs/transcript-cleanup.md` — on-device cleanup stage: deletion-only contract,
+  its setting, measured constants
+- `docs/hotkey-semantics.md` — press/hold/double-tap spec behind the
+  `HotKeyProcessor` tests
+- `docs/phase0-results.md` — what the spike proved about taps, TCC and
+  FluidAudio's API surface
 
 <!-- agent-log:policy -->
 ### Shared agent journal
