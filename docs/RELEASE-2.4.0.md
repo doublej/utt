@@ -1,0 +1,50 @@
+Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
+machine.
+
+This one adds Underdog Bark, two English models that can leave out the ums for
+you, and gives every model its real name.
+
+## Underdog Bark
+
+Two English models from Conway Research, both retrained from Parakeet v3. They
+run on the Neural Engine and download about 440 MB each.
+
+- **Bark Clean** writes what you meant to say. It leaves out "um" and "uh",
+  false starts and repeated words as it transcribes. Pick it for dictation.
+- **Bark Verbatim** writes what you said, hesitations included. Pick it for
+  meeting notes or anything that has to match the recording.
+
+The first time you pick one, macOS prepares it for the Neural Engine, which
+takes one and a half to two and a half minutes. Anything you dictate meanwhile waits for
+it. After that it loads in seconds.
+
+On a five-minute TED talk, Bark Clean was among the most accurate models utt
+offers, and both made fewer errors than Parakeet Standard. The numbers are on
+the blog: https://utt.jurrejan.com/blog/underdog-bark/
+
+## Models go by their real names
+
+Models made outside NVIDIA now carry the name their makers gave them:
+Parakeet Accurate is Parakeet Ultra again, Parakeet Compact is Parakeet Redux.
+NVIDIA's own models keep their names.
+
+## Phonon-2 is gone
+
+On an M2 Pro, Phonon-2 ran at half the speed of speech and took about twelve
+minutes to load every time utt started, because macOS rebuilt it for the
+Neural Engine on every load. If you had it selected, utt switches to Parakeet
+Standard.
+
+## Extensions can run a dictation
+
+An extension can now take over a dictation it starts with
+`utt://start?for=<id>`. utt shows no overlay and pastes nothing; it streams
+the level, the live words and the transcript to the extension, which draws
+them itself. The OpenCode plugin (`utt-opencode` on npm) uses this to dictate
+into OpenCode's prompt.
+
+## Smaller things
+
+- In the menu, Run unarmed (or Listen for the hotkey) now sits right under the
+  status line, and Quit is on its own at the bottom.
+- utt is now MIT licensed.
