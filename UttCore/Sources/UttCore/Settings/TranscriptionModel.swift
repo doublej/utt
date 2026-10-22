@@ -128,46 +128,46 @@ public enum ModelCatalog {
         TranscriptionModel(
             id: "parakeet-ultra",
             engine: .parakeet,
-            name: "Parakeet Accurate",
+            name: "Parakeet Ultra",
             languages: "Multilingual",
             approximateBytes: 632_000_000,
-            blurb: "Parakeet Ultra: Standard retrained by Moondream. Fewer errors in every language, as fast, heavier.",
+            blurb: "Moondream's retrain of Parakeet Standard. Fewer errors in every language, as fast, heavier.",
             ratings: ModelRatings(speed: 3, accuracy: 4, languages: 3, lightness: 1)
         ),
         TranscriptionModel(
             id: "parakeet-redux",
             engine: .parakeet,
-            name: "Parakeet Compact",
+            name: "Parakeet Redux",
             languages: "Multilingual",
             approximateBytes: 220_000_000,
-            blurb: "Parakeet Redux: Standard at a third of the size. Slower, worse in noise; the first load compiles for about ten minutes.",
+            blurb: "Moondream's Parakeet Standard at a third of the size. Slower, worse in noise; the first load compiles for about ten minutes.",
             ratings: ModelRatings(speed: 2, accuracy: 2, languages: 3, lightness: 3)
         ),
         TranscriptionModel(
             id: "parakeet-phonon2",
             engine: .parakeet,
-            name: "Parakeet English",
+            name: "Phonon-2",
             languages: "English",
             approximateBytes: 360_000_000,
-            blurb: "Phonon-2: an English-only Standard from Fermion Research. Lighter, and the tidiest punctuation on our test clip.",
+            blurb: "Fermion Research's English-only Parakeet Standard. Lighter, and the tidiest punctuation on our test clip.",
             ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 3)
         ),
         TranscriptionModel(
             id: "parakeet-bark3-clean",
             engine: .parakeet,
-            name: "Parakeet Clean",
+            name: "Bark Clean",
             languages: "English",
             approximateBytes: 447_000_000,
-            blurb: "Underdog Bark 3.0 Clean from Conway Research: English that drops the ums, false starts and repeats as it hears them.",
+            blurb: "Conway Research's Underdog Bark 3.0 Clean, an English Parakeet that drops the ums, false starts and repeats as it hears them.",
             ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
         ),
         TranscriptionModel(
             id: "parakeet-bark3",
             engine: .parakeet,
-            name: "Parakeet Verbatim",
+            name: "Bark Verbatim",
             languages: "English",
             approximateBytes: 436_000_000,
-            blurb: "Underdog Bark 3.0 from Conway Research: English that keeps every um and repeat. Strongest on meetings.",
+            blurb: "Conway Research's Underdog Bark 3.0, an English Parakeet that keeps every um and repeat. Strongest on meetings.",
             ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
         ),
         TranscriptionModel(
