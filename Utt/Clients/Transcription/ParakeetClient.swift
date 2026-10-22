@@ -42,6 +42,8 @@ actor ParakeetClient {
         case "parakeet-ultra": .ultra
         case "parakeet-redux": .redux
         case "parakeet-phonon2": .phonon2
+        case "parakeet-bark3-clean": .bark3Clean
+        case "parakeet-bark3": .bark3
         case "parakeet-v2": .v2
         case "parakeet-tdt-ctc-110m": .tdtCtc110m
         case "parakeet-ja": .tdtJa

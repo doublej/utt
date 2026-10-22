@@ -153,6 +153,24 @@ public enum ModelCatalog {
             ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 3)
         ),
         TranscriptionModel(
+            id: "parakeet-bark3-clean",
+            engine: .parakeet,
+            name: "Parakeet Clean",
+            languages: "English",
+            approximateBytes: 447_000_000,
+            blurb: "Underdog Bark 3.0 Clean from Conway Research: English that drops the ums, false starts and repeats as it hears them.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
+        ),
+        TranscriptionModel(
+            id: "parakeet-bark3",
+            engine: .parakeet,
+            name: "Parakeet Verbatim",
+            languages: "English",
+            approximateBytes: 436_000_000,
+            blurb: "Underdog Bark 3.0 from Conway Research: English that keeps every um and repeat. Strongest on meetings.",
+            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 2)
+        ),
+        TranscriptionModel(
             id: "parakeet-v2",
             engine: .parakeet,
             name: "Parakeet English Classic",

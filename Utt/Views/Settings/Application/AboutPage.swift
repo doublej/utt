@@ -47,6 +47,11 @@ struct AboutPage: View {
                 url: "https://huggingface.co/FermionResearch/Phonon-2"
             )
             AttributionRow(
+                title: "Underdog Bark 3.0 and Clean",
+                detail: "Conway Research, CC-BY-4.0",
+                url: "https://huggingface.co/ConwayResearch/Underdog-Bark-3.0"
+            )
+            AttributionRow(
                 title: "Whisper",
                 detail: "OpenAI, MIT, via WhisperKit",
                 url: "https://github.com/argmaxinc/argmax-oss-swift"

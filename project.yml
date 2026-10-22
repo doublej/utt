@@ -17,9 +17,11 @@ packages:
   Dependencies:
     url: https://github.com/pointfreeco/swift-dependencies
     exactVersion: 1.14.1
+  # PR #1054's head (Underdog Bark, `.bark3` / `.bark3Clean`), unreleased.
+  # Back to `exactVersion` once a tag carries it.
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio
-    exactVersion: 0.17.7
+    revision: 20782ed8282dd6856aa18837affd8ea49daebee4
   # Renamed from argmaxinc/WhisperKit; module is still `WhisperKit`.
   ArgmaxOSS:
     url: https://github.com/argmaxinc/argmax-oss-swift
