@@ -42,11 +42,6 @@ struct AboutPage: View {
                 url: "https://huggingface.co/moondream/parakeet-ultra"
             )
             AttributionRow(
-                title: "Phonon-2",
-                detail: "Fermion Research, CC-BY-4.0",
-                url: "https://huggingface.co/FermionResearch/Phonon-2"
-            )
-            AttributionRow(
                 title: "Underdog Bark 3.0 and Clean",
                 detail: "Conway Research, CC-BY-4.0",
                 url: "https://huggingface.co/ConwayResearch/Underdog-Bark-3.0"

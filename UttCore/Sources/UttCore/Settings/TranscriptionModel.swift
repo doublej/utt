@@ -144,15 +144,6 @@ public enum ModelCatalog {
             ratings: ModelRatings(speed: 2, accuracy: 2, languages: 3, lightness: 3)
         ),
         TranscriptionModel(
-            id: "parakeet-phonon2",
-            engine: .parakeet,
-            name: "Phonon-2",
-            languages: "English",
-            approximateBytes: 360_000_000,
-            blurb: "Fermion Research's English-only Parakeet Standard. Lighter, and the tidiest punctuation on our test clip.",
-            ratings: ModelRatings(speed: 3, accuracy: 3, languages: 1, lightness: 3)
-        ),
-        TranscriptionModel(
             id: "parakeet-bark3-clean",
             engine: .parakeet,
             name: "Bark Clean",
