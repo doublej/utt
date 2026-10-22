@@ -3,68 +3,65 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>2.3.0</title>
-            <pubDate>Wed, 14 Oct 2026 23:35:16 +0200</pubDate>
+            <title>2.4.0</title>
+            <pubDate>Thu, 22 Oct 2026 16:10:45 +0200</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-This one is about choice. There are three new Parakeet models, the Model page
-now tells you what each one is good at before you download it, and a model you
-no longer use can be removed from the same page.
+This one adds Underdog Bark, two English models that can leave out the ums for
+you, and gives every model its real name.
 
-## Three new models
+## Underdog Bark
 
-All three are versions of Parakeet v3, the model utt has used from the start,
-retrained by people outside NVIDIA. They run on the Neural Engine like the rest.
+Two English models from Conway Research, both retrained from Parakeet v3. They
+run on the Neural Engine and download about 440 MB each.
 
-- **Parakeet Accurate** (Moondream's Parakeet Ultra) makes fewer mistakes than
-  v3 in every language it knows, at the same speed. It is about 630 MB, the
-  largest Parakeet.
-- **Parakeet Compact** (Moondream's Parakeet Redux) is v3 at a third of the
-  size, about 220 MB. It is slower and does worse with background noise. The
-  first time it loads, macOS spends about ten minutes preparing it for the
-  Neural Engine. After that it loads in seconds.
-- **Parakeet English** (Fermion Research's Phonon-2) is English only and lighter
-  than v3, and it punctuated our test recording most neatly.
+- **Bark Clean** writes what you meant to say. It leaves out "um" and "uh",
+  false starts and repeated words as it transcribes. Pick it for dictation.
+- **Bark Verbatim** writes what you said, hesitations included. Pick it for
+  meeting notes or anything that has to match the recording.
 
-Parakeet Standard (v3) is still the default. Nothing changes unless you pick
-something else.
+The first time you pick one, macOS prepares it for the Neural Engine, which
+takes one and a half to two and a half minutes. Anything you dictate meanwhile waits for
+it. After that it loads in seconds.
 
-## Every model, described
+On a five-minute TED talk, Bark Clean was among the most accurate models utt
+offers, and both made fewer errors than Parakeet Standard. The numbers are on
+the blog: https://utt.jurrejan.com/blog/underdog-bark/
 
-Each model now has a plain name that says what it is for, such as Standard,
-Accurate, Compact or Quick, with the original name in its description. Under
-the description, four ratings of one to four dots compare it with every other
-model on both engines: speed, accuracy, how many languages it knows, and how
-little room it takes. Its language and size sit beside them.
+## Models go by their real names
 
-The engine switch now just says Parakeet, since it runs seven models.
+Models made outside NVIDIA now carry the name their makers gave them:
+Parakeet Accurate is Parakeet Ultra again, Parakeet Compact is Parakeet Redux.
+NVIDIA's own models keep their names.
 
-## On this Mac, or still to download
+## Phonon-2 is gone
 
-The Model page is split in two. The first list is what is already on this Mac,
-the second is what would have to be downloaded first, so you can see what a
-choice costs before you make it.
+On an M2 Pro, Phonon-2 ran at half the speed of speech and took about twelve
+minutes to load every time utt started, because macOS rebuilt it for the
+Neural Engine on every load. If you had it selected, utt switches to Parakeet
+Standard.
 
-A downloaded model you are not using has a trash button. It moves the model's
-files to the Trash, so a mistake can be undone until you empty it. The model you
-are using has no trash button, since it is the one in memory.
+## Extensions can run a dictation
 
-When you pick a model that is already downloaded, the page now says **Loading**
-beside the timer. A model on disk still has to be read into memory before it can
-listen.
+An extension can now take over a dictation it starts with
+`utt://start?for=<id>`. utt shows no overlay and pastes nothing; it streams
+the level, the live words and the transcript to the extension, which draws
+them itself. The OpenCode plugin (`utt-opencode` on npm) uses this to dictate
+into OpenCode's prompt.
 
-## Updating
+## Smaller things
 
-Nothing you have set up needs redoing. The models are credited under
-**About → Attribution**, as their licence asks.
+- In the menu, Run unarmed (or Listen for the hotkey) now sits right under the
+  status line, and Quit is on its own at the bottom.
+- utt is now MIT licensed.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v2.3.0/utt-2.3.0.zip" length="27742134" type="application/octet-stream" sparkle:edSignature="Un4s3ZA7eNcf5RoxJn4Aq6bmHazamskBfJCORjImS1v9UCutuVEuCowp+arCL28OKUPYYGrxz5Ow01KO4fz4Dg=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v2.4.0/utt-2.4.0.zip" length="24298697" type="application/octet-stream" sparkle:edSignature="H23PR9Q6M/Xf9F211U8Ir4qUEr4YZ44M5rl0gQXM2Et2sKFz9X+t8NrE24zJu0UwWiWuUeHB8qn7VvxiaPNDCw=="/>
         </item>
     </channel>
 </rss>
