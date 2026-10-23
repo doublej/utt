@@ -47,6 +47,8 @@ System, Transcription, Extensions, App) and `.claude/rules/`. Global:
 - **OpenCode plugin** → its own repo, github.com/doublej/utt-opencode
   (`~/dev/node/utt-opencode`); same two doors (extension files, `utt://` verbs).
   Contract: that repo's `README.md`. utt's side: `Extensions/Dictation/`.
+- **iOS keyboard** → its own repo, `~/dev/swift/utt-keyboard`; a client of the
+  HTTP API (`docs/api.md`), so a change to `/transcribe` reaches it.
 - **App icon** → `just icon`, commit `Utt/Resources/AppIcon.icon`. Keep it an
   Icon Composer `.icon`: macOS 26 gives a legacy `.icns` a grey border.
 - **Dark ground** → `Palette.lcdGround` + `.environment(\.colorScheme, .dark)` — no second palette; `.primary` inverts for free.
