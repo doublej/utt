@@ -12,6 +12,10 @@ struct TranscriptHUDView: View {
     let onVisibilityChanged: (Bool) -> Void
 
     @Shared(.uttSettings) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The live words and the finished transcript share a place on the card, so the
+    /// first pass travels to where the real text lands as it resolves into it.
+    @Namespace private var words
 
     enum Phase: Equatable {
         case recording
@@ -30,7 +34,7 @@ struct TranscriptHUDView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .animation(.smooth(duration: 0.2), value: phase)
+        .animation(.smooth(duration: 0.3), value: phase)
         .onChange(of: phase == nil) { _, isEmpty in onVisibilityChanged(!isEmpty) }
     }
 
@@ -49,14 +53,20 @@ struct TranscriptHUDView: View {
         return nil
     }
 
+    /// Recording and transcribing are one branch, and review and delivered another,
+    /// so the words inside keep their identity across the step: the live words do not
+    /// write themselves in again when the spinner appears. Crossing between the two
+    /// branches is the first pass resolving into the real transcript.
     @ViewBuilder
     private func card(_ phase: Phase) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             switch phase {
-            case .recording: listening
-            case .transcribing: transcribing
-            case let .review(transcript): review(transcript)
-            case let .delivered(transcript): delivered(transcript)
+            case .recording, .transcribing:
+                working(phase)
+                    .transition(ResolveTransition(reduceMotion: reduceMotion))
+            case let .review(transcript), let .delivered(transcript):
+                result(transcript, phase: phase)
+                    .transition(ResolveTransition(reduceMotion: reduceMotion))
             }
         }
         .padding(Spacing.medium)
@@ -66,31 +76,26 @@ struct TranscriptHUDView: View {
 
     // MARK: - States
 
-    private var listening: some View {
+    /// The live words are kept up while the real model works: the words the person
+    /// was just watching should not blink out before the transcript replaces them.
+    private func working(_ phase: Phase) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             HStack(spacing: Spacing.small) {
-                CompactVuMeter(level: store.transcription.meterLevel, active: true)
-                Text("Listening")
-                    .font(Typography.label)
-                    .foregroundStyle(Palette.textSecondary)
-                Spacer()
-                ElapsedTimer(startedAt: store.transcription.recordingStartedAt)
+                if phase == .recording {
+                    CompactVuMeter(level: store.transcription.meterLevel, active: true)
+                    Text("Listening")
+                        .font(Typography.label)
+                        .foregroundStyle(Palette.textSecondary)
+                    Spacer()
+                    ElapsedTimer(startedAt: store.transcription.recordingStartedAt)
+                } else {
+                    ProgressView().controlSize(.small)
+                    Text("Transcribing…")
+                        .font(Typography.label)
+                        .foregroundStyle(Palette.textSecondary)
+                    Spacer()
+                }
             }
-            live
-        }
-    }
-
-    private var transcribing: some View {
-        VStack(alignment: .leading, spacing: Spacing.small) {
-            HStack(spacing: Spacing.small) {
-                ProgressView().controlSize(.small)
-                Text("Transcribing…")
-                    .font(Typography.label)
-                    .foregroundStyle(Palette.textSecondary)
-                Spacer()
-            }
-            // Kept up while the real model works: the words the person was just
-            // watching should not blink out and come back rewritten.
             live
         }
     }
@@ -102,43 +107,41 @@ struct TranscriptHUDView: View {
     private var live: some View {
         let words = store.transcription.liveWords
         if !words.isEmpty {
-            Text(words)
+            WritingText(text: words)
                 .font(Typography.mono)
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .matchedGeometryEffect(id: "words", in: self.words)
                 .transition(.opacity)
         }
     }
 
-    private func review(_ transcript: ProcessedTranscript) -> some View {
+    private func result(_ transcript: ProcessedTranscript, phase: Phase) -> some View {
         VStack(alignment: .leading, spacing: Spacing.small) {
             finished(transcript)
-            HStack(spacing: Spacing.small) {
-                target
-                Spacer()
-                KeyAction(cap: "⏎", title: "Paste") {
-                    store.send(.transcription(.reviewAccepted))
+            if case .review = phase {
+                HStack(spacing: Spacing.small) {
+                    target
+                    Spacer()
+                    KeyAction(cap: "⏎", title: "Paste") {
+                        store.send(.transcription(.reviewAccepted))
+                    }
+                    KeyAction(cap: "esc", title: "Discard") {
+                        store.send(.transcription(.reviewDiscarded))
+                    }
                 }
-                KeyAction(cap: "esc", title: "Discard") {
-                    store.send(.transcription(.reviewDiscarded))
+            } else {
+                cleanupNote(transcript)
+                HStack(spacing: Spacing.small) {
+                    target
+                    Spacer()
+                    plain("Undo") { store.send(.transcription(.undoLastPaste)) }
+                    plain("Copy") { store.send(.copyLastTapped) }
+                    plain("Add rule") { addRule() }
+                    plain("Dismiss") { store.send(.transcription(.hudDismissed)) }
                 }
-            }
-        }
-    }
-
-    private func delivered(_ transcript: ProcessedTranscript) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.small) {
-            finished(transcript)
-            cleanupNote(transcript)
-            HStack(spacing: Spacing.small) {
-                target
-                Spacer()
-                plain("Undo") { store.send(.transcription(.undoLastPaste)) }
-                plain("Copy") { store.send(.copyLastTapped) }
-                plain("Add rule") { addRule() }
-                plain("Dismiss") { store.send(.transcription(.hudDismissed)) }
             }
         }
     }
@@ -178,6 +181,7 @@ struct TranscriptHUDView: View {
             .lineLimit(3)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
+            .matchedGeometryEffect(id: "words", in: words)
             .help(text)
     }
 
