@@ -20,6 +20,17 @@ struct CleanupPage: View {
                     """,
                 isOn: $settings.binding(\.cleanupTranscripts)
             )
+            SettingToggle(
+                "Correct grammar",
+                detail: """
+                    Runs the macOS grammar checker over the text and applies its first \
+                    suggestion for each issue. It checks grammar only, not spelling, so \
+                    names stay as you said them. Dictation that mixes languages can \
+                    confuse it: when it wants to change more than a quarter of the \
+                    words, your text is pasted untouched.
+                    """,
+                isOn: $settings.binding(\.correctGrammar)
+            )
         }
     }
 }

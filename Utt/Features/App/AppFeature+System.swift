@@ -16,7 +16,7 @@ extension AppFeature {
         .run { [settings, transcription, transcriptCleanup, clock, analytics] _ in
             // No panel on this road: a skipped reason travels in the transcript
             // itself, which is what an API caller and an extension read it off.
-            let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
+            let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts, grammar: settings.correctGrammar)
             await recording.arm(
                 settings.dictationEnabled && settings.preRollEnabled,
                 settings.microphonePriority,
@@ -33,7 +33,7 @@ extension AppFeature {
                 let model = ModelCatalog.resolve(id: settings.selectedModel, engine: settings.transcriptionEngine).id
                 // The hotkey prewarms cleanup at key press. A clip that arrives whole
                 // has no press, so the decode is the stretch to overlap it with.
-                async let warmed: Void = cleanup == nil || skipping.contains(.cleanup) ? () : transcriptCleanup.prewarm()
+                async let warmed: Void = !settings.cleanupTranscripts || skipping.contains(.cleanup) ? () : transcriptCleanup.prewarm()
                 var heard = HeardTranscript(text: "", words: [])
                 let decoding = try await clock.measure {
                     heard = try await transcription.transcribe(url, settings.transcriptionEngine, model)

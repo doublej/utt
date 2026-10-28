@@ -137,6 +137,11 @@ public struct UttSettings: Codable, Equatable, Sendable {
     /// on ordinary sentences, so it cannot be promised.
     public var cleanupTranscripts: Bool = false
 
+    /// Run the transcript past the system grammar checker (`NSSpellChecker`) and
+    /// apply what it proposes. Off by default: dictation in two languages, names and
+    /// jargon are exactly what a grammar checker misreads.
+    public var correctGrammar: Bool = false
+
     /// Lowercase the whole transcript.
     public var lowercaseTranscripts: Bool = false
 

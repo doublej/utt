@@ -240,7 +240,7 @@ private extension TranscriptionFeature {
         state.lastDuration = result.duration
         let engine = settings.transcriptionEngine
         let model = ModelCatalog.resolve(id: settings.selectedModel, engine: engine).id
-        let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts)
+        let cleanup = transcriptCleanup.stage(enabled: settings.cleanupTranscripts, grammar: settings.correctGrammar)
         return .run { [settings, clock] send in
             let transcript: Result<ProcessedTranscript, Error> = await Result {
                 // The user's own rules first, then any extension that asked to see the

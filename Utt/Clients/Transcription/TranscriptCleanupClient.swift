@@ -35,9 +35,18 @@ extension TranscriptCleanupClient {
     /// reads `nil` as "leave this stage out". The outcome goes back whole: the
     /// pipeline records the skip reason on the transcript it builds, which is what
     /// carries it to the panel, the history, an extension and an API caller alike.
-    func stage(enabled: Bool) -> TranscriptCleanup? {
-        guard enabled else { return nil }
-        return { text in await self.clean(text) }
+    ///
+    /// The grammar pass rides in the same stage, after the model: it is a second
+    /// kind of clean-up on the same slot of the pipeline, so `skipsTextStages` and
+    /// the skip reason cover it without a stage of its own. A skipped model pass
+    /// skips it too — the transcript stays whole.
+    func stage(enabled: Bool, grammar: Bool = false) -> TranscriptCleanup? {
+        guard enabled || grammar else { return nil }
+        return { text in
+            let outcome: CleanupOutcome = enabled ? await self.clean(text) : .cleaned(text)
+            guard grammar, case let .cleaned(cleaned) = outcome else { return outcome }
+            return .cleaned(await GrammarChecker.correct(cleaned))
+        }
     }
 }
 

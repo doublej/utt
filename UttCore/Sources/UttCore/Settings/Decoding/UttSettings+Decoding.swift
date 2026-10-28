@@ -64,7 +64,7 @@ extension UttSettings {
         case muteWhileRecording, preventSystemSleep, keepMicrophoneWarm, showRecordingOverlay
         case transcriptionEngine, selectedModel
         case useClipboardPaste, copyToClipboard, deliveryMode, showTranscriptHUD, hudDismissAfter, liveWords
-        case wordRemappings, cleanupTranscripts, lowercaseTranscripts, removePunctuation
+        case wordRemappings, cleanupTranscripts, correctGrammar, lowercaseTranscripts, removePunctuation
         case saveTranscriptionHistory, maxHistoryEntries
         case soundEffectsEnabled, soundEffectsVolume
         case openOnLogin, showDockIcon, usageAnalytics, api, hasCompletedOnboarding
@@ -102,6 +102,7 @@ extension UttSettings {
     private mutating func decodeTextPipeline(from container: KeyedDecodingContainer<CodingKeys>) throws {
         wordRemappings = try container.decodeIfPresent([WordRemapping].self, forKey: .wordRemappings) ?? wordRemappings
         cleanupTranscripts = try container.decodeIfPresent(Bool.self, forKey: .cleanupTranscripts) ?? cleanupTranscripts
+        correctGrammar = try container.decodeIfPresent(Bool.self, forKey: .correctGrammar) ?? correctGrammar
         lowercaseTranscripts = try container.decodeIfPresent(Bool.self, forKey: .lowercaseTranscripts) ?? lowercaseTranscripts
         removePunctuation = try container.decodeIfPresent(Bool.self, forKey: .removePunctuation) ?? removePunctuation
     }

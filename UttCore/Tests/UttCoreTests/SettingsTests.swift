@@ -134,6 +134,13 @@ struct SettingsTests {
         #expect(newer.cleanupTranscripts)
     }
 
+    @Test
+    func grammarIsOffByDefaultAndSurvivesAnOlderFile() throws {
+        #expect(UttSettings().correctGrammar == false)
+        #expect(try decodeSettings(#"{"cleanupTranscripts": true}"#).correctGrammar == false)
+        #expect(try decodeSettings(#"{"correctGrammar": true}"#).correctGrammar)
+    }
+
     /// Unarmed is a deliberate choice, so it has to survive the file it was
     /// written to — while a file from before the key existed still dictates.
     @Test
