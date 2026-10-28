@@ -3,65 +3,38 @@
     <channel>
         <title>utt</title>
         <item>
-            <title>2.4.0</title>
-            <pubDate>Thu, 22 Oct 2026 16:10:45 +0200</pubDate>
+            <title>2.5.0</title>
+            <pubDate>Thu, 29 Oct 2026 00:51:34 +0100</pubDate>
             <link>https://github.com/doublej/utt</link>
             <sparkle:fullReleaseNotesLink>https://github.com/doublej/utt/releases</sparkle:fullReleaseNotesLink>
-            <sparkle:version>15</sparkle:version>
-            <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>2.5.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <description sparkle:format="markdown"><![CDATA[Hold a key, speak, release. The text lands at your cursor. Nothing leaves the
 machine.
 
-This one adds Underdog Bark, two English models that can leave out the ums for
-you, and gives every model its real name.
+This one can fix your grammar before the text is pasted, and the live words
+now write themselves onto the card.
 
-## Underdog Bark
+## Correct grammar
 
-Two English models from Conway Research, both retrained from Parakeet v3. They
-run on the Neural Engine and download about 440 MB each.
+A new switch under Text → Cleanup runs the macOS grammar checker over the
+transcript and applies its first suggestion for each issue. It works with or
+without model cleanup turned on.
 
-- **Bark Clean** writes what you meant to say. It leaves out "um" and "uh",
-  false starts and repeated words as it transcribes. Pick it for dictation.
-- **Bark Verbatim** writes what you said, hesitations included. Pick it for
-  meeting notes or anything that has to match the recording.
+It checks grammar only, not spelling, so names stay as you said them.
+Dictation that mixes languages can confuse it: when it wants to change more
+than a quarter of the words, your text is pasted untouched. It is off by
+default.
 
-The first time you pick one, macOS prepares it for the Neural Engine, which
-takes one and a half to two and a half minutes. Anything you dictate meanwhile waits for
-it. After that it loads in seconds.
+## Live words write themselves in
 
-On a five-minute TED talk, Bark Clean was among the most accurate models utt
-offers, and both made fewer errors than Parakeet Standard. The numbers are on
-the blog: https://utt.jurrejan.com/blog/underdog-bark/
-
-## Models go by their real names
-
-Models made outside NVIDIA now carry the name their makers gave them:
-Parakeet Accurate is Parakeet Ultra again, Parakeet Compact is Parakeet Redux.
-NVIDIA's own models keep their names.
-
-## Phonon-2 is gone
-
-On an M2 Pro, Phonon-2 ran at half the speed of speech and took about twelve
-minutes to load every time utt started, because macOS rebuilt it for the
-Neural Engine on every load. If you had it selected, utt switches to Parakeet
-Standard.
-
-## Extensions can run a dictation
-
-An extension can now take over a dictation it starts with
-`utt://start?for=<id>`. utt shows no overlay and pastes nothing; it streams
-the level, the live words and the transcript to the extension, which draws
-them itself. The OpenCode plugin (`utt-opencode` on npm) uses this to dictate
-into OpenCode's prompt.
-
-## Smaller things
-
-- In the menu, Run unarmed (or Listen for the hotkey) now sits right under the
-  status line, and Quit is on its own at the bottom.
-- utt is now MIT licensed.
+While you hold the key, each new letter fades up and settles into place, and
+letters already on the card stay still. When the transcript is ready, the live
+words move into the finished text instead of blinking out. With Reduce Motion
+turned on, the text just appears.
 ]]></description>
-            <enclosure url="https://github.com/doublej/utt/releases/download/v2.4.0/utt-2.4.0.zip" length="24298697" type="application/octet-stream" sparkle:edSignature="H23PR9Q6M/Xf9F211U8Ir4qUEr4YZ44M5rl0gQXM2Et2sKFz9X+t8NrE24zJu0UwWiWuUeHB8qn7VvxiaPNDCw=="/>
+            <enclosure url="https://github.com/doublej/utt/releases/download/v2.5.0/utt-2.5.0.zip" length="24334631" type="application/octet-stream" sparkle:edSignature="AePHqHB+1ej3w26Y0pkryTp8xBsxceF0ICGaBrAZUBN/8toySOcWS1Vfvl/RpxwIUXT+SWvKUF+drsd9ghaDAg=="/>
         </item>
     </channel>
 </rss>
