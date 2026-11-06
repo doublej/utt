@@ -16,7 +16,9 @@ AVFoundation do not exist on Windows. It keeps the parts an extension depends on
 | Answer keys | `text`/`error`, `raw`, `stages`, `startedAt(Ms)`, `finishedAt(Ms)`, `duration`, `timings` | same; `timings` holds `decode` and `hints` |
 | Text stages | replacements, cleanup (FoundationModels), formatting, filters, hints | **hints only**: no replacements, no cleanup, no formatting, no `filtersTranscripts` |
 | Clips | wav, m4a, mp3, aiff, flac, caf | same (symphonia) |
-| Not built | — | settings window, menu bar, values/action files, HTTP API, partials, word timings, cover |
+| Menu bar | status lines, actions, daemon, Quit | tray icon: each approved extension's status lines, and Quit |
+| Values | `<id>.values.json` on every settings edit | written once from the manifest's defaults (no settings page) |
+| Not built | — | settings window, extension actions (`action.json`), HTTP API, partials, word timings, cover, `wantsTranscripts` |
 
 ## Build and install
 
@@ -47,5 +49,8 @@ utt transcribe clip.m4a [hint…]
   copy by full path first. Ship the four DLLs beside `utt.exe`.
 - **Static sherpa-onnx needs a newer MSVC STL** (`__std_search_1`) than Build Tools 14.41, so
   the crate uses the `shared` feature.
+- **Right Ctrl alone is the hotkey**, so a Right-Ctrl shortcut held for 0.3 s or more while
+  speaking also dictates. Each dictation replaces the clipboard, and nothing shows that the
+  microphone is open.
 - **Start it in the desktop session.** A copy started from a service or from WSL's session 0
   has no keyboard to hook. `explorer.exe C:\...\utt.exe` or the Run key starts it in the right one.

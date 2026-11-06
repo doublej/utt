@@ -34,6 +34,9 @@ enum Event {
     Stop,
 }
 
+/// The open stream, what it has heard so far, its rate and its channel count.
+type Recording = (cpal::Stream, Arc<Mutex<Vec<f32>>>, u32, usize);
+
 static EVENTS: OnceLock<Sender<Event>> = OnceLock::new();
 static HELD: AtomicBool = AtomicBool::new(false);
 
@@ -42,6 +45,7 @@ pub fn run(asr: Arc<Asr>) {
     let (sender, receiver) = channel();
     let _ = EVENTS.set(sender);
     std::thread::spawn(move || record(asr, receiver));
+    crate::tray::install();
     unsafe {
         let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard), std::ptr::null_mut(), 0);
         if hook.is_null() {
@@ -80,7 +84,7 @@ unsafe extern "system" fn keyboard(code: i32, wparam: WPARAM, lparam: LPARAM) ->
 
 /// Owns the microphone: a stream exists only between Start and Stop.
 fn record(asr: Arc<Asr>, events: Receiver<Event>) {
-    let mut open: Option<(cpal::Stream, Arc<Mutex<Vec<f32>>>, u32, usize)> = None;
+    let mut open: Option<Recording> = None;
     for event in events {
         match event {
             Event::Start => match listen() {
@@ -113,7 +117,7 @@ fn record(asr: Arc<Asr>, events: Receiver<Event>) {
     }
 }
 
-fn listen() -> Result<(cpal::Stream, Arc<Mutex<Vec<f32>>>, u32, usize), String> {
+fn listen() -> Result<Recording, String> {
     let device = cpal::default_host()
         .default_input_device()
         .ok_or("no input device")?;

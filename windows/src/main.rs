@@ -12,6 +12,8 @@ mod extensions;
 mod hints;
 mod jobs;
 mod paths;
+#[cfg(windows)]
+mod tray;
 
 use std::path::Path;
 use std::sync::Arc;

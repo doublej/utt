@@ -136,3 +136,31 @@ pub fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
     std::fs::write(&tmp, bytes).map_err(|e| format!("write {}: {e}", tmp.display()))?;
     std::fs::rename(&tmp, path).map_err(|e| format!("rename to {}: {e}", path.display()))
 }
+
+/// What utt on the Mac writes once an extension is approved: every setting's value under one
+/// `revision`, from the manifest's own defaults. Written only when absent — there is no settings
+/// page here to change a value, so a file that exists already says the latest thing.
+pub fn ensure_values(dir: &Path, id: &str) -> Result<(), String> {
+    let path = dir.join(format!("{id}.values.json"));
+    if path.is_file() {
+        return Ok(());
+    }
+    let text =
+        std::fs::read_to_string(dir.join(format!("{id}.json"))).map_err(|e| e.to_string())?;
+    let manifest: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let mut values = serde_json::Map::new();
+    for setting in manifest["settings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(24)
+    {
+        if let (Some(key), Some(value)) = (setting["key"].as_str(), setting.get("value")) {
+            if value.is_boolean() || value.is_string() || value.is_number() {
+                values.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+    let body = json!({ "revision": 1, "values": values });
+    write_atomically(&path, &serde_json::to_vec_pretty(&body).unwrap_or_default())
+}

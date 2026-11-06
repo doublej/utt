@@ -44,6 +44,11 @@ fn next_job() -> Option<(Extension, PathBuf)> {
             continue;
         }
         let band = extensions::consent(&dir, &extension.id).1;
+        if extension.consent == Consent::Approved {
+            if let Err(error) = extensions::ensure_values(&dir, &extension.id) {
+                crate::log!("[{}] could not write its values: {error}", extension.id);
+            }
+        }
         for clip in clips(&jobs) {
             let born = std::fs::metadata(&clip).and_then(|m| m.created().or_else(|_| m.modified()));
             found.push((
