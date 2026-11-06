@@ -1,5 +1,5 @@
 //! utt for Windows. `utt` runs the app (hold Right Ctrl to dictate, and the extensions' jobs
-//! lane); `utt approve <id>` approves an extension; `utt transcribe <clip> [hint…]` prints
+//! lane); `utt approve <id>` approves an extension; `utt transcribe <clip>…` prints
 //! what the model hears, for checking an install.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
@@ -48,11 +48,16 @@ fn run() -> i32 {
         }
     };
     log!(
-        "utt {} up; model {}; extensions {}",
+        "utt {} up; provider {}; model {}; extensions {}",
         env!("CARGO_PKG_VERSION"),
+        asr::provider(),
         model.display(),
         paths::extensions().display()
     );
+    // The first decode on CUDA sets the device up (~280 ms); pay it here, not on the first clip.
+    let clock = Instant::now();
+    asr.transcribe(16_000, &[0.0; 16_000]);
+    log!("warmed up in {} ms", clock.elapsed().as_millis());
     let lane = asr.clone();
     let jobs = std::thread::spawn(move || jobs::run(&lane));
     #[cfg(windows)]
@@ -68,19 +73,23 @@ fn approve(id: Option<&String>) -> Result<(), String> {
     Ok(())
 }
 
-fn transcribe(args: &[String]) -> Result<(), String> {
-    let clip = args.first().ok_or("usage: utt transcribe <clip> [hint…]")?;
+fn transcribe(clips: &[String]) -> Result<(), String> {
+    if clips.is_empty() {
+        return Err("usage: utt transcribe <clip>…".into());
+    }
     let asr = asr::Asr::load(&paths::model())?;
-    let (rate, samples) = asr::read_clip(Path::new(clip))?;
-    let clock = Instant::now();
-    let raw = asr.transcribe(rate, &samples);
-    let text = hints::apply(&raw, &args[1..]);
-    println!("{text}");
-    eprintln!(
-        "{:.1} s of audio in {} ms",
-        samples.len() as f64 / rate as f64,
-        clock.elapsed().as_millis()
-    );
+    // One process for every clip, so the timings after the first are what the app sees warm.
+    for clip in clips {
+        let (rate, samples) = asr::read_clip(Path::new(clip))?;
+        let clock = Instant::now();
+        println!("{}", asr.transcribe(rate, &samples));
+        eprintln!(
+            "{:.1} s of audio in {} ms ({})",
+            samples.len() as f64 / rate as f64,
+            clock.elapsed().as_millis(),
+            asr::provider()
+        );
+    }
     Ok(())
 }
 

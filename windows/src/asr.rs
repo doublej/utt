@@ -14,22 +14,24 @@ pub struct Asr {
 impl Asr {
     pub fn load(dir: &Path) -> Result<Self, String> {
         prefer_bundled_runtime();
+        // The fp32 export names its files `encoder.onnx`, the int8 one `encoder.int8.onnx`.
         let file = |name: &str| {
-            let path = dir.join(name);
-            if path.is_file() {
-                Ok(Some(path.to_string_lossy().into_owned()))
-            } else {
-                Err(format!("model file missing: {}", path.display()))
-            }
+            let quantized = name.replace(".onnx", ".int8.onnx");
+            [name, quantized.as_str()]
+                .iter()
+                .map(|n| dir.join(n))
+                .find(|path| path.is_file())
+                .map(|path| Some(path.to_string_lossy().into_owned()))
+                .ok_or_else(|| format!("model file missing: {}", dir.join(name).display()))
         };
         let mut config = OfflineRecognizerConfig::default();
-        config.model_config.transducer.encoder = file("encoder.int8.onnx")?;
-        config.model_config.transducer.decoder = file("decoder.int8.onnx")?;
-        config.model_config.transducer.joiner = file("joiner.int8.onnx")?;
+        config.model_config.transducer.encoder = file("encoder.onnx")?;
+        config.model_config.transducer.decoder = file("decoder.onnx")?;
+        config.model_config.transducer.joiner = file("joiner.onnx")?;
         config.model_config.tokens = file("tokens.txt")?;
         config.model_config.model_type = Some("nemo_transducer".into());
         config.model_config.num_threads = threads();
-        config.model_config.provider = Some("cpu".into());
+        config.model_config.provider = Some(provider());
         config.decoding_method = Some("greedy_search".into());
         let recognizer = OfflineRecognizer::create(&config)
             .ok_or_else(|| format!("sherpa-onnx could not load the model in {}", dir.display()))?;
@@ -52,6 +54,12 @@ impl Asr {
             .map(|result| result.text.trim().to_string())
             .unwrap_or_default()
     }
+}
+
+/// `cuda` unless `UTT_PROVIDER` says otherwise. On a build linked against the CPU-only
+/// sherpa-onnx, or with no CUDA 12 and cuDNN 9 on PATH, onnxruntime falls back to the CPU itself.
+pub fn provider() -> String {
+    std::env::var("UTT_PROVIDER").unwrap_or_else(|_| "cuda".into())
 }
 
 fn threads() -> i32 {
