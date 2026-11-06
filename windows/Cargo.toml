@@ -1,0 +1,30 @@
+[package]
+name = "utt"
+version = "0.1.0"
+edition = "2021"
+description = "utt for Windows: hold a key, speak, text at the cursor; serves utt extensions' jobs lane"
+license = "MIT"
+
+[dependencies]
+sherpa-onnx = { version = "2.0.1", default-features = false, features = ["shared"] }
+symphonia = { version = "0.5.4", features = ["all"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+cpal = "0.15"
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Console",
+  "Win32_System_DataExchange",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+lto = "thin"
